@@ -138,6 +138,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\Base\Bus.h" />
+    <ClInclude Include="src\Core\R3000.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Base\Bus.cpp" />
+    <ClCompile Include="src\Core\R3000.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

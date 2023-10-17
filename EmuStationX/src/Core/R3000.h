@@ -6,6 +6,8 @@
 #include <functional>
 #include <format>
 
+#include "Base/Bus.h"
+
 namespace esx {
 
 	#define OPCODE(x) (x >> 26) & 0x3F
@@ -32,16 +34,20 @@ namespace esx {
 		uint32_t PseudoAddress;
 	};
 
-	class R3000 {
+	class R3000 : public BusDevice {
 	public:
 		R3000();
 		~R3000();
 
-		void Clock();
+		void clock();
+
+
+		virtual void write(const std::string& busName, uint32_t address, uint8_t value) override;
+		virtual uint8_t read(const std::string& busName, uint32_t address) override;
 
 	private:
-		uint32_t Fetch();
-		Instruction Decode(uint32_t instruction);
+		uint32_t fetch(uint32_t address);
+		Instruction decode(uint32_t instruction);
 
 		//Arithmetic
 		void ADD(const Instruction& instruction);
@@ -55,7 +61,9 @@ namespace esx {
 		void DIV(const Instruction& instruction);
 		void DIVU(const Instruction& instruction);
 		void MFLO(const Instruction& instruction);
+		void MTLO(const Instruction& instruction);
 		void MFHI(const Instruction& instruction);
+		void MTHI(const Instruction& instruction);
 
 		//Memory
 		void LW(const Instruction& instruction);
@@ -72,7 +80,9 @@ namespace esx {
 
 		//Comparison
 		void SLT(const Instruction& instruction);
+		void SLTU(const Instruction& instruction);
 		void SLTI(const Instruction& instruction);
+		void SLTIU(const Instruction& instruction);
 
 		//Binary
 		void AND(const Instruction& instruction);
@@ -80,6 +90,7 @@ namespace esx {
 		void OR(const Instruction& instruction);
 		void ORI(const Instruction& instruction);
 		void XOR(const Instruction& instruction);
+		void XORI(const Instruction& instruction);
 		void NOR(const Instruction& instruction);
 		void SLL(const Instruction& instruction);
 		void SRL(const Instruction& instruction);
@@ -91,14 +102,26 @@ namespace esx {
 		//Control
 		void BEQ(const Instruction& instruction);
 		void BNE(const Instruction& instruction);
+		void BLTZ(const Instruction& instruction);
+		void BLTZAL(const Instruction& instruction);
+		void BLEZ(const Instruction& instruction);
+		void BGTZ(const Instruction& instruction);
+		void BGEZ(const Instruction& instruction);
+		void BGEZAL(const Instruction& instruction);
 		void J(const Instruction& instruction);
 		void JR(const Instruction& instruction);
 		void JAL(const Instruction& instruction);
 		void JALR(const Instruction& instruction);
+
+
+		void setRegister(uint8_t index, uint32_t value);
+		uint32_t getRegister(uint8_t index);
 	private:
 		std::array<uint32_t, 32> mRegisters;
 		uint32_t mPC;
 		uint32_t mHI, mLO;
+
+		Instruction mNextInstruction;
 
 	};
 
