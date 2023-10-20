@@ -22,37 +22,6 @@ namespace esx {
 		}
 	}
 
-	void Bus::write(uint32_t address, uint8_t value)
-	{
-		bool found = false;
-		for (auto& [name,device] : mDevices) {
-			auto range = device->getRange(mName, address);
-			if (range) {
-				found = true;
-				device->write(mName,address & range->Mask, value);
-			}
-		}
-	}
-
-	uint8_t Bus::read(uint32_t address)
-	{
-		uint8_t result = 0;
-
-		bool found = false;
-		for (auto& [name, device] : mDevices) {
-			auto range = device->getRange(mName,address);
-			if (range) {
-				found = true;
-				result = device->read(mName,address & range->Mask);
-				break;
-			}
-		}
-
-		assert(found && "Address not found");
-
-		return result;
-	}
-
 	void Bus::connectDevice(BusDevice* device) {
 		mDevices[device->getName()] = device;
 		device->connectToBus(this);

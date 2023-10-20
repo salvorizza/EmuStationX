@@ -5,17 +5,18 @@
 #include <memory>
 #include <string>
 #include <optional>
+#include <cassert>
 
 namespace esx {
 
 	struct BusRange {
-		uint32_t Start;
-		uint32_t End;
-		uint32_t Mask;
+		size_t Start;
+		size_t End;
+		size_t Mask;
 
-		BusRange(uint32_t start, uint32_t end, uint32_t mask)
+		BusRange(size_t start, size_t sizeInBytes, size_t mask)
 			:	Start(start),
-				End(end),
+				End(start + sizeInBytes),
 				Mask(mask)
 		{}
 	};
@@ -28,8 +29,15 @@ namespace esx {
 		virtual ~BusDevice() = default;
 
 		virtual void writeLine(const std::string& busName, const std::string& lineName, bool value) {}
+
 		virtual void write(const std::string& busName, uint32_t address, uint8_t value) = 0;
-		virtual uint8_t read(const std::string& busName, uint32_t address) = 0;
+		virtual void read(const std::string& busName, uint32_t address, uint8_t& output) = 0;
+
+		virtual void write(const std::string& busName, uint32_t address, uint16_t value) = 0;
+		virtual void read(const std::string& busName, uint32_t address,uint16_t& output) = 0;
+
+		virtual void write(const std::string& busName, uint32_t address, uint32_t value) = 0;
+		virtual void read(const std::string& busName, uint32_t address, uint32_t& output) = 0;
 
 		std::optional<BusRange> getRange(const std::string& busName, uint32_t address);
 
@@ -58,8 +66,40 @@ namespace esx {
 		~Bus();
 
 		void writeLine(const std::string& lineName, bool value);
-		void write(uint32_t address, uint8_t value);
-		uint8_t read(uint32_t address);
+
+		template<typename T>
+		void write(uint32_t address, T value) {
+			bool found = false;
+			for (auto& [name, device] : mDevices) {
+				auto range = device->getRange(mName, address);
+				if (range) {
+					found = true;
+					device->write(mName, address & range->Mask, value);
+				}
+			}
+
+			assert(found && "Address not found");
+		}
+
+		template<typename T>
+		T read(uint32_t address) {
+			T result = 0;
+
+			bool found = false;
+			for (auto& [name, device] : mDevices) {
+				auto range = device->getRange(mName, address);
+				if (range) {
+					found = true;
+					device->read(mName, address & range->Mask, result);
+					break;
+				}
+			}
+
+			assert(found && "Address not found");
+
+			return result;
+		}
+
 
 		void connectDevice(BusDevice* device);
 
