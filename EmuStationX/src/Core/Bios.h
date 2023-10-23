@@ -15,14 +15,8 @@ namespace esx {
 		Bios(const std::string& path);
 		~Bios();
 
-		virtual void write(const std::string& busName, uint32_t address, uint8_t value) override;
-		virtual void read(const std::string& busName, uint32_t address, uint8_t& output) override;
-
-		virtual void write(const std::string& busName, uint32_t address, uint16_t value) override;
-		virtual void read(const std::string& busName, uint32_t address, uint16_t& output) override;
-
-		virtual void write(const std::string& busName, uint32_t address, uint32_t value) override;
-		virtual void read(const std::string& busName, uint32_t address, uint32_t& output) override;
+		virtual void write(const std::string& busName, uint32_t address, uint32_t value, size_t valueSize) override;
+		virtual uint32_t read(const std::string& busName, uint32_t address, size_t outputSize) override;
 
 	private:
 		std::vector<uint8_t> mMemory;

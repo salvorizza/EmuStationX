@@ -18,42 +18,20 @@ namespace esx {
 	{
 	}
 
-	void Bios::write(const std::string& busName, uint32_t address, uint8_t value)
-	{
-		mMemory[address] = value;
-	}
-
-	void Bios::read(const std::string& busName, uint32_t address, uint8_t& output)
-	{
-		output = mMemory[address];
-	}
-
-	void Bios::write(const std::string& busName, uint32_t address, uint16_t value)
+	void Bios::write(const std::string& busName, uint32_t address, uint32_t value, size_t valueSize)
 	{
 	}
 
-	void Bios::read(const std::string& busName, uint32_t address, uint16_t& output)
+	uint32_t Bios::read(const std::string& busName, uint32_t address, size_t outputSize)
 	{
-		output = 0;
+		uint32_t output = 0;
 
-		for (int8_t i = (sizeof(uint16_t) - 1); i >= 0; i--) {
-			output |= mMemory[address + i];
+		for (size_t i = 0; i < outputSize; i++) {
 			output <<= 8;
+			output |= mMemory[address + (outputSize - 1 - i)];
 		}
-	}
 
-	void Bios::write(const std::string& busName, uint32_t address, uint32_t value)
-	{
-	}
-
-	void Bios::read(const std::string& busName, uint32_t address, uint32_t& output)
-	{
-		output = 0;
-
-		for (int8_t i = (sizeof(uint32_t) - 1); i >= 0; i--) {
-			output <<= 8;
-			output |= mMemory[address + i];
-		}
+		return output;
 	}
 
 }

@@ -35,7 +35,17 @@ namespace esx {
 		mPC += 4;
 
 		of << "0x" << std::setw(8) << std::setfill('0') << std::hex << instruction.Address << " : " << instruction.Mnemonic << std::endl;
+
+		bool pendingLoadsEmpty = mPendingLoads.empty();
+
 		instruction.Execute(instruction);
+
+		if (!pendingLoadsEmpty) {
+			auto pendingLoad = mPendingLoads.front();
+			mPendingLoads.pop();
+
+			setRegister(pendingLoad.first, pendingLoad.second);
+		}
 	}
 
 
@@ -116,6 +126,18 @@ namespace esx {
 					case 0x09: {
 						result.Mnemonic = std::format("jalr {},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterSource]);
 						result.Execute = std::bind(&R3000::JALR, this, std::placeholders::_1);
+						break;
+					}
+					case 0x0C: {
+						result.Code = CODE(instruction);
+						result.Mnemonic = std::format("syscall");
+						result.Execute = std::bind(&R3000::SYSCALL, this, std::placeholders::_1);
+						break;
+					}
+					case 0x0D: {
+						result.Code = CODE(instruction);
+						result.Mnemonic = std::format("break");
+						result.Execute = std::bind(&R3000::BREAK, this, std::placeholders::_1);
 						break;
 					}
 					case 0x10: {
@@ -208,6 +230,10 @@ namespace esx {
 						result.Execute = std::bind(&R3000::SLTU, this, std::placeholders::_1);
 						break;
 					}
+					default: {
+						raiseException(ExceptionType::ReservedInstruction);
+						break;
+					}
 				}
 
 				break;
@@ -253,6 +279,11 @@ namespace esx {
 							case 0x11: {
 								result.Mnemonic = std::format("bgezal {},{}", registersMnemonics[result.RegisterSource], (int16_t)result.Immediate);
 								result.Execute = std::bind(&R3000::BGEZAL, this, std::placeholders::_1);
+								break;
+							}
+
+							default: {
+								raiseException(ExceptionType::ReservedInstruction);
 								break;
 							}
 						}
@@ -319,40 +350,51 @@ namespace esx {
 						result.Execute = std::bind(&R3000::LUI, this, std::placeholders::_1);
 						break;
 					}
-					case 0x10: {
+					case 0x10:
+					case 0x11:
+					case 0x12:
+					case 0x13: {
+						uint8_t cpn = CO_N(instruction);
+						if (cpn != 0x00) {
+							raiseException(ExceptionType::CoprocessorUnusable);
+							break;
+						}
+
 						result.RegisterDestination = RD(instruction);
 
-						switch (result.RegisterSource) {
-							case 0x00: {
-								result.Mnemonic = std::format("mfc0 {},${}", registersMnemonics[result.RegisterTarget], result.RegisterDestination);
-								result.Execute = std::bind(&R3000::MFC0, this, std::placeholders::_1);
-								break;
+						if (CO(instruction) == 0) {
+							switch (result.RegisterSource) {
+								case 0x00: {
+									result.Mnemonic = std::format("mfc{} {},${}", cpn, registersMnemonics[result.RegisterTarget], result.RegisterDestination);
+									result.Execute = std::bind(&R3000::MFC0, this, std::placeholders::_1);
+									break;
+								}
+								case 0x04: {
+									result.Mnemonic = std::format("mtc{} {},${}", cpn, registersMnemonics[result.RegisterTarget], result.RegisterDestination);
+									result.Execute = std::bind(&R3000::MTC0, this, std::placeholders::_1);
+									break;
+								}
+								default: {
+									raiseException(ExceptionType::ReservedInstruction);
+									break;
+								}
 							}
-							case 0x04: {
-								result.Mnemonic = std::format("mtc0 {},${}", registersMnemonics[result.RegisterTarget], result.RegisterDestination);
-								result.Execute = std::bind(&R3000::MTC0, this, std::placeholders::_1);
-								break;
-							}
-							case 0x10: {
-								result.Mnemonic = std::format("rfe");
-								result.Execute = std::bind(&R3000::RFE, this, std::placeholders::_1);
-								break;
+						}
+						else {
+							switch (COP_FUNC(instruction)) {
+								case 0x10: {
+									result.Mnemonic = std::format("rfe");
+									result.Execute = std::bind(&R3000::RFE, this, std::placeholders::_1);
+									break;
+								}
+								
+								default: {
+									raiseException(ExceptionType::ReservedInstruction);
+									break;
+								}
 							}
 						}
 						
-						break;
-					}
-					case 0x11: {
-						assert(false && "Coprocessor 1 not supported yet.");
-						break;
-					}
-					case 0x12: {
-						assert(false && "GTE not implemented yet.");
-						break;
-					}
-					case 0x13: {
-						assert(false && "Coprocessor 3 not supported yet.");
-
 						break;
 					}
 					case 0x20: {
@@ -415,6 +457,29 @@ namespace esx {
 						result.Execute = std::bind(&R3000::SWR, this, std::placeholders::_1);
 						break;
 					}
+
+					case 0x30:
+					case 0x31:
+					case 0x32:
+					case 0x33: {
+						//LWCx
+						raiseException(ExceptionType::CoprocessorUnusable);
+						break;
+					}
+
+					case 0x38:
+					case 0x39:
+					case 0x3A:
+					case 0x3B: {
+						//LWCx
+						raiseException(ExceptionType::CoprocessorUnusable);
+						break;
+					}
+
+					default: {
+						raiseException(ExceptionType::ReservedInstruction);
+						break;
+					}
 				}
 			}
 
@@ -431,7 +496,8 @@ namespace esx {
 		uint32_t r = a + b;
 
 		if (OVERFLOW_ADD32(a, b, r)) {
-			//TODO: Exception Overflow
+			raiseException(ExceptionType::ArithmeticOverflow, &instruction);
+			return;
 		}
 
 		setRegister(instruction.RegisterDestination, r);
@@ -455,7 +521,8 @@ namespace esx {
 		uint32_t r = a - b;
 
 		if (OVERFLOW_SUB32(a, b, r)) {
-			//TODO: Exception Overflow
+			raiseException(ExceptionType::ArithmeticOverflow, &instruction);
+			return;
 		}
 
 		setRegister(instruction.RegisterDestination, r);
@@ -479,7 +546,8 @@ namespace esx {
 		uint32_t r = a + b;
 
 		if (OVERFLOW_ADD32(a, b, r)) {
-			//TODO: Exception Overflow
+			raiseException(ExceptionType::ArithmeticOverflow, &instruction);
+			return;
 		}
 
 		setRegister(instruction.RegisterTarget, r);
@@ -519,11 +587,26 @@ namespace esx {
 
 	void R3000::DIV(const Instruction& instruction)
 	{
-		uint32_t a = getRegister(instruction.RegisterSource);
-		uint32_t b = getRegister(instruction.RegisterTarget);
+		int32_t a = getRegister(instruction.RegisterSource);
+		int32_t b = getRegister(instruction.RegisterTarget);
 
-		mHI = a % b;
-		mLO = a / b;
+		if (b != 0) {
+			if (a == -0x80000000d && b == -1) {
+				mHI = 0;
+				mLO = -0x80000000d;
+			} else {
+				mHI = a % b;
+				mLO = a / b;
+			}
+		} else {
+			if (a >= 0) {
+				mHI = a;
+				mLO = -1;
+			} else {
+				mHI = a;
+				mLO = 1;
+			}
+		}
 	}
 
 	void R3000::DIVU(const Instruction& instruction)
@@ -531,8 +614,13 @@ namespace esx {
 		uint32_t a = getRegister(instruction.RegisterSource);
 		uint32_t b = getRegister(instruction.RegisterTarget);
 
-		mHI = a % b;
-		mLO = a / b;
+		if (b != 0) {
+			mHI = a % b;
+			mLO = a / b;
+		} else {
+			mHI = a;
+			mLO = 0xFFFFFFFF;
+		}
 	}
 
 	void R3000::MFLO(const Instruction& instruction)
@@ -564,7 +652,7 @@ namespace esx {
 
 		uint32_t r = load<uint32_t>(m);
 
-		setRegister(instruction.RegisterTarget, r);
+		addPendingLoad(instruction.RegisterTarget, r);
 	}
 
 	void R3000::LH(const Instruction& instruction)
@@ -577,7 +665,7 @@ namespace esx {
 		uint32_t r = load<uint16_t>(m);
 		r = SIGNEXT16(r);
 
-		setRegister(instruction.RegisterTarget, r);
+		addPendingLoad(instruction.RegisterTarget, r);
 	}
 
 	void R3000::LHU(const Instruction& instruction)
@@ -589,7 +677,7 @@ namespace esx {
 
 		uint32_t r = load<uint16_t>(m);
 
-		setRegister(instruction.RegisterTarget, r);
+		addPendingLoad(instruction.RegisterTarget, r);
 	}
 
 	void R3000::LB(const Instruction& instruction)
@@ -602,7 +690,7 @@ namespace esx {
 		uint32_t r = load<uint8_t>(m);
 		r = SIGNEXT8(r);
 
-		setRegister(instruction.RegisterTarget, r);
+		addPendingLoad(instruction.RegisterTarget, r);
 	}
 
 	void R3000::LBU(const Instruction& instruction)
@@ -614,7 +702,7 @@ namespace esx {
 
 		uint32_t r = load<uint8_t>(m);
 
-		setRegister(instruction.RegisterTarget, r);
+		addPendingLoad(instruction.RegisterTarget, r);
 	}
 
 	void R3000::LWL(const Instruction& instruction)
@@ -663,11 +751,10 @@ namespace esx {
 	{
 		uint32_t a = getRegister(instruction.RegisterSource);
 		uint32_t b = SIGNEXT16(instruction.Immediate);
+		uint32_t v = getRegister(instruction.RegisterTarget);
 
 		uint32_t m = a + b;
 		
-		uint8_t v = getRegister(instruction.RegisterTarget) & 0xFF;
-
 		store<uint8_t>(m, v);
 	}
 
@@ -675,10 +762,9 @@ namespace esx {
 	{
 		uint32_t a = getRegister(instruction.RegisterSource);
 		uint32_t b = SIGNEXT16(instruction.Immediate);
+		uint32_t v = getRegister(instruction.RegisterTarget);
 
 		uint32_t m = a + b;
-
-		uint16_t v = getRegister(instruction.RegisterTarget) & 0xFFFF;
 
 		store<uint16_t>(m, v);
 	}
@@ -989,6 +1075,16 @@ namespace esx {
 		mPC = a;
 	}
 
+	void R3000::BREAK(const Instruction& instruction)
+	{
+		raiseException(ExceptionType::Breakpoint, &instruction);
+	}
+
+	void R3000::SYSCALL(const Instruction& instruction)
+	{
+		raiseException(ExceptionType::Syscall, &instruction);
+	}
+
 	void R3000::MTC0(const Instruction& instruction)
 	{
 		uint32_t r = getRegister(instruction.RegisterTarget);
@@ -1003,6 +1099,11 @@ namespace esx {
 
 	void esx::R3000::RFE(const Instruction& instruction)
 	{
+	}
+
+	void R3000::addPendingLoad(uint8_t index, uint32_t value)
+	{
+		mPendingLoads.emplace(index, value);
 	}
 
 	void R3000::setRegister(uint8_t index, uint32_t value)
@@ -1024,6 +1125,45 @@ namespace esx {
 	uint32_t R3000::getCP0Register(uint8_t index)
 	{
 		return mCP0Registers[index];
+	}
+
+	void R3000::raiseException(ExceptionType type, const Instruction* instruction)
+	{
+		switch (type)
+		{
+		case ExceptionType::Interrupt:
+			assert(false && "ExceptionType::Interrupt not handled yet");
+			break;
+
+		case ExceptionType::AddressErrorLoad:
+			assert(false && "ExceptionType::AddressErrorLoad not handled yet");
+			break;
+
+		case ExceptionType::AddressErrorStore:
+			assert(false && "ExceptionType::AddressErrorStore not handled yet");
+			break;
+
+		case ExceptionType::Syscall:
+			assert(false && "ExceptionType::Syscall not handled yet");
+			break;
+
+		case ExceptionType::Breakpoint:
+			assert(false && "ExceptionType::Breakpoint not handled yet");
+			break;
+
+		case ExceptionType::ReservedInstruction:
+			assert(false && "ExceptionType::ReservedInstruction not handled yet");
+			break;
+
+		case ExceptionType::CoprocessorUnusable:
+			assert(false && "ExceptionType::CoprocessorUnusable not handled yet");
+			break;
+
+		case ExceptionType::ArithmeticOverflow:
+			assert(false && "ExceptionType::ArithmeticOverflow not handled yet");
+			break;
+		
+		}
 	}
 
 }

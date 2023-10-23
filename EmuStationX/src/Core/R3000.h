@@ -5,6 +5,7 @@
 #include <string>
 #include <functional>
 #include <format>
+#include <queue>
 
 #include "Base/Bus.h"
 
@@ -18,6 +19,12 @@ namespace esx {
 	#define FUNCT(x) x & 0x3F
 	#define IMM(x) x & 0xFFFF
 	#define ADDRESS(x) x & 0x3FFFFFF
+	#define CODE(x) (x >> 6) & 0xFFFFF
+	#define CO(x) ((x >> 25) & 0x1)
+	#define CO_N(x) ((x >> 26) & 0x3)
+	#define COP_FUNC(x) (x & 0x1F)
+
+
 	#define SIGNEXT8(x) ((x & 0x80) ? x | 0xFFFFFF00 : x)
 	#define SIGNEXT16(x) ((x & 0x8000) ? x | 0xFFFF0000 : x)
 	#define EXECPTION_HANDLER_ADDRESS 0x80000080
@@ -26,30 +33,28 @@ namespace esx {
 	#define OVERFLOW_SUB32(a,b,s) ((a & 0x80000000) ^ (b & 0x80000000)) & ((a & 0x80000000) ^ (s & 0x80000000))
 
 	enum class COP0Register : uint8_t {
-		Index = 0, //Index into the TLB array (entry index register)
-		Random = 1, //Randomly generated index into the TLB array (randomized access register)
-		EntryLo0 = 2, //Low-order portion of the current TLB entry for even-number virtual pages
-		EntryLo1 = 3, //Low-order portion of the TLB entry for odd-number virtual pages
-		Context = 4, //Pointer to page-table entry in memory/lookup address
-		PageMask = 5, //Control for variable page size in TLB entries
-		Wired = 6, //Controls the number of fixed TLB entries
+		BPC = 3, //Breakpoint on Execute Address (R/W)
+		BDA = 5, //Breakpoint on Data Access Address (R/W)
+		JumpDest = 6, //Randomly memorized jump address
+		DCIC = 7, //Breakpoint control (R/W)
 		BadVAddr = 8, //Stores virtual address for the most recent address related exception
-		Count = 9, //Increments every time an opcode is processed
-		EntryHi = 10, //High-order portion of the TLB entry
-		Compare = 11, //Timer interrupt control
-		Status = 12, //Process status register/Used for exception handling
+		BDAM = 9, //Breakpoint on Data Access Mask (R/W)
+		BPCM = 11, //Breakpoint on Execute Mask (R/W)
+		SR = 12, //Process status register/Used for exception handling
 		Cause = 13, //Exception cause register/Stores the type of exception that last occurred
-		EPC = 14, //(ExceptionPC) 	Contains address of instruction that caused the exception
-		PRId = 15, //Processor identification and revision.
-		Config = 16, //Configuration Register
-		LLAddr = 17, //Load linked address
-		WatchLo = 18, //Watchpoint address
-		WatchHi = 19, //Watchpoint control
-		XContext = 20, //Context register for R4300i addressing/PTE array related
-		CacheErr = 27, //Cache parity error control and status
-		TagLo = 28, //Low-order portion of cache tag interface
-		TagHi = 29, //High-order portion of cache tag interface (reserved)
-		ErrorEPC = 30 //Error exception Program Counter
+		EPC = 14, //(ExceptionPC) Contains address of instruction that caused the exception
+		PRId = 15 //Processor identification and revision.
+	};
+
+	enum class ExceptionType : uint8_t {
+		Interrupt = 0x00,
+		AddressErrorLoad = 0x04,
+		AddressErrorStore = 0x05,
+		Syscall = 0x08,
+		Breakpoint = 0x09,
+		ReservedInstruction = 0x0A,
+		CoprocessorUnusable = 0x0B,
+		ArithmeticOverflow = 0x0C
 	};
 
 	struct Instruction {
@@ -65,6 +70,7 @@ namespace esx {
 		uint8_t ShiftAmount;
 		uint8_t Function;
 		uint16_t Immediate;
+		uint32_t Code;
 		uint32_t PseudoAddress;
 	};
 
@@ -74,35 +80,23 @@ namespace esx {
 		~R3000();
 
 		void clock();
-
-		virtual void write(const std::string& busName, uint32_t address, uint8_t value) override {}
-		virtual void read(const std::string& busName, uint32_t address, uint8_t& output) override {}
-
-		virtual void write(const std::string& busName, uint32_t address, uint16_t value) override {}
-		virtual void read(const std::string& busName, uint32_t address, uint16_t& output) override {}
-
-		virtual void write(const std::string& busName, uint32_t address, uint32_t value) override {}
-		virtual void read(const std::string& busName, uint32_t address, uint32_t& output) override {}
-
-		
-
 	private:
 		uint32_t fetch(uint32_t address);
 		Instruction decode(uint32_t instruction);
 
 		template<typename T>
-		T load(uint32_t address) {
+		uint32_t load(uint32_t address) {
 			if (ADDRESS_UNALIGNED(address,T)) {
-				//TODO: Exception Unaligned access
+				raiseException(ExceptionType::AddressErrorLoad);
 			}
 
 			return getBus("Root")->read<T>(address);
 		}
 
 		template<typename T>
-		void store(uint32_t address, T value) {
+		void store(uint32_t address, uint32_t value) {
 			if (ADDRESS_UNALIGNED(address, T)) {
-				//TODO: Exception Unaligned access
+				raiseException(ExceptionType::AddressErrorStore);
 			}
 
 			return getBus("Root")->write<T>(address, value);
@@ -173,19 +167,26 @@ namespace esx {
 		void JR(const Instruction& instruction);
 		void JAL(const Instruction& instruction);
 		void JALR(const Instruction& instruction);
+		void BREAK(const Instruction& instruction);
+		void SYSCALL(const Instruction& instruction);
 
 		//COP0
 		void MTC0(const Instruction& instruction);
 		void MFC0(const Instruction& instruction);
 		void RFE(const Instruction& instruction);
 
+		void addPendingLoad(uint8_t index, uint32_t value);
+
 		void setRegister(uint8_t index, uint32_t value);
 		uint32_t getRegister(uint8_t index);
 
 		void setCP0Register(uint8_t index, uint32_t value);
 		uint32_t getCP0Register(uint8_t index);
+
+		void raiseException(ExceptionType type, const Instruction* instruction = nullptr);
 	private:
 		std::array<uint32_t, 32> mRegisters;
+		std::queue<std::pair<uint32_t, uint32_t>> mPendingLoads;
 		uint32_t mPC;
 		uint32_t mHI, mLO;
 

@@ -30,14 +30,8 @@ namespace esx {
 
 		virtual void writeLine(const std::string& busName, const std::string& lineName, bool value) {}
 
-		virtual void write(const std::string& busName, uint32_t address, uint8_t value) = 0;
-		virtual void read(const std::string& busName, uint32_t address, uint8_t& output) = 0;
-
-		virtual void write(const std::string& busName, uint32_t address, uint16_t value) = 0;
-		virtual void read(const std::string& busName, uint32_t address,uint16_t& output) = 0;
-
-		virtual void write(const std::string& busName, uint32_t address, uint32_t value) = 0;
-		virtual void read(const std::string& busName, uint32_t address, uint32_t& output) = 0;
+		virtual void write(const std::string& busName, uint32_t address, uint32_t value, size_t valueSize) { assert(false && "Device does not implement write32"); }
+		virtual uint32_t read(const std::string& busName, uint32_t address, size_t outputSize) { assert(false && "Device does not implement read32"); return 0; }
 
 		std::optional<BusRange> getRange(const std::string& busName, uint32_t address);
 
@@ -74,7 +68,7 @@ namespace esx {
 				auto range = device->getRange(mName, address);
 				if (range) {
 					found = true;
-					device->write(mName, address & range->Mask, value);
+					device->write(mName, address & range->Mask, value, sizeof(T));
 				}
 			}
 
@@ -82,15 +76,15 @@ namespace esx {
 		}
 
 		template<typename T>
-		T read(uint32_t address) {
-			T result = 0;
+		uint32_t read(uint32_t address) {
+			uint32_t result = 0;
 
 			bool found = false;
 			for (auto& [name, device] : mDevices) {
 				auto range = device->getRange(mName, address);
 				if (range) {
 					found = true;
-					device->read(mName, address & range->Mask, result);
+					result = device->read(mName, address & range->Mask, sizeof(T));
 					break;
 				}
 			}
@@ -99,7 +93,6 @@ namespace esx {
 
 			return result;
 		}
-
 
 		void connectDevice(BusDevice* device);
 

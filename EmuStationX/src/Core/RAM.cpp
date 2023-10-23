@@ -9,8 +9,8 @@ namespace esx {
 	{
 		mMemory.resize(KIBI(2048));
 
-		constexpr int p = 2048 * 1024;
-
+		addRange("Root", 0x00000000, KIBI(2048), 0x1FFFFF);
+		addRange("Root", 0x80000000, KIBI(2048), 0x1FFFFF);
 		addRange("Root", 0xA0000000, KIBI(2048), 0x1FFFFF);
 	}
 
@@ -18,38 +18,23 @@ namespace esx {
 	{
 	}
 
-	void RAM::write(const std::string& busName, uint32_t address, uint8_t value)
-	{
-		mMemory[address] = value;
-	}
 
-	void RAM::read(const std::string& busName, uint32_t address, uint8_t& output)
+	void RAM::write(const std::string& busName, uint32_t address, uint32_t value, size_t valueSize)
 	{
-		output = mMemory[address];
-	}
-
-	void RAM::write(const std::string& busName, uint32_t address, uint16_t value)
-	{
-	}
-
-	void RAM::read(const std::string& busName, uint32_t address, uint16_t& output)
-	{
-		for (int8_t i = (sizeof(uint16_t) - 1); i >= 0; i--) {
-			output <<= 8;
-			output |= mMemory[address + i];
+		for (size_t i = 0; i < valueSize; i++) {
+			mMemory[address + i] = (value & 0xFF);
+			value >>= 8;
 		}
 	}
 
-	void RAM::write(const std::string& busName, uint32_t address, uint32_t value)
+	uint32_t RAM::read(const std::string& busName, uint32_t address, size_t outputSize)
 	{
-	}
-
-	void RAM::read(const std::string& busName, uint32_t address, uint32_t& output)
-	{
-		for (int8_t i = (sizeof(uint32_t) - 1); i >= 0; i--) {
+		uint32_t output = 0;
+		for (size_t i = 0; i < outputSize; i++) {
 			output <<= 8;
-			output |= mMemory[address + i];
+			output |= mMemory[address + (outputSize - 1 - i)];
 		}
+		return output;
 	}
 
 }

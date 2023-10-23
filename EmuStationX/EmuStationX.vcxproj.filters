@@ -1,26 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <Filter Include="Base">
+      <UniqueIdentifier>{60EC827C-4C23-840D-F50F-6A10E125000F}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Core">
       <UniqueIdentifier>{2EB4837C-1AEB-840D-C3D7-6A10AFED000F}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Base\Base.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Base\Bus.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Bios.h">
+      <Filter>Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\R3000.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Base\Bus.h" />
-    <ClInclude Include="src\Base\Base.h" />
-    <ClInclude Include="src\Core\Bios.h" />
-    <ClInclude Include="src\Core\RAM.h" />
+    <ClInclude Include="src\Core\RAM.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\MemoryControl.h" />
+    <ClInclude Include="src\Core\SPU.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Base\Bus.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Bios.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
     <ClCompile Include="src\Core\R3000.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="src\Core\RAM.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\Base\Bus.cpp" />
-    <ClCompile Include="src\Core\Bios.cpp" />
-    <ClCompile Include="src\Core\RAM.cpp" />
+    <ClCompile Include="src\Core\MemoryControl.cpp" />
+    <ClCompile Include="src\Core\SPU.cpp" />
   </ItemGroup>
 </Project>

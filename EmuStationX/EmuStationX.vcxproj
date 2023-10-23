@@ -140,15 +140,19 @@
   <ItemGroup>
     <ClInclude Include="src\Base\Base.h" />
     <ClInclude Include="src\Base\Bus.h" />
-    <ClInclude Include="src\Core\RAM.h" />
     <ClInclude Include="src\Core\Bios.h" />
+    <ClInclude Include="src\Core\MemoryControl.h" />
     <ClInclude Include="src\Core\R3000.h" />
+    <ClInclude Include="src\Core\RAM.h" />
+    <ClInclude Include="src\Core\SPU.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp" />
-    <ClCompile Include="src\Core\RAM.cpp" />
     <ClCompile Include="src\Core\Bios.cpp" />
+    <ClCompile Include="src\Core\MemoryControl.cpp" />
     <ClCompile Include="src\Core\R3000.cpp" />
+    <ClCompile Include="src\Core\RAM.cpp" />
+    <ClCompile Include="src\Core\SPU.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
