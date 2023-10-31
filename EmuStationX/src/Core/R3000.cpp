@@ -14,6 +14,7 @@ namespace esx {
 		mPC = 0xBFC00000;
 
 		mNextInstruction = decode(0x0);
+		mICache.resize(KIBI(4));
 
 		of.open("instructions.log", std::ofstream::binary);
 	}
@@ -89,32 +90,32 @@ namespace esx {
 
 				switch (result.Function) {
 					case 0x00: {
-						result.Mnemonic = std::format("sll {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterSource], registersMnemonics[result.RegisterTarget]);
+						result.Mnemonic = std::format("sll {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterTarget], result.ShiftAmount);
 						result.Execute = std::bind(&R3000::SLL, this, std::placeholders::_1);
 						break;
 					}
 					case 0x02: {
-						result.Mnemonic = std::format("srl {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterSource], registersMnemonics[result.RegisterTarget]);
+						result.Mnemonic = std::format("srl {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterTarget], result.ShiftAmount);
 						result.Execute = std::bind(&R3000::SRL, this, std::placeholders::_1);
 						break;
 					}
 					case 0x03: {
-						result.Mnemonic = std::format("sra {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterSource], registersMnemonics[result.RegisterTarget]);
+						result.Mnemonic = std::format("sra {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterTarget], result.ShiftAmount);
 						result.Execute = std::bind(&R3000::SRA, this, std::placeholders::_1);
 						break;
 					}
 					case 0x04: {
-						result.Mnemonic = std::format("sllv {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterSource], registersMnemonics[result.RegisterTarget]);
+						result.Mnemonic = std::format("sllv {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterTarget], registersMnemonics[result.RegisterSource]);
 						result.Execute = std::bind(&R3000::SLLV, this, std::placeholders::_1);
 						break;
 					}
 					case 0x06: {
-						result.Mnemonic = std::format("srlv {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterSource], registersMnemonics[result.RegisterTarget]);
+						result.Mnemonic = std::format("srlv {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterTarget], registersMnemonics[result.RegisterSource]);
 						result.Execute = std::bind(&R3000::SRLV, this, std::placeholders::_1);
 						break;
 					}
 					case 0x07: {
-						result.Mnemonic = std::format("srav {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterSource], registersMnemonics[result.RegisterTarget]);
+						result.Mnemonic = std::format("srav {},{},{}", registersMnemonics[result.RegisterDestination], registersMnemonics[result.RegisterTarget], registersMnemonics[result.RegisterSource]);
 						result.Execute = std::bind(&R3000::SRAV, this, std::placeholders::_1);
 						break;
 					}
@@ -1087,18 +1088,74 @@ namespace esx {
 
 	void R3000::MTC0(const Instruction& instruction)
 	{
+		uint32_t sr = getCP0Register((uint8_t)COP0Register::SR);
 		uint32_t r = getRegister(instruction.RegisterTarget);
+
+		if ((instruction.RegisterDestination >= 0 && instruction.RegisterDestination <= 2) ||
+			instruction.RegisterDestination == 4 ||
+			instruction.RegisterDestination == 10 ||
+			(instruction.RegisterDestination >= 32 && instruction.RegisterDestination <= 63)) {
+			raiseException(ExceptionType::ReservedInstruction, &instruction);
+			return;
+		}
+
+		if (instruction.RegisterDestination < 16 && (sr & 0x10000002) == 0x1) {
+			raiseException(ExceptionType::CoprocessorUnusable, &instruction);
+			return;
+		}
+
+		switch ((COP0Register)instruction.RegisterDestination) {
+			case COP0Register::Cause: {
+				uint32_t t = getCP0Register(instruction.RegisterDestination);
+
+				t &= ~0x300;
+				r &= 0x300;
+
+				r |= t;
+				break;
+			}
+
+			case COP0Register::EPC:
+			case COP0Register::BadVAddr:
+			case COP0Register::PRId:
+			case COP0Register::JumpDest:
+				return;
+
+		}
+
 		setCP0Register(instruction.RegisterDestination, r);
 	}
 
 	void R3000::MFC0(const Instruction& instruction)
 	{
+		uint32_t sr = getCP0Register((uint8_t)COP0Register::SR);
 		uint32_t r = getCP0Register(instruction.RegisterDestination);
+
+		if (instruction.RegisterDestination < 16 && (sr & 0x10000002) == 0x1) {
+			raiseException(ExceptionType::CoprocessorUnusable, &instruction);
+			return;
+		}
+
 		setRegister(instruction.RegisterTarget, r);
 	}
 
-	void esx::R3000::RFE(const Instruction& instruction)
+	void R3000::RFE(const Instruction& instruction)
 	{
+
+		uint32_t sr = getCP0Register((uint8_t)COP0Register::SR);
+
+		if ((sr & 0x10000002) == 0x1) {
+			raiseException(ExceptionType::CoprocessorUnusable, &instruction);
+			return;
+		}
+
+		uint32_t r = sr;
+
+		r &= ~0xF; //Clear all first 4 bits
+		r |= (sr >> 2) & 0x3; //Copy bit2-3 to bit0-1
+		r |= (sr & 0x18) >> 1; //Copy bit4-5 to bit2-3
+
+		setCP0Register((uint8_t)COP0Register::SR, r);
 	}
 
 	void R3000::addPendingLoad(uint8_t index, uint32_t value)

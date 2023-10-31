@@ -107,8 +107,8 @@ namespace esx {
 		uint32_t REVERB_APF_ADDRESS_2;
 		uint32_t REVERB_INPUT_VOLUME;
 		std::array<uint32_t, 24> VOICE_CURRENT_VOLUME;
-		std::array<uint32_t, 0x20> UNKNOWN_3;
-		std::array<uint32_t, 0x180> UNKNOWN_4;
+		std::array<uint8_t, 0x20> UNKNOWN_3;
+		std::array<uint8_t, 0x180> UNKNOWN_4;
 	};
 
 	class SPU : public BusDevice {

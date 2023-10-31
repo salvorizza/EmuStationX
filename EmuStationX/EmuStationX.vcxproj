@@ -78,7 +78,7 @@
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>REVIVENES_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ESX_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
@@ -97,7 +97,7 @@
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>REVIVENES_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ESX_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -119,7 +119,7 @@
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>REVIVENES_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ESX_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -138,21 +138,29 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\Base\Assert.h" />
     <ClInclude Include="src\Base\Base.h" />
     <ClInclude Include="src\Base\Bus.h" />
+    <ClInclude Include="src\Base\PlatformDetection.h" />
     <ClInclude Include="src\Core\Bios.h" />
+    <ClInclude Include="src\Core\InterruptControl.h" />
     <ClInclude Include="src\Core\MemoryControl.h" />
+    <ClInclude Include="src\Core\PIO.h" />
     <ClInclude Include="src\Core\R3000.h" />
     <ClInclude Include="src\Core\RAM.h" />
     <ClInclude Include="src\Core\SPU.h" />
+    <ClInclude Include="src\Utils\LoggingSystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp" />
     <ClCompile Include="src\Core\Bios.cpp" />
+    <ClCompile Include="src\Core\InterruptControl.cpp" />
     <ClCompile Include="src\Core\MemoryControl.cpp" />
+    <ClCompile Include="src\Core\PIO.cpp" />
     <ClCompile Include="src\Core\R3000.cpp" />
     <ClCompile Include="src\Core\RAM.cpp" />
     <ClCompile Include="src\Core\SPU.cpp" />
+    <ClCompile Include="src\Utils\LoggingSystem.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

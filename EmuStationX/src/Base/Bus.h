@@ -1,20 +1,18 @@
 #pragma once
 
-#include <cstdint>
-#include <unordered_map>
-#include <memory>
-#include <string>
+#include "Base/Base.h"
+#include "Base/Assert.h"
+
 #include <optional>
-#include <cassert>
 
 namespace esx {
 
 	struct BusRange {
-		size_t Start;
-		size_t End;
-		size_t Mask;
+		U64 Start;
+		U64 End;
+		U64 Mask;
 
-		BusRange(size_t start, size_t sizeInBytes, size_t mask)
+		BusRange(U64 start, U64 sizeInBytes, U64 mask)
 			:	Start(start),
 				End(start + sizeInBytes),
 				Mask(mask)
@@ -72,7 +70,7 @@ namespace esx {
 				}
 			}
 
-			assert(found && "Address not found");
+			ESX_ASSERT(found, "Writing Address 0x{:8X}: not found", address);
 		}
 
 		template<typename T>
@@ -89,7 +87,7 @@ namespace esx {
 				}
 			}
 
-			assert(found && "Address not found");
+			ESX_ASSERT(found, "Reading Address 0x{:8X}: not found", address);
 
 			return result;
 		}

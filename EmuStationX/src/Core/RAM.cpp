@@ -9,9 +9,9 @@ namespace esx {
 	{
 		mMemory.resize(KIBI(2048));
 
+		/*addRange("Root", 0x00000000, KIBI(2048), 0x1FFFFF);
+		addRange("Root", 0x80000000, KIBI(2048), 0x1FFFFF);*/
 		addRange("Root", 0x00000000, KIBI(2048), 0x1FFFFF);
-		addRange("Root", 0x80000000, KIBI(2048), 0x1FFFFF);
-		addRange("Root", 0xA0000000, KIBI(2048), 0x1FFFFF);
 	}
 
 	RAM::~RAM()

@@ -11,7 +11,7 @@ namespace esx {
 		mMemory = std::vector<uint8_t>(std::istreambuf_iterator<char>(input), {});
 		input.close();
 
-		addRange("Root", 0xBFC00000, KIBI(512), 0x7FFFF);
+		addRange("Root", 0x1FC00000, KIBI(512), 0x7FFFF);
 	}
 
 	Bios::~Bios()

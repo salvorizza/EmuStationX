@@ -7,15 +7,33 @@
     <Filter Include="Core">
       <UniqueIdentifier>{2EB4837C-1AEB-840D-C3D7-6A10AFED000F}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Utils">
+      <UniqueIdentifier>{F68B420E-62A0-6ABF-2B22-0E1F97F566F0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Base\Assert.h">
+      <Filter>Base</Filter>
+    </ClInclude>
     <ClInclude Include="src\Base\Base.h">
       <Filter>Base</Filter>
     </ClInclude>
     <ClInclude Include="src\Base\Bus.h">
       <Filter>Base</Filter>
     </ClInclude>
+    <ClInclude Include="src\Base\PlatformDetection.h">
+      <Filter>Base</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\Bios.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\InterruptControl.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\MemoryControl.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\PIO.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\R3000.h">
@@ -24,8 +42,12 @@
     <ClInclude Include="src\Core\RAM.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\MemoryControl.h" />
-    <ClInclude Include="src\Core\SPU.h" />
+    <ClInclude Include="src\Core\SPU.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Utils\LoggingSystem.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -34,14 +56,27 @@
     <ClCompile Include="src\Core\Bios.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="src\Core\InterruptControl.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\MemoryControl.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\PIO.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
     <ClCompile Include="src\Core\R3000.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\RAM.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="src\Core\SPU.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\LoggingSystem.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\Core\MemoryControl.cpp" />
-    <ClCompile Include="src\Core\SPU.cpp" />
   </ItemGroup>
 </Project>

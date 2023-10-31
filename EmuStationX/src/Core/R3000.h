@@ -7,6 +7,7 @@
 #include <format>
 #include <queue>
 
+#include "Base/Base.h"
 #include "Base/Bus.h"
 
 namespace esx {
@@ -27,10 +28,22 @@ namespace esx {
 
 	#define SIGNEXT8(x) ((x & 0x80) ? x | 0xFFFFFF00 : x)
 	#define SIGNEXT16(x) ((x & 0x8000) ? x | 0xFFFF0000 : x)
-	#define EXECPTION_HANDLER_ADDRESS 0x80000080
+	#define EXCEPTION_HANDLER_ADDRESS 0x80000080
+	#define BREAKPOINT_EXCEPTION_HANDLER_ADDRESS 0x80000040
 	#define ADDRESS_UNALIGNED(x,type) ((x & (sizeof(type) - 1)) != 0x0)
 	#define OVERFLOW_ADD32(a,b,s) (~((a & 0x80000000) ^ (b & 0x80000000)) & ((a & 0x80000000) ^ (s & 0x80000000)))
 	#define OVERFLOW_SUB32(a,b,s) ((a & 0x80000000) ^ (b & 0x80000000)) & ((a & 0x80000000) ^ (s & 0x80000000))
+
+	constexpr std::array<uint32_t, 8> SEGS_MASKS = {
+		//KUSEG:2048MB
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		//KSEG0:512MB
+		0x7FFFFFFF,
+		//KSEG1:512MB
+		0x1FFFFFFF,
+		//KSEG2:1024MB
+		0xFFFFFFFF,0xFFFFFFFF
+	};
 
 	enum class COP0Register : uint8_t {
 		BPC = 3, //Breakpoint on Execute Address (R/W)
@@ -90,7 +103,21 @@ namespace esx {
 				raiseException(ExceptionType::AddressErrorLoad);
 			}
 
-			return getBus("Root")->read<T>(address);
+			uint32_t sr = getCP0Register((uint8_t)COP0Register::SR);
+
+			//Isc is 1
+			if ((sr & (1 << 16)) != 0 && address < 0x1000) {
+				uint32_t output = 0;
+
+				for (size_t i = 0; i < sizeof(T); i++) {
+					output <<= 8;
+					output |= mICache[address + (sizeof(T) - 1 - i)];
+				}
+
+				return output;
+			}
+
+			return getBus("Root")->read<T>(address & SEGS_MASKS[address >> 29]);
 		}
 
 		template<typename T>
@@ -99,7 +126,19 @@ namespace esx {
 				raiseException(ExceptionType::AddressErrorStore);
 			}
 
-			return getBus("Root")->write<T>(address, value);
+			uint32_t sr = getCP0Register((uint8_t)COP0Register::SR);
+
+			//Isc is 1
+			if ((sr & (1 << 16)) != 0 && address < 0x1000) {
+				for (size_t i = 0; i < sizeof(T); i++) {
+					mICache[address + i] = (value & 0xFF);
+					value >>= 8;
+				}
+
+				return;
+			}
+
+			getBus("Root")->write<T>(address & SEGS_MASKS[address >> 29], value);
 		}
 
 		//Arithmetic
@@ -184,6 +223,8 @@ namespace esx {
 		uint32_t getCP0Register(uint8_t index);
 
 		void raiseException(ExceptionType type, const Instruction* instruction = nullptr);
+		void raiseBreakpoint();
+
 	private:
 		std::array<uint32_t, 32> mRegisters;
 		std::queue<std::pair<uint32_t, uint32_t>> mPendingLoads;
@@ -193,6 +234,7 @@ namespace esx {
 		Instruction mNextInstruction;
 
 		std::array<uint32_t, 32> mCP0Registers;
+		std::vector<uint8_t> mICache;
 	};
 
 }
