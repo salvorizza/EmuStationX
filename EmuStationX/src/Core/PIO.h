@@ -16,8 +16,9 @@ namespace esx {
 		PIO();
 		~PIO();
 
-		virtual void write(const std::string& busName, uint32_t address, uint32_t value, size_t valueSize) override;
-		virtual uint32_t read(const std::string& busName, uint32_t address, size_t outputSize) override;
+
+		virtual void store(const String& busName, U32 address, U8 value) override;
+		virtual void load(const String& busName, U32 address, U8& output) override;
 	private:
 		PIOIORegisters mIORegisters;
 	};

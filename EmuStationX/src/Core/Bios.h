@@ -12,14 +12,14 @@ namespace esx {
 
 	class Bios : public BusDevice {
 	public:
-		Bios(const std::string& path);
+		Bios(const String& path);
 		~Bios();
 
-		virtual void write(const std::string& busName, uint32_t address, uint32_t value, size_t valueSize) override;
-		virtual uint32_t read(const std::string& busName, uint32_t address, size_t outputSize) override;
+		virtual void load(const String& busName, U32 address, U32& output) override;
+		virtual void load(const String& busName, U32 address, U8& output) override;
 
 	private:
-		std::vector<uint8_t> mMemory;
+		std::vector<U8> mMemory;
 	};
 
 }

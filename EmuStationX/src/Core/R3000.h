@@ -34,7 +34,7 @@ namespace esx {
 	#define OVERFLOW_ADD32(a,b,s) (~((a & 0x80000000) ^ (b & 0x80000000)) & ((a & 0x80000000) ^ (s & 0x80000000)))
 	#define OVERFLOW_SUB32(a,b,s) ((a & 0x80000000) ^ (b & 0x80000000)) & ((a & 0x80000000) ^ (s & 0x80000000))
 
-	constexpr std::array<uint32_t, 8> SEGS_MASKS = {
+	constexpr std::array<U32, 8> SEGS_MASKS = {
 		//KUSEG:2048MB
 		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
 		//KSEG0:512MB
@@ -45,7 +45,7 @@ namespace esx {
 		0xFFFFFFFF,0xFFFFFFFF
 	};
 
-	enum class COP0Register : uint8_t {
+	enum class COP0Register : U8 {
 		BPC = 3, //Breakpoint on Execute Address (R/W)
 		BDA = 5, //Breakpoint on Data Access Address (R/W)
 		JumpDest = 6, //Randomly memorized jump address
@@ -59,7 +59,7 @@ namespace esx {
 		PRId = 15 //Processor identification and revision.
 	};
 
-	enum class ExceptionType : uint8_t {
+	enum class ExceptionType : U8 {
 		Interrupt = 0x00,
 		AddressErrorLoad = 0x04,
 		AddressErrorStore = 0x05,
@@ -71,20 +71,20 @@ namespace esx {
 	};
 
 	struct Instruction {
-		uint32_t Address;
-		uint32_t binaryInstruction;
-		std::string Mnemonic;
+		U32 Address;
+		U32 binaryInstruction;
+		String Mnemonic;
 		std::function<void(const Instruction&)> Execute;
 
-		uint8_t Opcode;
-		uint8_t RegisterSource;
-		uint8_t RegisterTarget;
-		uint8_t RegisterDestination;
-		uint8_t ShiftAmount;
-		uint8_t Function;
-		uint16_t Immediate;
-		uint32_t Code;
-		uint32_t PseudoAddress;
+		U8 Opcode;
+		U8 RegisterSource;
+		U8 RegisterTarget;
+		U8 RegisterDestination;
+		U8 ShiftAmount;
+		U8 Function;
+		U16 Immediate;
+		U32 Code;
+		U32 PseudoAddress;
 	};
 
 	class R3000 : public BusDevice {
@@ -94,20 +94,20 @@ namespace esx {
 
 		void clock();
 	private:
-		uint32_t fetch(uint32_t address);
-		Instruction decode(uint32_t instruction);
+		U32 fetch(U32 address);
+		Instruction decode(U32 instruction);
 
 		template<typename T>
-		uint32_t load(uint32_t address) {
+		U32 load(U32 address) {
 			if (ADDRESS_UNALIGNED(address,T)) {
 				raiseException(ExceptionType::AddressErrorLoad);
 			}
 
-			uint32_t sr = getCP0Register((uint8_t)COP0Register::SR);
+			U32 sr = getCP0Register((U8)COP0Register::SR);
 
 			//Isc is 1
 			if ((sr & (1 << 16)) != 0 && address < 0x1000) {
-				uint32_t output = 0;
+				U32 output = 0;
 
 				for (size_t i = 0; i < sizeof(T); i++) {
 					output <<= 8;
@@ -117,16 +117,16 @@ namespace esx {
 				return output;
 			}
 
-			return getBus("Root")->read<T>(address & SEGS_MASKS[address >> 29]);
+			return getBus(ESX_TEXT("Root"))->load<T>(address & SEGS_MASKS[address >> 29]);
 		}
 
 		template<typename T>
-		void store(uint32_t address, uint32_t value) {
+		void store(U32 address, U32 value) {
 			if (ADDRESS_UNALIGNED(address, T)) {
 				raiseException(ExceptionType::AddressErrorStore);
 			}
 
-			uint32_t sr = getCP0Register((uint8_t)COP0Register::SR);
+			U32 sr = getCP0Register((U8)COP0Register::SR);
 
 			//Isc is 1
 			if ((sr & (1 << 16)) != 0 && address < 0x1000) {
@@ -138,7 +138,7 @@ namespace esx {
 				return;
 			}
 
-			getBus("Root")->write<T>(address & SEGS_MASKS[address >> 29], value);
+			getBus(ESX_TEXT("Root"))->store<T>(address & SEGS_MASKS[address >> 29], value);
 		}
 
 		//Arithmetic
@@ -214,27 +214,27 @@ namespace esx {
 		void MFC0(const Instruction& instruction);
 		void RFE(const Instruction& instruction);
 
-		void addPendingLoad(uint8_t index, uint32_t value);
+		void addPendingLoad(U8 index, U32 value);
 
-		void setRegister(uint8_t index, uint32_t value);
-		uint32_t getRegister(uint8_t index);
+		void setRegister(U8 index, U32 value);
+		U32 getRegister(U8 index);
 
-		void setCP0Register(uint8_t index, uint32_t value);
-		uint32_t getCP0Register(uint8_t index);
+		void setCP0Register(U8 index, U32 value);
+		U32 getCP0Register(U8 index);
 
 		void raiseException(ExceptionType type, const Instruction* instruction = nullptr);
 		void raiseBreakpoint();
 
 	private:
-		std::array<uint32_t, 32> mRegisters;
-		std::queue<std::pair<uint32_t, uint32_t>> mPendingLoads;
-		uint32_t mPC;
-		uint32_t mHI, mLO;
+		std::array<U32, 32> mRegisters;
+		std::queue<std::pair<U32, U32>> mPendingLoads;
+		U32 mPC;
+		U32 mHI, mLO;
 
-		Instruction mNextInstruction;
+		U32 mNextPC;
 
-		std::array<uint32_t, 32> mCP0Registers;
-		std::vector<uint8_t> mICache;
+		std::array<U32, 32> mCP0Registers;
+		std::vector<U8> mICache;
 	};
 
 }

@@ -4,34 +4,33 @@ namespace esx {
 
 
 
-	Bios::Bios(const std::string& path)
-		: BusDevice("Bios")
+	Bios::Bios(const String& path)
+		: BusDevice(ESX_TEXT("Bios"))
 	{
-		std::ifstream input(path, std::ios::binary);
-		mMemory = std::vector<uint8_t>(std::istreambuf_iterator<char>(input), {});
+		std::wifstream input(path, std::ios::binary);
+		mMemory = std::vector<uint8_t>(std::istreambuf_iterator<wchar_t>(input), {});
 		input.close();
 
-		addRange("Root", 0x1FC00000, KIBI(512), 0x7FFFF);
+		addRange(ESX_TEXT("Root"), 0x1FC00000, KIBI(512), 0x7FFFF);
 	}
 
 	Bios::~Bios()
 	{
 	}
 
-	void Bios::write(const std::string& busName, uint32_t address, uint32_t value, size_t valueSize)
+	void Bios::load(const String& busName, U32 address, U8& output)
 	{
+		output = mMemory[address];
 	}
 
-	uint32_t Bios::read(const std::string& busName, uint32_t address, size_t outputSize)
+	void Bios::load(const String& busName, U32 address, U32& output)
 	{
-		uint32_t output = 0;
+		output = 0;
 
-		for (size_t i = 0; i < outputSize; i++) {
+		for (size_t i = 0; i < sizeof(U32); i++) {
 			output <<= 8;
-			output |= mMemory[address + (outputSize - 1 - i)];
+			output |= mMemory[address + (sizeof(U32) - 1 - i)];
 		}
-
-		return output;
 	}
 
 }

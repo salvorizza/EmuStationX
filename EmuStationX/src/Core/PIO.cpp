@@ -5,29 +5,25 @@
 namespace esx {
 
 	PIO::PIO()
-		: BusDevice("PIO")
+		: BusDevice(ESX_TEXT("PIO"))
 	{
-		addRange("Root", 0x1F000000, KIBI(512), 0xFFFFFFFF);
-		addRange("Root", 0x1F802000, BYTE(133), 0xFFFFFFFF);
-		addRange("Root", 0x1FA00000, BYTE(1), 0xFFFFFFFF);
+		addRange(ESX_TEXT("Root"), 0x1F000000, KIBI(512), 0xFFFFFFFF);
+		addRange(ESX_TEXT("Root"), 0x1F802000, BYTE(133), 0xFFFFFFFF);
+		addRange(ESX_TEXT("Root"), 0x1FA00000, BYTE(1), 0xFFFFFFFF);
 	}
 
 	PIO::~PIO()
 	{
 	}
 
-	void PIO::write(const std::string& busName, uint32_t address, uint32_t value, size_t valueSize)
+	void PIO::store(const String& busName, U32 address, U8 value)
 	{
-		ESX_CORE_LOG_WARNING("Writing to PIO Address 0x{:8X} not handled yet", address);
+		ESX_CORE_LOG_WARNING("SPU - Writing to address {:8x} not implemented yet", address);
 	}
 
-	uint32_t PIO::read(const std::string& busName, uint32_t address, size_t outputSize)
+	void PIO::load(const String& busName, U32 address, U8& output)
 	{
-		uint32_t output = 0;
-
-		ESX_CORE_LOG_WARNING("Reading to PIO Address 0x{:8X} not handled yet", address);
-
-		return output;
+		ESX_CORE_LOG_WARNING("SPU - Reading from address {:8x} not implemented yet", address);
 	}
 
 }

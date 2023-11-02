@@ -18,17 +18,6 @@ namespace esx {
 	constexpr size_t CACHE_CONTROL_ADDRESS = 0xFFFE0130;
 
 	struct IORegisters {
-		uint32_t EXP1_BASE_ADDR;
-		uint32_t EXP2_BASE_ADDR;
-		uint32_t EXP1_DELAY;
-		uint32_t EXP3_DELAY;
-		uint32_t BIOS_ROM_DELAY;
-		uint32_t SPU_DELAY;
-		uint32_t CDROM_DELAY;
-		uint32_t EXP2_DELAY;
-		uint32_t COM_DELAY;
-		uint32_t RAM_SIZE;
-		uint32_t CACHE_CONTROL;
 	};
 
 	class MemoryControl : public BusDevice {
@@ -36,8 +25,8 @@ namespace esx {
 		MemoryControl();
 		~MemoryControl();
 
-		virtual void write(const std::string& busName, uint32_t address, uint32_t value, size_t valueSize) override;
-		virtual uint32_t read(const std::string& busName, uint32_t address, size_t outputSize) override;
+
+		virtual void store(const String& busName, U32 address, U32 value) override;
 	private:
 		IORegisters mIORegisters;
 	};

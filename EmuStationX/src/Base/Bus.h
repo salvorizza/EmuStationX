@@ -23,50 +23,60 @@ namespace esx {
 
 	class BusDevice {
 	public:
-		BusDevice(const std::string& name) : mName(name) {}
+		BusDevice(const String& name) : mName(name) {}
 		virtual ~BusDevice() = default;
 
-		virtual void writeLine(const std::string& busName, const std::string& lineName, bool value) {}
+		virtual void writeLine(const String& busName, const String& lineName, bool value) {}
 
-		virtual void write(const std::string& busName, uint32_t address, uint32_t value, size_t valueSize) { assert(false && "Device does not implement write32"); }
-		virtual uint32_t read(const std::string& busName, uint32_t address, size_t outputSize) { assert(false && "Device does not implement read32"); return 0; }
+		virtual void store(const String& busName, U32 address, U32 value) { ESX_CORE_ASSERT(false, "Device {} does not implement store32", mName); }
+		virtual void load(const String& busName, U32 address, U32& output) { ESX_CORE_ASSERT(false, "Device {} does not implement load32", mName); }
 
-		std::optional<BusRange> getRange(const std::string& busName, uint32_t address);
+		virtual void store(const String& busName, U32 address, U16 value) { ESX_CORE_ASSERT(false, "Device {} does not implement store16", mName); }
+		virtual void load(const String& busName, U32 address, U16& output) { ESX_CORE_ASSERT(false, "Device {} does not implement load16", mName); }
 
-		const std::string& getName() const { return mName; }
+		virtual void store(const String& busName, U32 address, U8 value) { ESX_CORE_ASSERT(false, "Device {} does not implement store8", mName); }
+		virtual void load(const String& busName, U32 address, U8& output) { ESX_CORE_ASSERT(false, "Device {} does not implement load8", mName); }
+
+		std::optional<BusRange> getRange(const String& busName, U32 address);
+
+		const String& getName() const { return mName; }
 
 		void connectToBus(Bus* pBus);
-		Bus* getBus(const std::string& busName);
+		Bus* getBus(const String& busName);
 
 	protected:
 		template<typename... T>
-		void addRange(const std::string& busName, T&&... args) {
+		void addRange(const String& busName, T&&... args) {
 			mRanges[busName].emplace_back(std::forward<T>(args)...);
 		}
 
 	protected:
-		std::unordered_map<std::string, Bus*> mBusses;
-		std::unordered_map<std::string, std::vector<BusRange>> mRanges;
+		std::unordered_map<String, Bus*> mBusses;
+		std::unordered_map<String, std::vector<BusRange>> mRanges;
 
-		std::string mName;
+		String mName;
 	};
 
 
 	class Bus {
 	public:
-		Bus(const std::string& name);
+		Bus(const String& name);
 		~Bus();
 
-		void writeLine(const std::string& lineName, bool value);
+		void writeLine(const String& lineName, bool value);
 
 		template<typename T>
-		void write(uint32_t address, T value) {
+		void store(U32 address, T value) {
+			if (address == 0x1f801104) {
+				int i = 0;
+			}
+
 			bool found = false;
 			for (auto& [name, device] : mDevices) {
 				auto range = device->getRange(mName, address);
 				if (range) {
 					found = true;
-					device->write(mName, address & range->Mask, value, sizeof(T));
+					device->store(mName, address & range->Mask, value);
 				}
 			}
 
@@ -74,15 +84,15 @@ namespace esx {
 		}
 
 		template<typename T>
-		uint32_t read(uint32_t address) {
-			uint32_t result = 0;
+		T load(U32 address) {
+			T result = 0;
 
 			bool found = false;
 			for (auto& [name, device] : mDevices) {
 				auto range = device->getRange(mName, address);
 				if (range) {
 					found = true;
-					result = device->read(mName, address & range->Mask, sizeof(T));
+					device->load(mName, address & range->Mask, result);
 					break;
 				}
 			}
@@ -94,11 +104,11 @@ namespace esx {
 
 		void connectDevice(BusDevice* device);
 
-		const std::string& getName() const { return mName; }
+		const String& getName() const { return mName; }
 
 	private:
-		std::string mName;
-		std::unordered_map<std::string,BusDevice*> mDevices;
+		String mName;
+		std::unordered_map<String,BusDevice*> mDevices;
 	};
 
 

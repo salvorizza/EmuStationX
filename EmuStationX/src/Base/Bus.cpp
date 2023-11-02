@@ -6,7 +6,7 @@ namespace esx {
 
 	
 
-	Bus::Bus(const std::string& name)
+	Bus::Bus(const String& name)
 		: mName(name)
 	{
 	}
@@ -15,7 +15,7 @@ namespace esx {
 	{
 	}
 
-	void Bus::writeLine(const std::string& lineName, bool value)
+	void Bus::writeLine(const String& lineName, bool value)
 	{
 		for (auto& [name, device] : mDevices) {
 			device->writeLine(mName, lineName, value);
@@ -28,7 +28,7 @@ namespace esx {
 	}
 
 
-	std::optional<BusRange> BusDevice::getRange(const std::string& busName, uint32_t address)
+	std::optional<BusRange> BusDevice::getRange(const String& busName, U32 address)
 	{
 		auto it = std::find_if(mRanges[busName].begin(), mRanges[busName].end(), [address](const BusRange& t) -> bool {
 			return address >= t.Start  && address < t.End;
@@ -45,7 +45,7 @@ namespace esx {
 		mBusses[pBus->getName()] = pBus;
 	}
 
-	Bus* BusDevice::getBus(const std::string& busName)
+	Bus* BusDevice::getBus(const String& busName)
 	{
 		return mBusses[busName];
 	}

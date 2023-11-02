@@ -26,9 +26,9 @@ int main(int argc, char** argv) {
 	InterruptControl interruptControl;
 	SPU spu;
 	PIO pio;
-	Bios bios("scph1001.bin");
+	Bios bios(ESX_TEXT("scph1001.bin"));
 
-	Bus root("Root");
+	Bus root(ESX_TEXT("Root"));
 
 	root.connectDevice(&cpu);
 	root.connectDevice(&bios);
