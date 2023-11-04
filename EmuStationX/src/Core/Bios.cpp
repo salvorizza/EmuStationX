@@ -7,8 +7,8 @@ namespace esx {
 	Bios::Bios(const String& path)
 		: BusDevice(ESX_TEXT("Bios"))
 	{
-		std::wifstream input(path, std::ios::binary);
-		mMemory = std::vector<uint8_t>(std::istreambuf_iterator<wchar_t>(input), {});
+		std::ifstream input(path, std::ios::binary);
+		mMemory = Vector<U8>(std::istreambuf_iterator<char>(input), {});
 		input.close();
 
 		addRange(ESX_TEXT("Root"), 0x1FC00000, KIBI(512), 0x7FFFF);

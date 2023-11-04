@@ -51,8 +51,8 @@ namespace esx {
 		}
 
 	protected:
-		std::unordered_map<String, Bus*> mBusses;
-		std::unordered_map<String, std::vector<BusRange>> mRanges;
+		UnorderedMap<String, Bus*> mBusses;
+		UnorderedMap<String, Vector<BusRange>> mRanges;
 
 		String mName;
 	};
@@ -67,10 +67,6 @@ namespace esx {
 
 		template<typename T>
 		void store(U32 address, T value) {
-			if (address == 0x1f801104) {
-				int i = 0;
-			}
-
 			bool found = false;
 			for (auto& [name, device] : mDevices) {
 				auto range = device->getRange(mName, address);
@@ -80,7 +76,7 @@ namespace esx {
 				}
 			}
 
-			ESX_ASSERT(found, "Writing Address 0x{:8X}: not found", address);
+			ESX_ASSERT(found, "Writing Address 0x{:08X}: not found", address);
 		}
 
 		template<typename T>
@@ -97,7 +93,7 @@ namespace esx {
 				}
 			}
 
-			ESX_ASSERT(found, "Reading Address 0x{:8X}: not found", address);
+			ESX_ASSERT(found, "Reading Address 0x{:08X}: not found", address);
 
 			return result;
 		}
@@ -108,7 +104,7 @@ namespace esx {
 
 	private:
 		String mName;
-		std::unordered_map<String,BusDevice*> mDevices;
+		UnorderedMap<String,BusDevice*> mDevices;
 	};
 
 

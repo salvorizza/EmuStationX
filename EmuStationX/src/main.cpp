@@ -15,9 +15,7 @@
 using namespace esx;
 
 int main(int argc, char** argv) {
-	LoggingSpecifications specs;
-	specs.FilePath = ESX_TEXT("");
-
+	LoggingSpecifications specs(ESX_TEXT(""));
 	LoggingSystem::Start(specs);
 
 	R3000 cpu;
@@ -29,7 +27,6 @@ int main(int argc, char** argv) {
 	Bios bios(ESX_TEXT("scph1001.bin"));
 
 	Bus root(ESX_TEXT("Root"));
-
 	root.connectDevice(&cpu);
 	root.connectDevice(&bios);
 	root.connectDevice(&mainRAM);

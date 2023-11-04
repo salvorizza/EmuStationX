@@ -74,7 +74,7 @@ namespace esx {
 		static SharedPtr<Logger> sCoreLogger;
 	};
 
-	#define ESX_CORE_LOG(type,x,...) esx::LoggingSystem::GetCoreLogger()->LogFormatted(type, ESX_TEXT(x), __VA_ARGS__); \
+	#define ESX_CORE_LOG(type,x,...) esx::LoggingSystem::GetCoreLogger()->LogFormatted(type, ESX_TEXT(x), __VA_ARGS__) \
 			
 	#define ESX_CORE_LOG_INFO(x,...) ESX_CORE_LOG(esx::LogType::Info,x,__VA_ARGS__)
 	#define ESX_CORE_LOG_TRACE(x,...) ESX_CORE_LOG(esx::LogType::Trace,x,__VA_ARGS__)

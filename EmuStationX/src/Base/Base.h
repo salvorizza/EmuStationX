@@ -2,6 +2,7 @@
 
 #include "PlatformDetection.h"
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <format>
@@ -78,6 +79,9 @@ namespace esx {
 
 	template<typename T>
 	using Vector = std::vector<T>;
+
+	template<typename T, size_t Size>
+	using Array = std::array<T, Size>;
 
 	template<typename K, typename V>
 	using OrderedMap = std::map<K, V>;

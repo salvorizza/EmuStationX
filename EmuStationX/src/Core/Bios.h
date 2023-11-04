@@ -19,7 +19,7 @@ namespace esx {
 		virtual void load(const String& busName, U32 address, U8& output) override;
 
 	private:
-		std::vector<U8> mMemory;
+		Vector<U8> mMemory;
 	};
 
 }

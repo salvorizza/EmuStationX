@@ -226,15 +226,15 @@ namespace esx {
 		void raiseBreakpoint();
 
 	private:
-		std::array<U32, 32> mRegisters;
-		std::queue<std::pair<U32, U32>> mPendingLoads;
+		Array<U32, 32> mRegisters;
+		Queue<Pair<U32, U32>> mPendingLoads;
 		U32 mPC;
 		U32 mHI, mLO;
 
 		U32 mNextPC;
 
-		std::array<U32, 32> mCP0Registers;
-		std::vector<U8> mICache;
+		Array<U32, 32> mCP0Registers;
+		Vector<U8> mICache;
 	};
 
 }
