@@ -100,6 +100,11 @@ namespace esx {
 
 		void connectDevice(BusDevice* device);
 
+		template<typename T>
+		T* getDevice(const String& name) {
+			return dynamic_cast<T*>(mDevices.at(name));
+		}
+
 		const String& getName() const { return mName; }
 
 	private:

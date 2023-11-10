@@ -87,8 +87,15 @@ namespace esx {
 		U32 PseudoAddress;
 	};
 
+	class CPUStatusPanel;
+	class DisassemblerPanel;
+
+	
 	class R3000 : public BusDevice {
 	public:
+		friend class CPUStatusPanel;
+		friend class DisassemblerPanel;
+
 		R3000();
 		~R3000();
 

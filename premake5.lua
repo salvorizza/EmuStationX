@@ -19,6 +19,10 @@ workspace "EmuStationX"
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
 group "Dependencies"
+	include "EmuStationX/vendor/Glad"
+	include "EmuStationX/vendor/glfw"
+	include "EmuStationX/vendor/imgui"
+	include "EmuStationX/vendor/stb"
 group ""
 
 include "EmuStationX"

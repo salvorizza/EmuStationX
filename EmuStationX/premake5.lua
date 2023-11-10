@@ -15,17 +15,29 @@ project "EmuStationX"
 
 	defines
 	{
+		"GLFW_INCLUDE_NONE"
 	}
 	
 	includedirs
 	{
-		"src"
+		"src",
+        "%{IncludeDir.GLFW}",
+        "%{IncludeDir.ImGui}",
+		"%{IncludeDir.Glad}",
+		"%{IncludeDir.glm}",
+		"%{IncludeDir.stb}",
 	}
 
 	links
 	{
+		"Glad",
+		"GLFW",
+		"ImGui",
+		"STB",
+		"opengl32.lib"
 	}
 	
+	filter "files:vendor/ImGuizmo/**.cpp"
 	flags { "NoPCH" }
 
 	filter "system:windows"

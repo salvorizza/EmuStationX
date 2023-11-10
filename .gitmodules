@@ -1,0 +1,12 @@
+[submodule "EmuStationX/vendor/glfw"]
+	path = EmuStationX/vendor/glfw
+	url = https://github.com/salvorizza/glfw
+[submodule "EmuStationX/vendor/glm"]
+	path = EmuStationX/vendor/glm
+	url = https://github.com/salvorizza/glm
+[submodule "EmuStationX/vendor/imgui"]
+	path = EmuStationX/vendor/imgui
+	url = https://github.com/salvorizza/imgui
+[submodule "EmuStationX/vendor/stb"]
+	path = EmuStationX/vendor/stb
+	url = https://github.com/salvorizza/stb

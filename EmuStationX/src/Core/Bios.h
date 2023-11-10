@@ -11,6 +11,7 @@ namespace esx {
 
 
 	class Bios : public BusDevice {
+		friend class MemoryEditorPanel;
 	public:
 		Bios(const String& path);
 		~Bios();

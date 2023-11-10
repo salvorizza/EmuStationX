@@ -27,7 +27,6 @@ namespace esx {
 		device->connectToBus(this);
 	}
 
-
 	std::optional<BusRange> BusDevice::getRange(const String& busName, U32 address)
 	{
 		auto it = std::find_if(mRanges[busName].begin(), mRanges[busName].end(), [address](const BusRange& t) -> bool {

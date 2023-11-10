@@ -8,10 +8,12 @@
 #include "Base/Bus.h"
 
 namespace esx {
-
+	class MemoryEditorPanel;
 
 	class RAM : public BusDevice {
 	public:
+		friend class MemoryEditorPanel;
+
 		RAM();
 		~RAM();
 

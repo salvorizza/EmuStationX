@@ -78,8 +78,8 @@
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>ESX_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <MinimalRebuild>false</MinimalRebuild>
@@ -91,14 +91,15 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>ESX_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -113,14 +114,15 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Dist|x64'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>ESX_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -135,6 +137,7 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -149,6 +152,26 @@
     <ClInclude Include="src\Core\R3000.h" />
     <ClInclude Include="src\Core\RAM.h" />
     <ClInclude Include="src\Core\SPU.h" />
+    <ClInclude Include="src\UI\Application\Application.h" />
+    <ClInclude Include="src\UI\Application\ApplicationManager.h" />
+    <ClInclude Include="src\UI\Application\Timer.h" />
+    <ClInclude Include="src\UI\Graphics\BatchRenderer.h" />
+    <ClInclude Include="src\UI\Graphics\FrameBuffer.h" />
+    <ClInclude Include="src\UI\Graphics\IndexBuffer.h" />
+    <ClInclude Include="src\UI\Graphics\Shader.h" />
+    <ClInclude Include="src\UI\Graphics\VertexArray.h" />
+    <ClInclude Include="src\UI\Graphics\VertexBuffer.h" />
+    <ClInclude Include="src\UI\Panels\CPUStatusPanel.h" />
+    <ClInclude Include="src\UI\Panels\DisassemblerPanel.h" />
+    <ClInclude Include="src\UI\Panels\MemoryEditor.h" />
+    <ClInclude Include="src\UI\Panels\MemoryEditorPanel.h" />
+    <ClInclude Include="src\UI\Panels\Panel.h" />
+    <ClInclude Include="src\UI\Panels\ViewportPanel.h" />
+    <ClInclude Include="src\UI\Utils.h" />
+    <ClInclude Include="src\UI\Window\FontAwesome5.h" />
+    <ClInclude Include="src\UI\Window\ImGuiManager.h" />
+    <ClInclude Include="src\UI\Window\InputManager.h" />
+    <ClInclude Include="src\UI\Window\Window.h" />
     <ClInclude Include="src\Utils\LoggingSystem.h" />
   </ItemGroup>
   <ItemGroup>
@@ -160,8 +183,38 @@
     <ClCompile Include="src\Core\R3000.cpp" />
     <ClCompile Include="src\Core\RAM.cpp" />
     <ClCompile Include="src\Core\SPU.cpp" />
+    <ClCompile Include="src\UI\Application\ApplicationManager.cpp" />
+    <ClCompile Include="src\UI\Graphics\BatchRenderer.cpp" />
+    <ClCompile Include="src\UI\Graphics\FrameBuffer.cpp" />
+    <ClCompile Include="src\UI\Graphics\IndexBuffer.cpp" />
+    <ClCompile Include="src\UI\Graphics\Shader.cpp" />
+    <ClCompile Include="src\UI\Graphics\VertexArray.cpp" />
+    <ClCompile Include="src\UI\Graphics\VertexBuffer.cpp" />
+    <ClCompile Include="src\UI\Panels\CPUStatusPanel.cpp" />
+    <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp" />
+    <ClCompile Include="src\UI\Panels\MemoryEditorPanel.cpp" />
+    <ClCompile Include="src\UI\Panels\Panel.cpp" />
+    <ClCompile Include="src\UI\Panels\ViewportPanel.cpp" />
+    <ClCompile Include="src\UI\Utils.cpp" />
+    <ClCompile Include="src\UI\Window\ImGuiManager.cpp" />
+    <ClCompile Include="src\UI\Window\InputManager.cpp" />
+    <ClCompile Include="src\UI\Window\Window.cpp" />
     <ClCompile Include="src\Utils\LoggingSystem.cpp" />
     <ClCompile Include="src\main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="vendor\Glad\Glad.vcxproj">
+      <Project>{BDD6857C-A90D-870D-52FA-6C103E10030F}</Project>
+    </ProjectReference>
+    <ProjectReference Include="vendor\glfw\GLFW.vcxproj">
+      <Project>{154B857C-0182-860D-AA6E-6C109684020F}</Project>
+    </ProjectReference>
+    <ProjectReference Include="vendor\imgui\ImGui.vcxproj">
+      <Project>{C0FF640D-2C14-8DBE-F595-301E616989EF}</Project>
+    </ProjectReference>
+    <ProjectReference Include="vendor\stb\STB.vcxproj">
+      <Project>{0E1F880B-7A28-887C-03A4-9E7C6FAC937C}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

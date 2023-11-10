@@ -7,6 +7,21 @@
     <Filter Include="Core">
       <UniqueIdentifier>{2EB4837C-1AEB-840D-C3D7-6A10AFED000F}</UniqueIdentifier>
     </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{83755900-6F01-880B-D8AF-880BC45A880B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Application">
+      <UniqueIdentifier>{C60D901B-B2DB-8321-9B6F-F44787DC5F86}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Graphics">
+      <UniqueIdentifier>{23212975-8FD6-A16A-18CB-9B41847F986E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Panels">
+      <UniqueIdentifier>{75F4DAE1-E15E-8F58-2A9D-40FE96466DAD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Window">
+      <UniqueIdentifier>{0AD1BFF2-763B-7469-BF79-250F2B2352BE}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Utils">
       <UniqueIdentifier>{F68B420E-62A0-6ABF-2B22-0E1F97F566F0}</UniqueIdentifier>
     </Filter>
@@ -45,9 +60,61 @@
     <ClInclude Include="src\Core\SPU.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\UI\Application\Application.h">
+      <Filter>UI\Application</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Application\ApplicationManager.h">
+      <Filter>UI\Application</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Application\Timer.h">
+      <Filter>UI\Application</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Graphics\BatchRenderer.h">
+      <Filter>UI\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Graphics\FrameBuffer.h">
+      <Filter>UI\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Graphics\IndexBuffer.h">
+      <Filter>UI\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Graphics\Shader.h">
+      <Filter>UI\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Graphics\VertexArray.h">
+      <Filter>UI\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Graphics\VertexBuffer.h">
+      <Filter>UI\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Panels\Panel.h">
+      <Filter>UI\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Panels\ViewportPanel.h">
+      <Filter>UI\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Utils.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Window\FontAwesome5.h">
+      <Filter>UI\Window</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Window\ImGuiManager.h">
+      <Filter>UI\Window</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Window\InputManager.h">
+      <Filter>UI\Window</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Window\Window.h">
+      <Filter>UI\Window</Filter>
+    </ClInclude>
     <ClInclude Include="src\Utils\LoggingSystem.h">
       <Filter>Utils</Filter>
     </ClInclude>
+    <ClInclude Include="src\UI\Panels\CPUStatusPanel.h" />
+    <ClInclude Include="src\UI\Panels\DisassemblerPanel.h" />
+    <ClInclude Include="src\UI\Panels\MemoryEditor.h" />
+    <ClInclude Include="src\UI\Panels\MemoryEditorPanel.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -74,9 +141,51 @@
     <ClCompile Include="src\Core\SPU.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI\Application\ApplicationManager.cpp">
+      <Filter>UI\Application</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Graphics\BatchRenderer.cpp">
+      <Filter>UI\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Graphics\FrameBuffer.cpp">
+      <Filter>UI\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Graphics\IndexBuffer.cpp">
+      <Filter>UI\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Graphics\Shader.cpp">
+      <Filter>UI\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Graphics\VertexArray.cpp">
+      <Filter>UI\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Graphics\VertexBuffer.cpp">
+      <Filter>UI\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Panels\Panel.cpp">
+      <Filter>UI\Panels</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Panels\ViewportPanel.cpp">
+      <Filter>UI\Panels</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Utils.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Window\ImGuiManager.cpp">
+      <Filter>UI\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Window\InputManager.cpp">
+      <Filter>UI\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Window\Window.cpp">
+      <Filter>UI\Window</Filter>
+    </ClCompile>
     <ClCompile Include="src\Utils\LoggingSystem.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\UI\Panels\CPUStatusPanel.cpp" />
+    <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp" />
+    <ClCompile Include="src\UI\Panels\MemoryEditorPanel.cpp" />
   </ItemGroup>
 </Project>
