@@ -26,7 +26,7 @@ namespace esx {
 	bool DisassemblerPanel::breakFunction(U32 address)
 	{
 		address = address & SEGS_MASKS[address >> 29];
-		auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.Address == address; });
+		auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.Address == address && b.Enabled; });
 		if (it != mBreakpoints.end()) {
 			disassemble(address - 4 * disassembleRange, 4 * disassembleRange * 2);
 
@@ -175,15 +175,17 @@ namespace esx {
 			ImGui::TableHeadersRow();
 
 			I64 indexToDelete = -1;
-			I64 indexToModify = -1;
-			U32 newAddress = 0;
 			I64 i = 0;
 			static char addressBuffer[32];
-			for (const auto& breakpoint : mBreakpoints) {
+			for (auto& breakpoint : mBreakpoints) {
 				ImGui::TableNextRow();
 
 				ImGui::TableNextColumn();
-				ImGui::Button(ICON_FA_CIRCLE);
+				if (breakpoint.Enabled) {
+					if (ImGui::Button(ICON_FA_EYE)) breakpoint.Enabled = false;
+				} else {
+					if (ImGui::Button(ICON_FA_EYE_SLASH)) breakpoint.Enabled = true;
+				}
 
 				ImGui::TableNextColumn();
 				sprintf_s(addressBuffer, 32, "0x%08X", breakpoint.Address);
@@ -192,12 +194,8 @@ namespace esx {
 				if (ImGui::InputText("##goto", addressBuffer, IM_ARRAYSIZE(addressBuffer), ImGuiInputTextFlags_CharsHexadecimal))
 				{
 					U32 addr;
-					if (sscanf(addressBuffer, "0x%08X", &addr) == 1) {
-						newAddress = addr;
-						indexToModify = i;
-					} else if (sscanf(addressBuffer, "%08X", &addr) == 1) {
-						newAddress = addr;
-						indexToModify = i;
+					if (sscanf(addressBuffer, "0x%08X", &addr) == 1 || sscanf(addressBuffer, "%08X", &addr) == 1) {
+						breakpoint.Address = addr;
 					}
 				}
 				ImGui::PopID();
@@ -221,10 +219,6 @@ namespace esx {
 
 			if (indexToDelete != -1) {
 				mBreakpoints.erase(mBreakpoints.begin() + indexToDelete);
-			}
-
-			if (indexToModify != -1) {
-				mBreakpoints[indexToModify].Address = newAddress;
 			}
 
 			ImGui::EndTable();

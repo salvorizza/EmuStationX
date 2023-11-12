@@ -29,6 +29,7 @@ namespace esx {
 		};
 
 		struct Breakpoint {
+			bool Enabled = true;
 			U32 Address;
 		};
 
