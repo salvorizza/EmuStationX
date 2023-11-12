@@ -23,7 +23,7 @@ namespace esx {
 	{
 		U32 opcode = fetch(mPC);
 
-		Instruction instruction = decode(opcode);
+		Instruction instruction = decode(opcode, mPC);
 
 		ESX_CORE_ASSERT(instruction.Execute, "No Operation");
 
@@ -48,7 +48,7 @@ namespace esx {
 		return load<U32>(address);
 	}
 
-	Instruction R3000::decode(U32 instruction)
+	Instruction R3000::decode(U32 instruction, U32 address)
 	{
 		constexpr static StringView registersMnemonics[] = {
 			ESX_TEXT("$zero"),
@@ -67,7 +67,7 @@ namespace esx {
 
 		Instruction result;
 
-		result.Address = mPC;
+		result.Address = address;
 		result.Opcode = OPCODE(instruction);
 		result.Execute = nullptr;
 
@@ -244,13 +244,13 @@ namespace esx {
 			//J Type
 			case 0x02: {
 				result.PseudoAddress = ADDRESS(instruction);
-				result.Mnemonic = FormatString(ESX_TEXT("j 0x{:08x}"), (mNextPC & 0xF0000000) | (result.PseudoAddress << 2));
+				result.Mnemonic = FormatString(ESX_TEXT("j 0x{:08x}"), ((address + 4) & 0xF0000000) | (result.PseudoAddress << 2));
 				result.Execute = std::bind(&R3000::J, this, std::placeholders::_1);
 				break;
 			}
 			case 0x03: {
 				result.PseudoAddress = ADDRESS(instruction);
-				result.Mnemonic = FormatString(ESX_TEXT("jal 0x{:08x}"), (mNextPC & 0xF0000000) | (result.PseudoAddress << 2));
+				result.Mnemonic = FormatString(ESX_TEXT("jal 0x{:08x}"), ((address + 4) & 0xF0000000) | (result.PseudoAddress << 2));
 				result.Execute = std::bind(&R3000::JAL, this, std::placeholders::_1);
 				break;
 			}
@@ -264,22 +264,22 @@ namespace esx {
 					case 0x01: {
 						switch (result.RegisterTarget) {
 							case 0x00: {
-								result.Mnemonic = FormatString(ESX_TEXT("bltz {},0x{:08x}"), registersMnemonics[result.RegisterSource], mNextPC + (SIGNEXT16(result.Immediate) << 2));
+								result.Mnemonic = FormatString(ESX_TEXT("bltz {},0x{:08x}"), registersMnemonics[result.RegisterSource], (address + 4) + (SIGNEXT16(result.Immediate) << 2));
 								result.Execute = std::bind(&R3000::BLTZ, this, std::placeholders::_1);
 								break;
 							}
 							case 0x01: {
-								result.Mnemonic = FormatString(ESX_TEXT("bgez {},0x{:08x}"), registersMnemonics[result.RegisterSource],  mNextPC + (SIGNEXT16(result.Immediate) << 2));
+								result.Mnemonic = FormatString(ESX_TEXT("bgez {},0x{:08x}"), registersMnemonics[result.RegisterSource], (address + 4) + (SIGNEXT16(result.Immediate) << 2));
 								result.Execute = std::bind(&R3000::BGEZ, this, std::placeholders::_1);
 								break;
 							}
 							case 0x10: {
-								result.Mnemonic = FormatString(ESX_TEXT("bltzal {},0x{:08x}"), registersMnemonics[result.RegisterSource], mNextPC + (SIGNEXT16(result.Immediate) << 2));
+								result.Mnemonic = FormatString(ESX_TEXT("bltzal {},0x{:08x}"), registersMnemonics[result.RegisterSource], (address + 4) + (SIGNEXT16(result.Immediate) << 2));
 								result.Execute = std::bind(&R3000::BLTZAL, this, std::placeholders::_1);
 								break;
 							}
 							case 0x11: {
-								result.Mnemonic = FormatString(ESX_TEXT("bgezal {},0x{:08x}"), registersMnemonics[result.RegisterSource], mNextPC + (SIGNEXT16(result.Immediate) << 2));
+								result.Mnemonic = FormatString(ESX_TEXT("bgezal {},0x{:08x}"), registersMnemonics[result.RegisterSource], (address + 4) + (SIGNEXT16(result.Immediate) << 2));
 								result.Execute = std::bind(&R3000::BGEZAL, this, std::placeholders::_1);
 								break;
 							}
@@ -293,22 +293,22 @@ namespace esx {
 						break;
 					}
 					case 0x04: {
-						result.Mnemonic = FormatString(ESX_TEXT("beq {},{},0x{:08x}"), registersMnemonics[result.RegisterTarget], registersMnemonics[result.RegisterSource], mNextPC + (SIGNEXT16(result.Immediate) << 2));
+						result.Mnemonic = FormatString(ESX_TEXT("beq {},{},0x{:08x}"), registersMnemonics[result.RegisterTarget], registersMnemonics[result.RegisterSource], (address + 4) + (SIGNEXT16(result.Immediate) << 2));
 						result.Execute = std::bind(&R3000::BEQ, this, std::placeholders::_1);
 						break;
 					}
 					case 0x05: {
-						result.Mnemonic = FormatString(ESX_TEXT("bne {},{},0x{:08x}"), registersMnemonics[result.RegisterTarget], registersMnemonics[result.RegisterSource], mNextPC + (SIGNEXT16(result.Immediate) << 2));
+						result.Mnemonic = FormatString(ESX_TEXT("bne {},{},0x{:08x}"), registersMnemonics[result.RegisterTarget], registersMnemonics[result.RegisterSource], (address + 4) + (SIGNEXT16(result.Immediate) << 2));
 						result.Execute = std::bind(&R3000::BNE, this, std::placeholders::_1);
 						break;
 					}
 					case 0x06: {
-						result.Mnemonic = FormatString(ESX_TEXT("blez {},0x{:08x}"), registersMnemonics[result.RegisterSource], mNextPC + (SIGNEXT16(result.Immediate) << 2));
+						result.Mnemonic = FormatString(ESX_TEXT("blez {},0x{:08x}"), registersMnemonics[result.RegisterSource], (address + 4) + (SIGNEXT16(result.Immediate) << 2));
 						result.Execute = std::bind(&R3000::BLEZ, this, std::placeholders::_1);
 						break;
 					}
 					case 0x07: {
-						result.Mnemonic = FormatString(ESX_TEXT("bgtz {},0x{:08x}"), registersMnemonics[result.RegisterSource], mNextPC + (SIGNEXT16(result.Immediate) << 2));
+						result.Mnemonic = FormatString(ESX_TEXT("bgtz {},0x{:08x}"), registersMnemonics[result.RegisterSource], (address + 4) + (SIGNEXT16(result.Immediate) << 2));
 						result.Execute = std::bind(&R3000::BGTZ, this, std::placeholders::_1);
 						break;
 					}

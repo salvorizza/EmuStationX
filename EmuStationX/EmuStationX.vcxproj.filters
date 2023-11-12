@@ -87,6 +87,18 @@
     <ClInclude Include="src\UI\Graphics\VertexBuffer.h">
       <Filter>UI\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="src\UI\Panels\CPUStatusPanel.h">
+      <Filter>UI\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Panels\DisassemblerPanel.h">
+      <Filter>UI\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Panels\MemoryEditor.h">
+      <Filter>UI\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Panels\MemoryEditorPanel.h">
+      <Filter>UI\Panels</Filter>
+    </ClInclude>
     <ClInclude Include="src\UI\Panels\Panel.h">
       <Filter>UI\Panels</Filter>
     </ClInclude>
@@ -111,10 +123,6 @@
     <ClInclude Include="src\Utils\LoggingSystem.h">
       <Filter>Utils</Filter>
     </ClInclude>
-    <ClInclude Include="src\UI\Panels\CPUStatusPanel.h" />
-    <ClInclude Include="src\UI\Panels\DisassemblerPanel.h" />
-    <ClInclude Include="src\UI\Panels\MemoryEditor.h" />
-    <ClInclude Include="src\UI\Panels\MemoryEditorPanel.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -162,6 +170,15 @@
     <ClCompile Include="src\UI\Graphics\VertexBuffer.cpp">
       <Filter>UI\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI\Panels\CPUStatusPanel.cpp">
+      <Filter>UI\Panels</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp">
+      <Filter>UI\Panels</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Panels\MemoryEditorPanel.cpp">
+      <Filter>UI\Panels</Filter>
+    </ClCompile>
     <ClCompile Include="src\UI\Panels\Panel.cpp">
       <Filter>UI\Panels</Filter>
     </ClCompile>
@@ -184,8 +201,5 @@
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\UI\Panels\CPUStatusPanel.cpp" />
-    <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp" />
-    <ClCompile Include="src\UI\Panels\MemoryEditorPanel.cpp" />
   </ItemGroup>
 </Project>

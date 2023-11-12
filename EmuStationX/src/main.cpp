@@ -57,8 +57,6 @@ public:
 		mCPUStatusPanel->setInstance(&cpu);
 		mDisassemblerPanel->setInstance(&cpu);
 		mMemoryEditorPanel->setInstance(&root);
-
-		mDisassemblerPanel->disassembleBios();
 	}
 
 	virtual void onUpdate() override {

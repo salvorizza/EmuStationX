@@ -15,32 +15,21 @@ namespace esx {
 
 		void setInstance(R3000* pInstance) { mInstance = pInstance;}
 
-		void disassembleBios();
-
-		bool breakFunction(uint32_t address);
+		bool breakFunction(U32 address);
 
 		void onUpdate();
-
-	private:
-		void search(const std::string& key);
 
 	protected:
 		virtual void onImGuiRender() override;
 
 	private:
-		struct DebugInstruction {
-			std::string Instruction;
-			bool Breakpoint;
+		struct Instruction {
+			U32 Address;
+			std::string Mnemonic;
+		};
 
-			DebugInstruction()
-				: Breakpoint(false),
-				Instruction()
-			{}
-
-			DebugInstruction(const std::string& instruction, bool breakpoint = false)
-				: Breakpoint(breakpoint),
-				Instruction(instruction)
-			{}
+		struct Breakpoint {
+			U32 Address;
 		};
 
 		enum class DebugState {
@@ -53,15 +42,8 @@ namespace esx {
 			Stop
 		};
 
-		enum class DebugTab {
-			None,
-			Bios
-		};
-
 	private:
-		void disassemble(DebugTab tab,std::map<uint32_t, DisassemblerPanel::DebugInstruction>& instructionMap, uint32_t startAddress, size_t size);
-		inline std::map<uint32_t, DisassemblerPanel::DebugInstruction>& getCurrentInstructionMap() { return mInstructions; }
-		inline std::vector<uint32_t>& getCurrentInstructionMapKeys() { return mInstructionsKeys; }
+		void disassemble(uint32_t startAddress, size_t size);
 
 		void onPlay();
 		void onStop();
@@ -71,21 +53,15 @@ namespace esx {
 
 		R3000* mInstance;
 
-		std::map<std::pair<DebugTab, uint32_t>, DisassemblerPanel::DebugInstruction> mInstructionsBreaks;
-
-
-		std::map<uint32_t, DisassemblerPanel::DebugInstruction> mInstructions;
-		std::vector<uint32_t> mInstructionsKeys;
-
-		std::map<uint32_t, size_t> mSearchResults;
-		std::map<uint32_t, size_t>::iterator mSearchResultsIterator;
+		std::vector<Instruction> mInstructions;
+		std::vector<Breakpoint> mBreakpoints;
 
 		DebugState mDebugState;
 		DebugState mPrevDebugState;
-		DebugTab mDebugTab,mSelectTab;
-
 		bool mScrollToCurrent;
 		uint32_t mCurrent;
+
+		static const size_t disassembleRange = 10;
 	};
 
 }
