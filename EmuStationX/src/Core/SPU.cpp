@@ -17,12 +17,12 @@ namespace esx {
 
 	void SPU::store(const String& busName, U32 address, U16 value)
 	{
-		ESX_CORE_LOG_WARNING("SPU - Writing to address {:8x} not implemented yet", address);
+		//ESX_CORE_LOG_WARNING("SPU - Writing to address {:8x} not implemented yet", address);
 	}
 
 	void SPU::load(const String& busName, U32 address, U16& output)
 	{
-		ESX_CORE_LOG_WARNING("SPU - Reading from address {:8x} not implemented yet", address);
+		//ESX_CORE_LOG_WARNING("SPU - Reading from address {:8x} not implemented yet", address);
 	}
 
 }

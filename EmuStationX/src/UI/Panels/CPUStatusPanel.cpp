@@ -32,35 +32,154 @@ namespace esx {
 			"$ra"
 		};
 
-		float availWidth = ImGui::GetContentRegionAvail().x;
+		constexpr static const char* cop0RegistersMnemonics[] = {
+			"N/A",
+			"N/A",
+			"N/A",
+			"BPC",
+			"N/A",
+			"BDA",
+			"JumpDest",
+			"DCIC",
+			"BadVaddr",
+			"BDAM",
+			"N/A",
+			"BPCM",
+			"SR",
+			"Cause",
+			"EPC",
+			"PrID",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"*Garbage*",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A",
+			"N/A"
+		};
 
-		if (ImGui::BeginTable("CPUStatusTable", 3, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Hideable)) {
-			ImGui::TableSetupColumn("GPR", ImGuiTableColumnFlags_WidthFixed, availWidth * 0.15f);
-			ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, availWidth * 0.50f);
-			ImGui::TableHeadersRow();
+		enum class TabItem {
+			CPU,CP0
+		};
 
-			for (int i = 0; i < 32; i++) {
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn();
-				ImGui::TextUnformatted(registersMnemonics[i]);
-				ImGui::TableNextColumn();
-				ImGui::Text("0x%08X", mInstance->mRegisters[i]);
+		static TabItem tabItem = TabItem::CPU;
+
+		if (ImGui::BeginTabBar("SelectCoprocessor"))
+		{
+			if (ImGui::BeginTabItem("CPU")) {
+				tabItem = TabItem::CPU;
+				ImGui::EndTabItem();
 			}
 
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			ImGui::TextUnformatted("HI");
-			ImGui::TableNextColumn();
-			ImGui::Text("0x%08X", mInstance->mHI);
+			if (ImGui::BeginTabItem("CP0")) {
+				tabItem = TabItem::CP0;
+				ImGui::EndTabItem();
+			}
 
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			ImGui::TextUnformatted("LO");
-			ImGui::TableNextColumn();
-			ImGui::Text("0x%08X", mInstance->mLO);
-
-			ImGui::EndTable();
+			ImGui::EndTabBar();
 		}
+
+		float availWidth = ImGui::GetContentRegionAvail().x;
+
+		switch (tabItem) {
+			case TabItem::CPU: {
+				if (ImGui::BeginTable("CPUStatusTable", 3, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Hideable)) {
+					ImGui::TableSetupColumn("GPR", ImGuiTableColumnFlags_WidthFixed, availWidth * 0.15f);
+					ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, availWidth * 0.50f);
+					ImGui::TableHeadersRow();
+
+					for (int i = 0; i < 32; i++) {
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						ImGui::TextUnformatted(registersMnemonics[i]);
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", mInstance->mRegisters[i]);
+					}
+
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted("HI");
+					ImGui::TableNextColumn();
+					ImGui::Text("0x%08X", mInstance->mHI);
+
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted("LO");
+					ImGui::TableNextColumn();
+					ImGui::Text("0x%08X", mInstance->mLO);
+
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted("PC");
+					ImGui::TableNextColumn();
+					ImGui::Text("0x%08X", mInstance->mPC);
+
+					ImGui::EndTable();
+				}
+				break;
+			}
+
+			case TabItem::CP0: {
+				if (ImGui::BeginTable("CP0StatusTable", 3, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Hideable)) {
+					ImGui::TableSetupColumn("Register", ImGuiTableColumnFlags_WidthFixed, availWidth * 0.30f);
+					ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, availWidth * 0.50f);
+					ImGui::TableHeadersRow();
+
+					for (int i = 0; i < 64; i++) {
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						ImGui::TextUnformatted(cop0RegistersMnemonics[i]);
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", mInstance->mCP0Registers[i]);
+					}
+					
+					ImGui::EndTable();
+				}
+				break;
+			}
+		}
+
 	}
 
 }

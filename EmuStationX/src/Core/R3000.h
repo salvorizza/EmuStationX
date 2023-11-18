@@ -102,12 +102,13 @@ namespace esx {
 		void clock();
 	private:
 		U32 fetch(U32 address);
-		Instruction decode(U32 instruction, U32 address);
+		Instruction decode(U32 instruction, U32 address, bool suppressException = false);
 
 		template<typename T>
 		U32 load(U32 address) {
 			if (ADDRESS_UNALIGNED(address,T)) {
 				raiseException(ExceptionType::AddressErrorLoad);
+				return 0;
 			}
 
 			U32 sr = getCP0Register((U8)COP0Register::SR);
@@ -131,6 +132,7 @@ namespace esx {
 		void store(U32 address, U32 value) {
 			if (ADDRESS_UNALIGNED(address, T)) {
 				raiseException(ExceptionType::AddressErrorStore);
+				return;
 			}
 
 			U32 sr = getCP0Register((U8)COP0Register::SR);
@@ -229,19 +231,18 @@ namespace esx {
 		void setCP0Register(U8 index, U32 value);
 		U32 getCP0Register(U8 index);
 
-		void raiseException(ExceptionType type, const Instruction* instruction = nullptr);
+		void raiseException(ExceptionType type);
 		void raiseBreakpoint();
 
 	private:
 		Array<U32, 32> mRegisters;
 		Queue<Pair<U32, U32>> mPendingLoads;
-		U32 mPC;
+		U32 mPC, mNextPC, mCurrentPC;
 		U32 mHI, mLO;
-
-		U32 mNextPC;
-
-		Array<U32, 32> mCP0Registers;
+		Array<U32, 64> mCP0Registers;
 		Vector<U8> mICache;
+
+		bool mBranch, mBranchSlot;
 	};
 
 }

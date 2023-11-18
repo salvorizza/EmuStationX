@@ -18,6 +18,9 @@
 #include "Core/SPU.h"
 #include "Core/PIO.h"
 #include "Core/InterruptControl.h"
+#include "Core/Timer.h"
+#include "Core/DMA.h"
+#include "Core/GPU.h"
 
 
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -53,6 +56,9 @@ public:
 		root.connectDevice(&spu);
 		root.connectDevice(&pio);
 		root.connectDevice(&interruptControl);
+		root.connectDevice(&timer);
+		root.connectDevice(&dma);
+		root.connectDevice(&gpu);
 
 		mCPUStatusPanel->setInstance(&cpu);
 		mDisassemblerPanel->setInstance(&cpu);
@@ -132,6 +138,9 @@ private:
 	SPU spu;
 	PIO pio;
 	Bios bios;
+	Timer timer;
+	DMA dma;
+	GPU gpu;
 
 	std::shared_ptr<CPUStatusPanel> mCPUStatusPanel;
 	std::shared_ptr<DisassemblerPanel> mDisassemblerPanel;

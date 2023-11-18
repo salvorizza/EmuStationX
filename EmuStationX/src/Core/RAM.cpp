@@ -26,6 +26,23 @@ namespace esx {
 		output = mMemory[address];
 	}
 
+	void RAM::store(const String& busName, U32 address, U16 value)
+	{
+		for (size_t i = 0; i < sizeof(U16); i++) {
+			mMemory[address + i] = (value & 0xFF);
+			value >>= 8;
+		}
+	}
+
+	void RAM::load(const String& busName, U32 address, U16& output)
+	{
+		output = 0;
+		for (size_t i = 0; i < sizeof(U16); i++) {
+			output <<= 8;
+			output |= mMemory[address + (sizeof(U16) - 1 - i)];
+		}
+	}
+
 	void RAM::store(const String& busName, U32 address, U32 value)
 	{
 		for (size_t i = 0; i < sizeof(U32); i++) {

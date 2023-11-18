@@ -123,6 +123,9 @@
     <ClInclude Include="src\Utils\LoggingSystem.h">
       <Filter>Utils</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\Timer.h" />
+    <ClInclude Include="src\Core\DMA.h" />
+    <ClInclude Include="src\Core\GPU.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -201,5 +204,8 @@
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Core\Timer.cpp" />
+    <ClCompile Include="src\Core\DMA.cpp" />
+    <ClCompile Include="src\Core\GPU.cpp" />
   </ItemGroup>
 </Project>

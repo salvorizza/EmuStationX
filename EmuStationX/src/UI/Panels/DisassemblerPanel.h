@@ -47,7 +47,7 @@ namespace esx {
 		void disassemble(uint32_t startAddress, size_t size);
 
 		void onPlay();
-		void onStop();
+		void onPause();
 		void onStepForward();
 
 		void setDebugState(DebugState debugState) { mPrevDebugState = mDebugState; mDebugState = debugState; }

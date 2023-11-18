@@ -9,8 +9,8 @@ namespace esx {
 	R3000::R3000()
 		: BusDevice(ESX_TEXT("R3000"))
 	{
-		mPC = 0x1FC00000;
-		mNextPC = 0x1FC00000 + 4;
+		mPC = 0xBFC00000;
+		mNextPC = mPC + 4;
 
 		mICache.resize(KIBI(4));
 	}
@@ -27,8 +27,12 @@ namespace esx {
 
 		ESX_CORE_ASSERT(instruction.Execute, "No Operation");
 
+		mCurrentPC = mPC;
 		mPC = mNextPC;
 		mNextPC += 4;
+
+		mBranchSlot = mBranch;
+		mBranch = false;
 
 		bool pendingLoadsEmpty = mPendingLoads.empty();
 
@@ -48,7 +52,7 @@ namespace esx {
 		return load<U32>(address);
 	}
 
-	Instruction R3000::decode(U32 instruction, U32 address)
+	Instruction R3000::decode(U32 instruction, U32 address, bool suppressException)
 	{
 		constexpr static StringView registersMnemonics[] = {
 			ESX_TEXT("$zero"),
@@ -233,7 +237,7 @@ namespace esx {
 						break;
 					}
 					default: {
-						raiseException(ExceptionType::ReservedInstruction);
+						if(!suppressException) raiseException(ExceptionType::ReservedInstruction);
 						break;
 					}
 				}
@@ -285,7 +289,7 @@ namespace esx {
 							}
 
 							default: {
-								raiseException(ExceptionType::ReservedInstruction);
+								if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
 								break;
 							}
 						}
@@ -358,7 +362,7 @@ namespace esx {
 					case 0x13: {
 						U8 cpn = CO_N(instruction);
 						if (cpn != 0x00) {
-							raiseException(ExceptionType::CoprocessorUnusable);
+							if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
 							break;
 						}
 
@@ -377,7 +381,7 @@ namespace esx {
 									break;
 								}
 								default: {
-									raiseException(ExceptionType::ReservedInstruction);
+									if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
 									break;
 								}
 							}
@@ -391,7 +395,7 @@ namespace esx {
 								}
 								
 								default: {
-									raiseException(ExceptionType::ReservedInstruction);
+									if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
 									break;
 								}
 							}
@@ -465,7 +469,7 @@ namespace esx {
 					case 0x32:
 					case 0x33: {
 						//LWCx
-						raiseException(ExceptionType::CoprocessorUnusable);
+						if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
 						break;
 					}
 
@@ -474,12 +478,12 @@ namespace esx {
 					case 0x3A:
 					case 0x3B: {
 						//LWCx
-						raiseException(ExceptionType::CoprocessorUnusable);
+						if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
 						break;
 					}
 
 					default: {
-						raiseException(ExceptionType::ReservedInstruction);
+						if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
 						break;
 					}
 				}
@@ -498,7 +502,7 @@ namespace esx {
 		U32 r = a + b;
 
 		if (OVERFLOW_ADD32(a, b, r)) {
-			raiseException(ExceptionType::ArithmeticOverflow, &instruction);
+			raiseException(ExceptionType::ArithmeticOverflow);
 			return;
 		}
 
@@ -523,7 +527,7 @@ namespace esx {
 		U32 r = a - b;
 
 		if (OVERFLOW_SUB32(a, b, r)) {
-			raiseException(ExceptionType::ArithmeticOverflow, &instruction);
+			raiseException(ExceptionType::ArithmeticOverflow);
 			return;
 		}
 
@@ -548,7 +552,7 @@ namespace esx {
 		U32 r = a + b;
 
 		if (OVERFLOW_ADD32(a, b, r)) {
-			raiseException(ExceptionType::ArithmeticOverflow, &instruction);
+			raiseException(ExceptionType::ArithmeticOverflow);
 			return;
 		}
 
@@ -936,7 +940,7 @@ namespace esx {
 		U32 a = getRegister(instruction.RegisterTarget);
 		U32 s = getRegister(instruction.RegisterSource);
 
-		U32 r = a << s;
+		U32 r = a << (s & 0x1F);
 
 		setRegister(instruction.RegisterDestination, r);
 	}
@@ -946,7 +950,7 @@ namespace esx {
 		U32 a = getRegister(instruction.RegisterTarget);
 		U32 s = getRegister(instruction.RegisterSource);
 
-		U32 r = a >> s;
+		U32 r = a >> (s & 0x1F);
 
 		setRegister(instruction.RegisterDestination, r);
 	}
@@ -956,7 +960,7 @@ namespace esx {
 		U32 a = getRegister(instruction.RegisterTarget);
 		U32 s = getRegister(instruction.RegisterSource);
 
-		U32 r = (a & 0x80000000 ? 0xFFFFFFFF << (32 - s) : 0x0) | (a >> s);
+		U32 r = (a & 0x80000000 ? 0xFFFFFFFF << (32 - (s & 0x1F)) : 0x0) | (a >> (s & 0x1F));
 
 		setRegister(instruction.RegisterDestination, r);
 	}
@@ -970,6 +974,7 @@ namespace esx {
 		if (a == b) {
 			mNextPC += o;
 			mNextPC -= 4;
+			mBranch = true;
 		}
 	}
 
@@ -982,74 +987,81 @@ namespace esx {
 		if (a != b) {
 			mNextPC += o;
 			mNextPC -= 4;
+			mBranch = true;
 		}
 	}
 
 	void R3000::BLTZ(const Instruction& instruction)
 	{
-		U32 a = getRegister(instruction.RegisterSource);
+		I32 a = getRegister(instruction.RegisterSource);
 		I32 o = SIGNEXT16(instruction.Immediate) << 2;
 
 		if (a < 0) {
 			mNextPC += o;
 			mNextPC -= 4;
+			mBranch = true;
 		}
 	}
 
 	void R3000::BLTZAL(const Instruction& instruction)
 	{
-		U32 a = getRegister(instruction.RegisterSource);
+		I32 a = getRegister(instruction.RegisterSource);
 		I32 o = SIGNEXT16(instruction.Immediate) << 2;
 
 		if (a < 0) {
 			setRegister(31, mNextPC);
 			mNextPC += o;
 			mNextPC -= 4;
+			mBranch = true;
 		}
 	}
 
 	void R3000::BLEZ(const Instruction& instruction)
 	{
-		U32 a = getRegister(instruction.RegisterSource);
+		I32 a = getRegister(instruction.RegisterSource);
 		I32 o = SIGNEXT16(instruction.Immediate) << 2;
 
 		if (a <= 0) {
 			mNextPC += o;
 			mNextPC -= 4;
+			mBranch = true;
 		}
 	}
 
 	void R3000::BGTZ(const Instruction& instruction)
 	{
-		U32 a = getRegister(instruction.RegisterSource);
+		I32 a = getRegister(instruction.RegisterSource);
 		I32 o = SIGNEXT16(instruction.Immediate) << 2;
 
 		if (a > 0) {
 			mNextPC += o;
 			mNextPC -= 4;
+			mBranch = true;
 		}
 	}
 
 	void R3000::BGEZ(const Instruction& instruction)
 	{
-		U32 a = getRegister(instruction.RegisterSource);
+		I32 a = getRegister(instruction.RegisterSource);
 		I32 o = SIGNEXT16(instruction.Immediate) << 2;
 
 		if (a >= 0) {
 			mNextPC += o;
 			mNextPC -= 4;
+			mBranch = true;
 		}
 	}
 
 	void R3000::BGEZAL(const Instruction& instruction)
 	{
-		U32 a = getRegister(instruction.RegisterSource);
+		I32 a = getRegister(instruction.RegisterSource);
 		I32 o = SIGNEXT16(instruction.Immediate) << 2;
 
 		if (a >= 0) {
 			setRegister(31, mNextPC);
 			mNextPC += o;
 			mNextPC -= 4;
+			mBranch = true;
 		}
 	}
 
@@ -1057,12 +1069,14 @@ namespace esx {
 	{
 		U32 a = (mNextPC & 0xF0000000) | (instruction.PseudoAddress << 2);
 		mNextPC = a;
+		mBranch = true;
 	}
 
 	void R3000::JR(const Instruction& instruction)
 	{
 		U32 a = getRegister(instruction.RegisterSource);
 		mNextPC = a;
+		mBranch = true;
 	}
 
 	void R3000::JAL(const Instruction& instruction)
@@ -1070,6 +1084,7 @@ namespace esx {
 		U32 a = (mNextPC & 0xF0000000) | (instruction.PseudoAddress << 2);
 		setRegister(31, mNextPC);
 		mNextPC = a;
+		mBranch = true;
 	}
 
 	void R3000::JALR(const Instruction& instruction)
@@ -1077,16 +1092,17 @@ namespace esx {
 		U32 a = getRegister(instruction.RegisterSource);
 		setRegister(31, mNextPC);
 		mNextPC = a;
+		mBranch = true;
 	}
 
 	void R3000::BREAK(const Instruction& instruction)
 	{
-		raiseException(ExceptionType::Breakpoint, &instruction);
+		raiseException(ExceptionType::Breakpoint);
 	}
 
 	void R3000::SYSCALL(const Instruction& instruction)
 	{
-		raiseException(ExceptionType::Syscall, &instruction);
+		raiseException(ExceptionType::Syscall);
 	}
 
 	void R3000::MTC0(const Instruction& instruction)
@@ -1098,12 +1114,12 @@ namespace esx {
 			instruction.RegisterDestination == 4 ||
 			instruction.RegisterDestination == 10 ||
 			(instruction.RegisterDestination >= 32 && instruction.RegisterDestination <= 63)) {
-			raiseException(ExceptionType::ReservedInstruction, &instruction);
+			raiseException(ExceptionType::ReservedInstruction);
 			return;
 		}
 
 		if (instruction.RegisterDestination < 16 && (sr & 0x10000002) == 0x1) {
-			raiseException(ExceptionType::CoprocessorUnusable, &instruction);
+			raiseException(ExceptionType::CoprocessorUnusable);
 			return;
 		}
 
@@ -1135,7 +1151,7 @@ namespace esx {
 		U32 r = getCP0Register(instruction.RegisterDestination);
 
 		if (instruction.RegisterDestination < 16 && (sr & 0x10000002) == 0x1) {
-			raiseException(ExceptionType::CoprocessorUnusable, &instruction);
+			raiseException(ExceptionType::CoprocessorUnusable);
 			return;
 		}
 
@@ -1147,16 +1163,15 @@ namespace esx {
 		U32 sr = getCP0Register((U8)COP0Register::SR);
 
 		if ((sr & 0x10000002) == 0x1) {
-			raiseException(ExceptionType::CoprocessorUnusable, &instruction);
+			raiseException(ExceptionType::CoprocessorUnusable);
 			return;
 		}
 
-		U32 r = sr;
+		U32 mode = sr & 0x3F;
+		sr &= ~0x3F;
+		sr |= (mode >> 2) & 0x3F;
 
-		r &= ~0xF; //Clear all first 4 bits
-		r |= (sr >> 2) & 0xF;
-
-		setCP0Register((U8)COP0Register::SR, r);
+		setCP0Register((U8)COP0Register::SR, sr);
 	}
 
 	void R3000::addPendingLoad(U8 index, U32 value)
@@ -1185,43 +1200,37 @@ namespace esx {
 		return mCP0Registers[index];
 	}
 
-	void R3000::raiseException(ExceptionType type, const Instruction* instruction)
+	void R3000::raiseException(ExceptionType type)
 	{
-		/*switch (type)
-		{
-		case ExceptionType::Interrupt:
-			ESX_CORE_ASSERT(false,"ExceptionType::Interrupt not handled yet");
-			break;
+		if (type != ExceptionType::Syscall) {
+			ESX_CORE_ASSERT(false, "type of exception not tested yet");
+		}
 
-		case ExceptionType::AddressErrorLoad:
-			ESX_CORE_ASSERT(false, "ExceptionType::AddressErrorLoad not handled yet");
-			break;
+		U32 sr = getCP0Register((U8)COP0Register::SR);
+		U32 epc = getCP0Register((U8)COP0Register::EPC);
+		U32 cause = getCP0Register((U8)COP0Register::Cause);
 
-		case ExceptionType::AddressErrorStore:
-			ESX_CORE_ASSERT(false, "ExceptionType::AddressErrorStore not handled yet");
-			break;
+		U32 handler = 0x80000080;
+		if ((sr & (1 << 22)) != 0) {
+			handler = 0xBFC00180;
+		}
 
-		case ExceptionType::Syscall:
-			ESX_CORE_ASSERT(false, "ExceptionType::Syscall not handled yet");
-			break;
+		U32 mode = sr & 0x3F;
+		sr &= ~0x3F;
+		sr |= (mode << 2) & 0x3F;
 
-		case ExceptionType::Breakpoint:
-			ESX_CORE_ASSERT(false, "ExceptionType::Breakpoint not handled yet");
-			break;
+		cause = ((U32)type) << 2;
+		epc = mCurrentPC;
 
-		case ExceptionType::ReservedInstruction:
-			ESX_CORE_ASSERT(false, "ExceptionType::ReservedInstruction not handled yet");
-			break;
+		if (mBranchSlot) {
+			cause |= 1 << 31;
+			epc -= 4;
+		}
 
-		case ExceptionType::CoprocessorUnusable:
-			ESX_CORE_ASSERT(false, "ExceptionType::CoprocessorUnusable not handled yet");
-			break;
-
-		case ExceptionType::ArithmeticOverflow:
-			ESX_CORE_ASSERT(false, "ExceptionType::ArithmeticOverflow not handled yet");
-			break;
-		
-		}*/
+		setCP0Register((U8)COP0Register::Cause, cause);
+		setCP0Register((U8)COP0Register::EPC, epc);
+		mPC = handler;
+		mNextPC = mPC + 4;
 	}
 
 }

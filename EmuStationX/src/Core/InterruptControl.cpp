@@ -18,7 +18,48 @@ namespace esx {
 
 	void InterruptControl::store(const String& busName, U32 address, U32 value)
 	{
+		switch (address) {
+			case I_STAT_ADDRESS: {
+				ESX_CORE_LOG_WARNING("InterruptControl - Writing to I_STAT not implemented yet");
+				break;
+			}
+			case I_MASK_ADDRESS: {
+				ESX_CORE_LOG_WARNING("InterruptControl - Writing to I_MASK not implemented yet");
+				break;
+			}
+			default: {
+				ESX_CORE_LOG_WARNING("InterruptControl - Writing to address {:8x} not implemented yet", address);
+			}
+		}
+	}
+
+	void InterruptControl::load(const String& busName, U32 address, U32& output)
+	{
+		output = 0;
+
+		switch (address) {
+			case I_STAT_ADDRESS: {
+				ESX_CORE_LOG_WARNING("InterruptControl - Reading I_STAT not implemented yet");
+				break;
+			}
+			case I_MASK_ADDRESS: {
+				ESX_CORE_LOG_WARNING("InterruptControl - Reading I_MASK not implemented yet");
+				break;
+			}
+			default: {
+				ESX_CORE_LOG_WARNING("InterruptControl - Reading address {:8x} not implemented yet", address);
+			}
+		}
+	}
+
+	void InterruptControl::store(const String& busName, U32 address, U16 value)
+	{
 		ESX_CORE_LOG_WARNING("InterruptControl - Writing to address {:8x} not implemented yet", address);
+	}
+
+	void InterruptControl::load(const String& busName, U32 address, U16& output)
+	{
+		ESX_CORE_LOG_WARNING("InterruptControl - Reading address {:8x} not implemented yet", address);
 	}
 
 }

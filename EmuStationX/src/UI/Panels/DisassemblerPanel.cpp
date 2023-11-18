@@ -25,7 +25,6 @@ namespace esx {
 
 	bool DisassemblerPanel::breakFunction(U32 address)
 	{
-		address = address & SEGS_MASKS[address >> 29];
 		auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.Address == address && b.Enabled; });
 		if (it != mBreakpoints.end()) {
 			disassemble(address - 4 * disassembleRange, 4 * disassembleRange * 2);
@@ -47,7 +46,7 @@ namespace esx {
 				break;
 
 			case DebugState::Running:
-				for (int i = 0; i < 100; i++) {
+				for (int i = 0; i < 10000; i++) {
 					if (breakFunction(mInstance->mPC)) {
 						setDebugState(DebugState::Breakpoint);
 						break;
@@ -80,32 +79,39 @@ namespace esx {
 		float addressingSize = oneCharSize * 11;
 		float contentCellsWidth = availWidth - (addressingSize);
 
-		if (ImGui::Button(ICON_FA_PLAY)) onPlay();
-		ImGui::SameLine();
-		if (ImGui::Button(ICON_FA_STOP)) onStop();
-		ImGui::SameLine();
-		if (ImGui::Button(ICON_FA_STEP_FORWARD)) onStepForward();
-		ImGui::SameLine();
-
+		if (mDebugState == DebugState::Idle || mDebugState == DebugState::Breakpoint) {
+			if (ImGui::Button(ICON_FA_PLAY))
+				onPlay();
+		}
+		else {
+			if (ImGui::Button(ICON_FA_PAUSE)) {
+				onPause();
+			}
+		}
+		if (mDebugState == DebugState::Breakpoint) {
+			ImGui::SameLine();
+			if (ImGui::Button(ICON_FA_STEP_FORWARD)) onStepForward();
+		}
+		
 		switch (mDebugState)
 		{
 			case esx::DisassemblerPanel::DebugState::Idle:
-				ImGui::TextUnformatted("Idle");
+				ImGui::TextUnformatted("State: Idle");
 				break;
 			case esx::DisassemblerPanel::DebugState::Start:
-				ImGui::TextUnformatted("Start");
+				ImGui::TextUnformatted("State: Start");
 				break;
 			case esx::DisassemblerPanel::DebugState::Running:
-				ImGui::TextUnformatted("Running");
+				ImGui::TextUnformatted("State: Running");
 				break;
 			case esx::DisassemblerPanel::DebugState::Breakpoint:
-				ImGui::TextUnformatted("Breakpoint");
+				ImGui::TextUnformatted("State: Breakpoint");
 				break;
 			case esx::DisassemblerPanel::DebugState::Step:
-				ImGui::TextUnformatted("Step");
+				ImGui::TextUnformatted("State: Step");
 				break;
 			case esx::DisassemblerPanel::DebugState::Stop:
-				ImGui::TextUnformatted("Stop");
+				ImGui::TextUnformatted("State: Stop");
 				break;
 			default:
 				break;
@@ -228,12 +234,12 @@ namespace esx {
 	void DisassemblerPanel::disassemble(uint32_t startAddress, size_t size){
 		mInstructions.clear();
 		for (U32 address = startAddress; address < startAddress + size; address +=4) {
-			address = address & SEGS_MASKS[address >> 29];
+			U32 physAddress = address & SEGS_MASKS[address >> 29];
 
-			if ((address >= 0x00000000 && address <= KIBI(2048)) || (address >= 0x1FC00000 && address < 0x1FC00000 + KIBI(512))) {
+			if ((physAddress >= 0x00000000 && physAddress <= KIBI(2048)) || (physAddress >= 0x1FC00000 && physAddress < 0x1FC00000 + KIBI(512))) {
 
-				U32 opcode = mInstance->getBus(ESX_TEXT("Root"))->load<U32>(address);
-				auto cpuInstruction = mInstance->decode(opcode, address);
+				U32 opcode = mInstance->getBus(ESX_TEXT("Root"))->load<U32>(physAddress);
+				auto cpuInstruction = mInstance->decode(opcode, physAddress, true);
 
 				Instruction instruction;
 				instruction.Address = address;
@@ -256,8 +262,11 @@ namespace esx {
 		}
 	}
 
-	void DisassemblerPanel::onStop() {
-		setDebugState(DebugState::Stop);
+	void DisassemblerPanel::onPause() {
+		setDebugState(DebugState::Breakpoint);
+		disassemble(mInstance->mPC - 4 * disassembleRange, 4 * disassembleRange * 2);
+		mScrollToCurrent = true;
+		mCurrent = mInstance->mPC;
 	}
 
 	void DisassemblerPanel::onStepForward() {
