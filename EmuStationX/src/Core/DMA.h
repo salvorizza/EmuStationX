@@ -110,6 +110,10 @@ namespace esx {
 		U32 getControlRegister();
 
 		void startTransfer(Port port);
+
+		void startBlockTransfer(Port port, const Channel& channel);
+		void startLinkedListTransfer(Port port, const Channel& channel);
+
 	private:
 		ControlRegister mControlRegister;
 		InterruptRegister mInterruptRegister;

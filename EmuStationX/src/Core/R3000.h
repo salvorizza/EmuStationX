@@ -218,10 +218,12 @@ namespace esx {
 		void BREAK(const Instruction& instruction);
 		void SYSCALL(const Instruction& instruction);
 
-		//COP0
+		//COPx
 		void MTC0(const Instruction& instruction);
 		void MFC0(const Instruction& instruction);
 		void RFE(const Instruction& instruction);
+		void LWC2(const Instruction& instruction);
+		void SWC2(const Instruction& instruction);
 
 		void addPendingLoad(U8 index, U32 value);
 

@@ -230,10 +230,22 @@ namespace esx {
 	{
 		const Channel& channel = mChannels[(U8)port];
 
-		ESX_CORE_ASSERT(port == Port::OTC, "DMA Port {} not supported yet", (U8)port);
-		ESX_CORE_ASSERT(channel.SyncMode != SyncMode::LinkedList, "Linked list Sync mode not supported yet");
-		ESX_CORE_ASSERT(channel.Direction != Direction::FromMainRAM, "FromMainRAM Direction not supported yet");
+		switch (channel.SyncMode) {
+			case SyncMode::LinkedList: {
+				startLinkedListTransfer(port, channel);
+				break;
+			}
 
+			default: {
+				startBlockTransfer(port, channel);
+				break;
+			}
+		}
+
+	}
+
+	void DMA::startBlockTransfer(Port port, const Channel& channel)
+	{
 		U32 address = channel.BaseAddress;
 
 		I32 increment = (channel.Step == Step::Forward) ? 4 : -4;
@@ -252,9 +264,7 @@ namespace esx {
 		Bus* bus = getBus(ESX_TEXT("Root"));
 		RAM* ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
 
-		ESX_CORE_LOG_TRACE("\nStarting DMA:\n\tPort: {}\n\tBase Address: {:08x}\n\tSize: {}\n\tIncrement: {}\n", (U8)port, address, transferSize, increment);
-
-
+		ESX_CORE_LOG_TRACE("\nStarting Block DMA:\n\tPort: {}\n\tBase Address: {:08x}\n\tSize: {}\n\tIncrement: {}\n\tDirection: {}", (U8)port, address, transferSize, increment, (U8)channel.Direction);
 		for (I32 remainingSize = transferSize; remainingSize > 0; remainingSize--) {
 			U32 currentAddress = address & 0x1FFFFC;
 
@@ -268,8 +278,13 @@ namespace esx {
 								valueToWrite = 0xFFFFFF;
 							}
 							else {
-								valueToWrite = (address - 4) & 0x1FFFF;
+								valueToWrite = (address - 4) & 0x1FFFFF;
 							}
+							break;
+						}
+						default: {
+							ESX_CORE_ASSERT(false, "Port {} not supported yet", (U8)port);
+							break;
 						}
 					}
 
@@ -277,13 +292,71 @@ namespace esx {
 					ram->store(ESX_TEXT("Root"), currentAddress, valueToWrite);
 					break;
 				}
+				case Direction::FromMainRAM: {
+					U32 value = 0;
+					ram->load(ESX_TEXT("Root"), currentAddress, value);
 
+					switch (port) {
+						case Port::GPU: {
+							ESX_CORE_LOG_TRACE("GPU Data: {:08x}", value);
+							break;
+						}
+						default: {
+							ESX_CORE_ASSERT(false, "Port {} not supported yet", (U8)port);
+							break;
+						}
+					}
+
+					break;
+				}
 			}
 
 			address += increment;
 		}
 
 		setChannelDone(port);
+		ESX_CORE_LOG_TRACE("DMA Done");
 	}
+
+	void DMA::startLinkedListTransfer(Port port, const Channel& channel)
+	{
+		ESX_CORE_ASSERT(port == Port::GPU, "DMA Port {} not supported yet", (U8)port);
+		ESX_CORE_ASSERT(channel.Direction == Direction::FromMainRAM, "ToMainRAM Direction not supported yet");
+
+		Bus* bus = getBus(ESX_TEXT("Root"));
+		RAM* ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
+
+		U32 nodeAddress = channel.BaseAddress & 0x1FFFFC;
+		U32 header = 0, packet = 0;
+
+		ESX_CORE_LOG_TRACE("\nStarting Linked List DMA:\n\tPort: {}\n\tStart Address: {:08x}", (U8)port, nodeAddress);
+
+		do
+		{
+			ram->load(ESX_TEXT("Root"), nodeAddress, header);
+
+			U32 nextNodeAddress = header & 0x1FFFFC;
+			I32 extraWords = header >> 24;
+
+			U32 packetAddress = (nodeAddress + 4) & 0x1FFFFC;
+			for (I32 remainingSize = extraWords; remainingSize > 0; remainingSize--) {
+				ram->load(ESX_TEXT("Root"), packetAddress, packet);
+
+				ESX_CORE_LOG_TRACE("GPU Command: {:8x}", packet);
+
+				packetAddress = (packetAddress + 4) & 0x1FFFFC;
+			}
+
+			if ((header & 0x800000) != 0) {
+				break;
+			}
+
+			nodeAddress = nextNodeAddress;
+		} while (true);
+
+		setChannelDone(port);
+		ESX_CORE_LOG_TRACE("DMA Done");
+	}
+
 
 }

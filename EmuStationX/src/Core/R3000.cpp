@@ -361,9 +361,13 @@ namespace esx {
 					case 0x12:
 					case 0x13: {
 						U8 cpn = CO_N(instruction);
-						if (cpn != 0x00) {
+						if (cpn != 0x00 && cpn != 0x02) {
 							if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
 							break;
+						}
+
+						if (cpn == 0x02) {
+							ESX_CORE_ASSERT(false, "GTE Not supported yet");
 						}
 
 						result.RegisterDestination = RD(instruction);
@@ -465,20 +469,33 @@ namespace esx {
 					}
 
 					case 0x30:
-					case 0x31:
+					case 0x31: 
 					case 0x32:
 					case 0x33: {
-						//LWCx
-						if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
+						U8 cpn = CO_N(instruction);
+						if (cpn != 0x02) {
+							if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
+							break;
+						}
+
+						result.Mnemonic = FormatString(ESX_TEXT("lwc{} ${},0x{:04x}({})"), cpn, result.RegisterTarget, result.Immediate, registersMnemonics[result.RegisterSource]);
+						result.Execute = std::bind(&R3000::LWC2, this, std::placeholders::_1);
 						break;
 					}
+					
 
 					case 0x38:
 					case 0x39:
 					case 0x3A:
 					case 0x3B: {
-						//LWCx
-						if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
+						U8 cpn = CO_N(instruction);
+						if (cpn != 0x02) {
+							if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
+							break;
+						}
+
+						result.Mnemonic = FormatString(ESX_TEXT("swc{} ${},0x{:04x}({})"), cpn, result.RegisterTarget, result.Immediate, registersMnemonics[result.RegisterSource]);
+						result.Execute = std::bind(&R3000::SWC2, this, std::placeholders::_1);
 						break;
 					}
 
@@ -747,12 +764,36 @@ namespace esx {
 
 	void R3000::SWL(const Instruction& instruction)
 	{
-		ESX_CORE_ASSERT(false, "SWL not implemented yet");
+		U32 a = getRegister(instruction.RegisterSource);
+		U32 b = SIGNEXT16(instruction.Immediate);
+		U32 c = getRegister(instruction.RegisterTarget);
+
+		U32 m = a + b;
+
+		U32 am = m & ~(0x3);
+		U32 aw = load<U32>(am);
+
+		U32 u = m & (0x3);
+		U32 mr = (aw & (0xFFFFFF00 << (u * 8))) | (c >> (24 - u * 8));
+	
+		store<U32>(am, mr);
 	}
 
 	void R3000::SWR(const Instruction& instruction)
 	{
-		ESX_CORE_ASSERT(false, "SWR not implemented yet");
+		U32 a = getRegister(instruction.RegisterSource);
+		U32 b = SIGNEXT16(instruction.Immediate);
+		U32 c = getRegister(instruction.RegisterTarget);
+
+		U32 m = a + b;
+
+		U32 am = m & ~(0x3);
+		U32 aw = load<U32>(am);
+
+		U32 u = m & (0x3);
+		U32 mr = (aw & (0x00FFFFFF >> ((0x3 - u) * 8))) | (c << (u * 8));
+
+		store<U32>(am, mr);
 	}
 
 	void R3000::SB(const Instruction& instruction)
@@ -1172,6 +1213,16 @@ namespace esx {
 		sr |= (mode >> 2) & 0x3F;
 
 		setCP0Register((U8)COP0Register::SR, sr);
+	}
+
+	void R3000::LWC2(const Instruction& instruction)
+	{
+		ESX_CORE_ASSERT(false, "GTE Not supported yet");
+	}
+
+	void R3000::SWC2(const Instruction& instruction)
+	{
+		ESX_CORE_ASSERT(false, "GTE Not supported yet");
 	}
 
 	void R3000::addPendingLoad(U8 index, U32 value)
