@@ -15,7 +15,7 @@ namespace esx {
 	{
 	}
 
-	void DMA::store(const String& busName, U32 address, U32 value)
+	void DMA::store(const StringView& busName, U32 address, U32 value)
 	{
 		switch (address & (~0xF)) {
 			case 0x1F8010F0: {
@@ -51,7 +51,7 @@ namespace esx {
 		}
 	}
 
-	void DMA::load(const String& busName, U32 address, U32& output)
+	void DMA::load(const StringView& busName, U32 address, U32& output)
 	{
 
 		switch (address & (~0xF)) {
@@ -81,7 +81,6 @@ namespace esx {
 						break;
 					}
 				}
-
 			}
 		}
 
@@ -342,7 +341,7 @@ namespace esx {
 			for (I32 remainingSize = extraWords; remainingSize > 0; remainingSize--) {
 				ram->load(ESX_TEXT("Root"), packetAddress, packet);
 
-				ESX_CORE_LOG_TRACE("GPU Command: {:8x}", packet);
+				ESX_CORE_LOG_TRACE("GPU Command: {:08x}", packet);
 
 				packetAddress = (packetAddress + 4) & 0x1FFFFC;
 			}

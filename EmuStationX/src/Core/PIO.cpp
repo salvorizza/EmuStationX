@@ -16,18 +16,18 @@ namespace esx {
 	{
 	}
 
-	void PIO::store(const String& busName, U32 address, U8 value)
+	void PIO::store(const StringView& busName, U32 address, U8 value)
 	{
 		if (address == 0x1F802041) {
-			ESX_CORE_LOG_TRACE("PIO - POST 0x{:02X}", value);
+			ESX_CORE_LOG_INFO("PIO - POST 0x{:02X}", value);
 		} else {
-			ESX_CORE_LOG_WARNING("PIO - Writing to address {:8x} not implemented yet", address);
+			ESX_CORE_LOG_WARNING("PIO - Writing to address {:08x} not implemented yet", address);
 		}
 	}
 
-	void PIO::load(const String& busName, U32 address, U8& output)
+	void PIO::load(const StringView& busName, U32 address, U8& output)
 	{
-		ESX_CORE_LOG_WARNING("PIO - Reading from address {:8x} not implemented yet", address);
+		ESX_CORE_LOG_WARNING("PIO - Reading from address {:08x} not implemented yet", address);
 	}
 
 }

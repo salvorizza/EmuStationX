@@ -42,6 +42,12 @@
     <ClInclude Include="src\Core\Bios.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\DMA.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\GPU.h">
+      <Filter>Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\InterruptControl.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -58,6 +64,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\SPU.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Timer.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Application\Application.h">
@@ -88,6 +97,9 @@
       <Filter>UI\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\CPUStatusPanel.h">
+      <Filter>UI\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Panels\ConsolePanel.h">
       <Filter>UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\DisassemblerPanel.h">
@@ -123,15 +135,18 @@
     <ClInclude Include="src\Utils\LoggingSystem.h">
       <Filter>Utils</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\Timer.h" />
-    <ClInclude Include="src\Core\DMA.h" />
-    <ClInclude Include="src\Core\GPU.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
       <Filter>Base</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\Bios.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\DMA.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\GPU.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\InterruptControl.cpp">
@@ -150,6 +165,9 @@
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\SPU.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Timer.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Application\ApplicationManager.cpp">
@@ -174,6 +192,9 @@
       <Filter>UI\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\CPUStatusPanel.cpp">
+      <Filter>UI\Panels</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Panels\ConsolePanel.cpp">
       <Filter>UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp">
@@ -204,8 +225,5 @@
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\Core\Timer.cpp" />
-    <ClCompile Include="src\Core\DMA.cpp" />
-    <ClCompile Include="src\Core\GPU.cpp" />
   </ItemGroup>
 </Project>

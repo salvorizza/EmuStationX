@@ -18,14 +18,14 @@ namespace esx {
 		~RAM();
 
 
-		virtual void store(const String& busName, U32 address, U8 value) override;
-		virtual void load(const String& busName, U32 address, U8& output) override;
+		virtual void store(const StringView& busName, U32 address, U8 value) override;
+		virtual void load(const StringView& busName, U32 address, U8& output) override;
 
-		virtual void store(const String& busName, U32 address, U16 value) override;
-		virtual void load(const String& busName, U32 address, U16& output) override;
+		virtual void store(const StringView& busName, U32 address, U16 value) override;
+		virtual void load(const StringView& busName, U32 address, U16& output) override;
 
-		virtual void store(const String& busName, U32 address, U32 value) override;
-		virtual void load(const String& busName, U32 address, U32& output) override;
+		virtual void store(const StringView& busName, U32 address, U32 value) override;
+		virtual void load(const StringView& busName, U32 address, U32& output) override;
 	private:
 		Vector<U8> mMemory;
 	};

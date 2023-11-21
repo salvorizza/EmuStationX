@@ -18,12 +18,12 @@ namespace esx {
 	{
 	}
 
-	void Bios::load(const String& busName, U32 address, U8& output)
+	void Bios::load(const StringView& busName, U32 address, U8& output)
 	{
 		output = mMemory[address];
 	}
 
-	void Bios::load(const String& busName, U32 address, U32& output)
+	void Bios::load(const StringView& busName, U32 address, U32& output)
 	{
 		output = 0;
 

@@ -25,16 +25,19 @@ namespace esx {
 
 	bool DisassemblerPanel::breakFunction(U32 address)
 	{
-		auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.Address == address && b.Enabled; });
-		if (it != mBreakpoints.end()) {
-			disassemble(address - 4 * disassembleRange, 4 * disassembleRange * 2);
+		if (mBreakpoints.size() > 0) {
+			auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.Address == address && b.Enabled; });
+			if (it != mBreakpoints.end()) {
+				disassemble(address - 4 * disassembleRange, 4 * disassembleRange * 2);
 
-			setDebugState(DebugState::Breakpoint);
-			mScrollToCurrent = true;
-			mCurrent = address;
-			return true;
+				setDebugState(DebugState::Breakpoint);
+				mScrollToCurrent = true;
+				mCurrent = address;
+				return true;
+			}
 		}
 		return false;
+
 	}
 
 
@@ -239,7 +242,7 @@ namespace esx {
 			if ((physAddress >= 0x00000000 && physAddress <= KIBI(2048)) || (physAddress >= 0x1FC00000 && physAddress < 0x1FC00000 + KIBI(512))) {
 
 				U32 opcode = mInstance->getBus(ESX_TEXT("Root"))->load<U32>(physAddress);
-				auto cpuInstruction = mInstance->decode(opcode, physAddress, true);
+				auto cpuInstruction = mInstance->decode(opcode, physAddress, false, true);
 
 				Instruction instruction;
 				instruction.Address = address;

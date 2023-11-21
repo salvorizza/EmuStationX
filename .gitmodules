@@ -10,3 +10,6 @@
 [submodule "EmuStationX/vendor/stb"]
 	path = EmuStationX/vendor/stb
 	url = https://github.com/salvorizza/stb
+[submodule "EmuStationX/vendor/imgui-console"]
+	path = EmuStationX/vendor/imgui-console
+	url = https://github.com/salvorizza/imgui-console

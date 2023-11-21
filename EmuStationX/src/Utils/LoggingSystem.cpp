@@ -25,17 +25,17 @@ namespace esx {
 		ESX_CORE_LOG_INFO("Logging system shutdown");
 	}
 
-	Logger::Logger(const String& name)
+	Logger::Logger(const StringView& name)
 		: mName(name)
 	{
 	}
 
-	void Logger::LogInternal(OutputStream* stream, LogType type, const String& message, BIT colorMode)
+	String Logger::FormatLog(const StringView& name, LogType type, const StringView& message, BIT colorMode)
 	{
 		auto local = std::chrono::zoned_time{ std::chrono::current_zone(), std::chrono::system_clock::now() };
 
 		StringView color = ANSI_COLOR_MAGENTA;
-		String stringType;
+		StringView stringType;
 		switch (type)
 		{
 			case LogType::Info:
@@ -65,25 +65,30 @@ namespace esx {
 		}
 
 		if (colorMode) {
-			(*stream) << FormatString(ESX_TEXT("{}{} [{}] {} {}{}\n"), color, mName, local, stringType, message, ANSI_COLOR_RESET);
+			return FormatString(ESX_TEXT("{}{} [{}] {} {}{}\n"), color, name, local, stringType, message, ANSI_COLOR_RESET);
 		}
 		else {
-			(*stream) << FormatString(ESX_TEXT("{} [{}] {} {}\n"), mName, local, stringType, message);
+			return FormatString(ESX_TEXT("{} [{}] {} {}\n"), name, local, stringType, message);
 		}
 	}
 
-	ConsoleLogger::ConsoleLogger(const String& name)
+	void Logger::LogInternal(OutputStream* stream, LogType type, const StringView& message, BIT colorMode)
+	{
+		(*stream) << FormatLog(mName, type, message, colorMode);
+	}
+
+	ConsoleLogger::ConsoleLogger(const StringView& name)
 		:	Logger(name) {
 	}
 
 	ConsoleLogger::~ConsoleLogger() {
 	}
 
-	void ConsoleLogger::Log(LogType type, const String& message) {
+	void ConsoleLogger::Log(LogType type, const StringView& message) {
 		Logger::LogInternal(&ESX_CONSOLE_OUT, type, message);
 	}
 
-	FileLogger::FileLogger(const String& name, const String& filePath) 
+	FileLogger::FileLogger(const StringView& name, const String& filePath)
 		:	Logger(name) 
 	{
 		mStream = MakeScoped<FileOutputStream>(filePath);
@@ -93,7 +98,7 @@ namespace esx {
 		mStream->close();
 	}
 
-	void FileLogger::Log(LogType type, const String& message) {
+	void FileLogger::Log(LogType type, const StringView& message) {
 		Logger::LogInternal(mStream.get(), type, message, ESX_FALSE);
 	}
 

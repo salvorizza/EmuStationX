@@ -14,10 +14,10 @@ namespace esx {
 		~Timer();
 
 
-		virtual void store(const String& busName, U32 address, U16 value);
+		virtual void store(const StringView& busName, U32 address, U16 value);
 
-		virtual void load(const String& busName, U32 address, U32& value);
-		virtual void store(const String& busName, U32 address, U32 value);
+		virtual void load(const StringView& busName, U32 address, U32& value);
+		virtual void store(const StringView& busName, U32 address, U32 value);
 
 	};
 

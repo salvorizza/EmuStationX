@@ -26,6 +26,7 @@ namespace esx {
 
 		void startFrame();
 		void endFrame();
+		void cleanUp();
 
 		void setDarkThemeColors();
 

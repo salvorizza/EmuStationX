@@ -16,17 +16,17 @@ namespace esx {
 	{
 	}
 
-	void RAM::store(const String& busName, U32 address, U8 value)
+	void RAM::store(const StringView& busName, U32 address, U8 value)
 	{
 		mMemory[address] = value;
 	}
 
-	void RAM::load(const String& busName, U32 address, U8& output)
+	void RAM::load(const StringView& busName, U32 address, U8& output)
 	{
 		output = mMemory[address];
 	}
 
-	void RAM::store(const String& busName, U32 address, U16 value)
+	void RAM::store(const StringView& busName, U32 address, U16 value)
 	{
 		for (size_t i = 0; i < sizeof(U16); i++) {
 			mMemory[address + i] = (value & 0xFF);
@@ -34,7 +34,7 @@ namespace esx {
 		}
 	}
 
-	void RAM::load(const String& busName, U32 address, U16& output)
+	void RAM::load(const StringView& busName, U32 address, U16& output)
 	{
 		output = 0;
 		for (size_t i = 0; i < sizeof(U16); i++) {
@@ -43,7 +43,7 @@ namespace esx {
 		}
 	}
 
-	void RAM::store(const String& busName, U32 address, U32 value)
+	void RAM::store(const StringView& busName, U32 address, U32 value)
 	{
 		for (size_t i = 0; i < sizeof(U32); i++) {
 			mMemory[address + i] = (value & 0xFF);
@@ -51,7 +51,7 @@ namespace esx {
 		}
 	}
 
-	void RAM::load(const String& busName, U32 address, U32& output)
+	void RAM::load(const StringView& busName, U32 address, U32& output)
 	{
 		output = 0;
 		for (size_t i = 0; i < sizeof(U32); i++) {

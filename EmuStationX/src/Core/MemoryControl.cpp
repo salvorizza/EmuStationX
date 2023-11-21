@@ -18,9 +18,9 @@ namespace esx {
 	}
 
 
-	void MemoryControl::store(const String& busName, U32 address, U32 value)
+	void MemoryControl::store(const StringView& busName, U32 address, U32 value)
 	{
-		ESX_CORE_LOG_WARNING("MemoryControl - Writing to address {:8x} not implemented yet", address);
+		ESX_CORE_LOG_WARNING("MemoryControl - Writing to address {:08x} not implemented yet", address);
 	}
 
 

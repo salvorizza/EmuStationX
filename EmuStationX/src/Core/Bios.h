@@ -16,8 +16,8 @@ namespace esx {
 		Bios(const String& path);
 		~Bios();
 
-		virtual void load(const String& busName, U32 address, U32& output) override;
-		virtual void load(const String& busName, U32 address, U8& output) override;
+		virtual void load(const StringView& busName, U32 address, U32& output) override;
+		virtual void load(const StringView& busName, U32 address, U8& output) override;
 
 	private:
 		Vector<U8> mMemory;

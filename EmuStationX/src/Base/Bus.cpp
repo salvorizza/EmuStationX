@@ -6,8 +6,9 @@ namespace esx {
 
 	
 
-	Bus::Bus(const String& name)
-		: mName(name)
+	Bus::Bus(const StringView& name)
+		: mName(name),
+			mRanges()
 	{
 	}
 
@@ -15,7 +16,7 @@ namespace esx {
 	{
 	}
 
-	void Bus::writeLine(const String& lineName, bool value)
+	void Bus::writeLine(const StringView& lineName, bool value)
 	{
 		for (auto& [name, device] : mDevices) {
 			device->writeLine(mName, lineName, value);
@@ -27,26 +28,27 @@ namespace esx {
 		device->connectToBus(this);
 	}
 
-	std::optional<BusRange> BusDevice::getRange(const String& busName, U32 address)
+	void Bus::addRange(BusDevice* device, BusRange range)
 	{
-		auto it = std::find_if(mRanges[busName].begin(), mRanges[busName].end(), [address](const BusRange& t) -> bool {
-			return address >= t.Start  && address < t.End;
-		});
-
-		if (it == mRanges[busName].end())
-			return {};
-
-		return *it;
+		mRanges[range.End] = std::make_pair(range, device);
 	}
 
 	void BusDevice::connectToBus(Bus* pBus)
 	{
+		for (BusRange& range : mStoredRanges) {
+			pBus->addRange(this, range);
+		}
 		mBusses[pBus->getName()] = pBus;
 	}
 
-	Bus* BusDevice::getBus(const String& busName)
+	Bus* BusDevice::getBus(const StringView& busName)
 	{
 		return mBusses[busName];
+	}
+
+	void BusDevice::addRange(const StringView& busName, U64 start, U64 sizeInBytes, U64 mask)
+	{
+		mStoredRanges.emplace_back(start, sizeInBytes, mask);
 	}
 
 

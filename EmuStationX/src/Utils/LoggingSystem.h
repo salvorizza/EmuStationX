@@ -12,7 +12,7 @@ namespace esx {
 
 	class Logger {
 	public:
-		Logger(const String& name);
+		Logger(const StringView& name);
 		virtual ~Logger() = default;
 
 		template<typename... ARGS>
@@ -21,29 +21,31 @@ namespace esx {
 			Log(type, message);
 		}
 
-		virtual void Log(LogType type, const String& message) = 0;
+		virtual void Log(LogType type, const StringView& message) = 0;
+
+		static String FormatLog(const StringView& name, LogType type, const StringView& message, BIT colorMode);
 
 	protected:
-		void LogInternal(OutputStream* stream, LogType type, const String& message, BIT colorMode = ESX_TRUE);
+		void LogInternal(OutputStream* stream, LogType type, const StringView& message, BIT colorMode = ESX_TRUE);
 
 	private:
-		String mName;
+		StringView mName;
 	};
 
 	class ConsoleLogger : public Logger {
 	public:
-		ConsoleLogger(const String& name);
+		ConsoleLogger(const StringView& name);
 		~ConsoleLogger();
 
-		virtual void Log(LogType type, const String & message) override;
+		virtual void Log(LogType type, const StringView& message) override;
 	};
 
 	class FileLogger : public Logger {
 	public:
-		FileLogger(const String& name, const String& filePath);
+		FileLogger(const StringView& name, const String& filePath);
 		~FileLogger();
 
-		virtual void Log(LogType type, const String& message) override;
+		virtual void Log(LogType type, const StringView& message) override;
 
 	private:
 		ScopedPtr<FileOutputStream> mStream;
@@ -68,6 +70,7 @@ namespace esx {
 		static void Shutdown();
 
 		static const SharedPtr<Logger>& GetCoreLogger() { return sCoreLogger; }
+		static void SetCoreLogger(const SharedPtr<Logger>& logger) { sCoreLogger = logger; }
 
 	private:
 		static LoggingSpecifications sSpecs;

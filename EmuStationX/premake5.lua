@@ -1,5 +1,6 @@
 project "EmuStationX"
-	kind "ConsoleApp"
+	kind "WindowedApp"
+	characterset ("MBCS")
 	language "C++"
 	cppdialect "C++20"
 	staticruntime "off"
@@ -26,6 +27,7 @@ project "EmuStationX"
 		"%{IncludeDir.Glad}",
 		"%{IncludeDir.glm}",
 		"%{IncludeDir.stb}",
+		"%{IncludeDir.ImGuiConsole}"
 	}
 
 	links
@@ -33,6 +35,7 @@ project "EmuStationX"
 		"Glad",
 		"GLFW",
 		"ImGui",
+		"ImGuiConsole",
 		"STB",
 		"opengl32.lib"
 	}

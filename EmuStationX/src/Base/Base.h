@@ -89,6 +89,9 @@ namespace esx {
 	template<typename K, typename V>
 	using UnorderedMap = std::unordered_map<K, V>;
 
+	template<typename K, typename V>
+	using Map = std::map<K, V>;
+
 	template<typename T1, typename T2>
 	using Pair = std::pair<T1, T2>;
 

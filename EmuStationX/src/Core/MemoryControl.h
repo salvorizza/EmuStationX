@@ -26,7 +26,7 @@ namespace esx {
 		~MemoryControl();
 
 
-		virtual void store(const String& busName, U32 address, U32 value) override;
+		virtual void store(const StringView& busName, U32 address, U32 value) override;
 	private:
 		IORegisters mIORegisters;
 	};

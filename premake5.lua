@@ -23,6 +23,7 @@ group "Dependencies"
 	include "EmuStationX/vendor/glfw"
 	include "EmuStationX/vendor/imgui"
 	include "EmuStationX/vendor/stb"
+	include "EmuStationX/vendor/imgui-console"
 group ""
 
 include "EmuStationX"

@@ -12,19 +12,19 @@ namespace esx {
 	{
 	}
 
-	void Timer::store(const String& busName, U32 address, U16 value)
+	void Timer::store(const StringView& busName, U32 address, U16 value)
 	{
-		ESX_CORE_LOG_WARNING("Timer - Writing to address {:8x} not implemented yet", address);
+		ESX_CORE_LOG_WARNING("Timer - Writing to address {:08x} not implemented yet", address);
 	}
 
-	void Timer::load(const String& busName, U32 address, U32& value)
+	void Timer::load(const StringView& busName, U32 address, U32& value)
 	{
-		ESX_CORE_LOG_WARNING("Timer - Reading address {:8x} not implemented yet", address);
+		ESX_CORE_LOG_WARNING("Timer - Reading address {:08x} not implemented yet", address);
 	}
 
-	void Timer::store(const String& busName, U32 address, U32 value)
+	void Timer::store(const StringView& busName, U32 address, U32 value)
 	{
-		ESX_CORE_LOG_WARNING("Timer - Writing to address {:8x} not implemented yet", address);
+		ESX_CORE_LOG_WARNING("Timer - Writing to address {:08x} not implemented yet", address);
 	}
 
 }

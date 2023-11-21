@@ -102,7 +102,7 @@ namespace esx {
 		void clock();
 	private:
 		U32 fetch(U32 address);
-		Instruction decode(U32 instruction, U32 address, bool suppressException = false);
+		Instruction decode(U32 instruction, U32 address, bool suppressMnemonic = true, bool suppressException = false);
 
 		template<typename T>
 		U32 load(U32 address) {

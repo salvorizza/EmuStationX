@@ -4,6 +4,7 @@
 #include "UI/Panels/CPUStatusPanel.h"
 #include "UI/Panels/MemoryEditorPanel.h"
 #include "UI/Panels/DisassemblerPanel.h"
+#include "UI/Panels/ConsolePanel.h"
 
 #include "UI/Graphics/BatchRenderer.h"
 #include "UI/Window/FontAwesome5.h"
@@ -29,8 +30,50 @@
 
 #include <iostream>
 
+#ifdef ESX_PLATFORM_WINDOWS
+	#include <Windows.h>
+#endif // ESX_PLATFORM_WINDOWS
+
+#undef ERROR
+
 using namespace esx;
 
+class EmuStationXLogger : public Logger {
+public:
+	EmuStationXLogger(const std::shared_ptr<ConsolePanel>& consolePanel)
+		: Logger(ESX_TEXT("Core")),
+			mConsolePanel(consolePanel)
+	{}
+
+	~EmuStationXLogger() = default;
+
+	virtual void Log(LogType type, const StringView& message) override {
+		if (mConsolePanel) {
+			switch (type)
+			{
+			case esx::LogType::Info:
+				mConsolePanel->getInternalConsole().System().Log(csys::ItemType::INFO) << message;
+				break;
+			case esx::LogType::Trace:
+				mConsolePanel->getInternalConsole().System().Log(csys::ItemType::LOG) << message;
+				break;
+			case esx::LogType::Warning:
+				mConsolePanel->getInternalConsole().System().Log(csys::ItemType::WARNING) << message;
+				break;
+			case esx::LogType::Error:
+				mConsolePanel->getInternalConsole().System().Log(csys::ItemType::ERROR) << message;
+				break;
+			case esx::LogType::Fatal:
+				mConsolePanel->getInternalConsole().System().Log(csys::ItemType::ERROR) << message;
+				break;
+			default:
+				break;
+			}
+		}
+	}
+private:
+	std::shared_ptr<ConsolePanel> mConsolePanel;
+};
 
 class EmuStationXApp : public Application {
 public:
@@ -48,6 +91,10 @@ public:
 		mCPUStatusPanel = std::make_shared<CPUStatusPanel>();
 		mDisassemblerPanel = std::make_shared<DisassemblerPanel>();
 		mMemoryEditorPanel = std::make_shared<MemoryEditorPanel>();
+		mConsolePanel = std::make_shared<ConsolePanel>();
+		mLogger = std::make_shared<EmuStationXLogger>(mConsolePanel);
+
+		LoggingSystem::SetCoreLogger(mLogger);
 
 		root.connectDevice(&cpu);
 		root.connectDevice(&bios);
@@ -102,6 +149,7 @@ public:
 				if (ImGui::MenuItem("CPU Status", "CTRL+R")) mCPUStatusPanel->open();
 				if (ImGui::MenuItem("Debugger", "CTRL+D")) mDisassemblerPanel->open();
 				if (ImGui::MenuItem("Memory", "CTRL+M")) mMemoryEditorPanel->open();
+				if (ImGui::MenuItem("Console", "CTRL+O")) mConsolePanel->open();
 
 				ImGui::EndMenu();
 			}
@@ -127,6 +175,7 @@ public:
 		mCPUStatusPanel->render(pManager);
 		mMemoryEditorPanel->render(pManager);
 		mDisassemblerPanel->render(pManager);
+		mConsolePanel->render(pManager);
 	}
 
 private:
@@ -145,10 +194,12 @@ private:
 	std::shared_ptr<CPUStatusPanel> mCPUStatusPanel;
 	std::shared_ptr<DisassemblerPanel> mDisassemblerPanel;
 	std::shared_ptr<MemoryEditorPanel> mMemoryEditorPanel;
+	std::shared_ptr<ConsolePanel> mConsolePanel;
+	std::shared_ptr <EmuStationXLogger> mLogger;
 
 };
 
-int main(int argc, char** argv) {
+int  WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance, LPSTR lpCmdLine,int nShowCmd) {
 	LoggingSpecifications specs(ESX_TEXT(""));
 	LoggingSystem::Start(specs);
 
