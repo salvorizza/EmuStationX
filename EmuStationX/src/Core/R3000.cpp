@@ -32,13 +32,13 @@ namespace esx {
 		mNextPC += 4;
 
 		mBranchSlot = mBranch;
-		mBranch = false;
+		mBranch = ESX_FALSE;
 
-		bool pendingLoadsEmpty = mPendingLoads.empty();
+		BIT pendingLoadsEmpty = mPendingLoads.empty() ? ESX_TRUE : ESX_FALSE;
 
 		instruction.Execute(instruction);
 
-		if (!pendingLoadsEmpty) {
+		if (pendingLoadsEmpty == ESX_FALSE) {
 			auto pendingLoad = mPendingLoads.front();
 			mPendingLoads.pop();
 
@@ -52,7 +52,7 @@ namespace esx {
 		return load<U32>(address);
 	}
 
-	Instruction R3000::decode(U32 instruction, U32 address, bool suppressMnemonic, bool suppressException)
+	Instruction R3000::decode(U32 instruction, U32 address, BIT suppressMnemonic, BIT suppressException)
 	{
 		constexpr static StringView registersMnemonics[] = {
 			ESX_TEXT("$zero"),
@@ -367,7 +367,7 @@ namespace esx {
 						}
 
 						if (cpn == 0x02) {
-							ESX_CORE_ASSERT(false, "GTE Not supported yet");
+							ESX_CORE_ASSERT(ESX_FALSE, "GTE Not supported yet");
 						}
 
 						result.RegisterDestination = RD(instruction);
@@ -756,8 +756,8 @@ namespace esx {
 		U32 am = m & ~(0x3);
 		U32 aw = load<U32>(am);
 
-		U32 u = m & (0x3);
-		U32 mr = (aw & (0xFFFFFF00 << (u * 8))) | (c >> (24 - (u * 8)));
+		U32 u = (m & 0x3) * 8;
+		U32 mr = (aw & (0xFFFFFF00 << u)) | (c >> (24 - u));
 
 		store<U32>(am, mr);
 	}
@@ -774,7 +774,7 @@ namespace esx {
 		U32 am = m & ~(0x3);
 		U32 aw = load<U32>(am);
 
-		U32 u = m & (0x3);
+		U32 u = m & 0x3;
 		U32 r = (c & (0xFFFFFF00 << ((0x3 - u) * 8))) | (aw >> (u * 8));
 
 		setRegister(instruction.RegisterTarget, r);
@@ -791,7 +791,7 @@ namespace esx {
 		U32 am = m & ~(0x3);
 		U32 aw = load<U32>(am);
 
-		U32 u = m & (0x3);
+		U32 u = m & 0x3;
 		U32 mr = (aw & (0x00FFFFFF >> ((0x3 - u) * 8))) | (c << (u * 8));
 
 		store<U32>(am, mr);
@@ -1016,7 +1016,7 @@ namespace esx {
 		if (a == b) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = true;
+			mBranch = ESX_TRUE;
 		}
 	}
 
@@ -1029,7 +1029,7 @@ namespace esx {
 		if (a != b) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = true;
+			mBranch = ESX_TRUE;
 		}
 	}
 
@@ -1041,7 +1041,7 @@ namespace esx {
 		if (a < 0) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = true;
+			mBranch = ESX_TRUE;
 		}
 	}
 
@@ -1054,7 +1054,7 @@ namespace esx {
 			setRegister(31, mNextPC);
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = true;
+			mBranch = ESX_TRUE;
 		}
 	}
 
@@ -1066,7 +1066,7 @@ namespace esx {
 		if (a <= 0) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = true;
+			mBranch = ESX_TRUE;
 		}
 	}
 
@@ -1078,7 +1078,7 @@ namespace esx {
 		if (a > 0) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = true;
+			mBranch = ESX_TRUE;
 		}
 	}
 
@@ -1090,7 +1090,7 @@ namespace esx {
 		if (a >= 0) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = true;
+			mBranch = ESX_TRUE;
 		}
 	}
 
@@ -1103,7 +1103,7 @@ namespace esx {
 			setRegister(31, mNextPC);
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = true;
+			mBranch = ESX_TRUE;
 		}
 	}
 
@@ -1111,14 +1111,14 @@ namespace esx {
 	{
 		U32 a = (mNextPC & 0xF0000000) | (instruction.PseudoAddress << 2);
 		mNextPC = a;
-		mBranch = true;
+		mBranch = ESX_TRUE;
 	}
 
 	void R3000::JR(const Instruction& instruction)
 	{
 		U32 a = getRegister(instruction.RegisterSource);
 		mNextPC = a;
-		mBranch = true;
+		mBranch = ESX_TRUE;
 	}
 
 	void R3000::JAL(const Instruction& instruction)
@@ -1126,7 +1126,7 @@ namespace esx {
 		U32 a = (mNextPC & 0xF0000000) | (instruction.PseudoAddress << 2);
 		setRegister(31, mNextPC);
 		mNextPC = a;
-		mBranch = true;
+		mBranch = ESX_TRUE;
 	}
 
 	void R3000::JALR(const Instruction& instruction)
@@ -1134,7 +1134,7 @@ namespace esx {
 		U32 a = getRegister(instruction.RegisterSource);
 		setRegister(31, mNextPC);
 		mNextPC = a;
-		mBranch = true;
+		mBranch = ESX_TRUE;
 	}
 
 	void R3000::BREAK(const Instruction& instruction)
@@ -1218,12 +1218,12 @@ namespace esx {
 
 	void R3000::LWC2(const Instruction& instruction)
 	{
-		ESX_CORE_ASSERT(false, "GTE Not supported yet");
+		ESX_CORE_ASSERT(ESX_FALSE, "GTE Not supported yet");
 	}
 
 	void R3000::SWC2(const Instruction& instruction)
 	{
-		ESX_CORE_ASSERT(false, "GTE Not supported yet");
+		ESX_CORE_ASSERT(ESX_FALSE, "GTE Not supported yet");
 	}
 
 	void R3000::addPendingLoad(U8 index, U32 value)
@@ -1255,7 +1255,7 @@ namespace esx {
 	void R3000::raiseException(ExceptionType type)
 	{
 		if (type != ExceptionType::Syscall) {
-			ESX_CORE_ASSERT(false, "type of exception not tested yet");
+			ESX_CORE_ASSERT(ESX_FALSE, "type of exception not tested yet");
 		}
 
 		U32 sr = getCP0Register((U8)COP0Register::SR);

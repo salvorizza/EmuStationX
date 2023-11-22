@@ -102,7 +102,7 @@ namespace esx {
 		void clock();
 	private:
 		U32 fetch(U32 address);
-		Instruction decode(U32 instruction, U32 address, bool suppressMnemonic = true, bool suppressException = false);
+		Instruction decode(U32 instruction, U32 address, BIT suppressMnemonic = ESX_TRUE, BIT suppressException = ESX_FALSE);
 
 		template<typename T>
 		U32 load(U32 address) {
@@ -234,8 +234,6 @@ namespace esx {
 		U32 getCP0Register(U8 index);
 
 		void raiseException(ExceptionType type);
-		void raiseBreakpoint();
-
 	private:
 		Array<U32, 32> mRegisters;
 		Queue<Pair<U32, U32>> mPendingLoads;
@@ -244,7 +242,7 @@ namespace esx {
 		Array<U32, 64> mCP0Registers;
 		Vector<U8> mICache;
 
-		bool mBranch, mBranchSlot;
+		BIT mBranch, mBranchSlot;
 	};
 
 }

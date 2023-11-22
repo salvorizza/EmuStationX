@@ -142,20 +142,20 @@ namespace esx {
 		return result;
 	}
 
-	bool DMA::isChannelActive(Port port)
+	BIT DMA::isChannelActive(Port port)
 	{
-		bool trigger = true;
+		BIT trigger = ESX_TRUE;
 		if (mChannels[(U8)port].SyncMode == SyncMode::Manual) {
 			trigger = mChannels[(U8)port].Trigger;
 		}
 
-		return mChannels[(U8)port].Enable && trigger;
+		return (mChannels[(U8)port].Enable && trigger) ? ESX_TRUE : ESX_FALSE;
 	}
 
 	void DMA::setChannelDone(Port port)
 	{
-		mChannels[(U8)port].Enable = false;
-		mChannels[(U8)port].Trigger = false;
+		mChannels[(U8)port].Enable = ESX_FALSE;
+		mChannels[(U8)port].Trigger = ESX_FALSE;
 	}
 
 	void DMA::setInterruptRegister(U32 value)
@@ -282,7 +282,7 @@ namespace esx {
 							break;
 						}
 						default: {
-							ESX_CORE_ASSERT(false, "Port {} not supported yet", (U8)port);
+							ESX_CORE_ASSERT(ESX_FALSE, "Port {} not supported yet", (U8)port);
 							break;
 						}
 					}
@@ -301,7 +301,7 @@ namespace esx {
 							break;
 						}
 						default: {
-							ESX_CORE_ASSERT(false, "Port {} not supported yet", (U8)port);
+							ESX_CORE_ASSERT(ESX_FALSE, "Port {} not supported yet", (U8)port);
 							break;
 						}
 					}
@@ -351,7 +351,7 @@ namespace esx {
 			}
 
 			nodeAddress = nextNodeAddress;
-		} while (true);
+		} while (ESX_TRUE);
 
 		setChannelDone(port);
 		ESX_CORE_LOG_TRACE("DMA Done");

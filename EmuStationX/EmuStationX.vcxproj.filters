@@ -1,229 +1,265 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Base">
-      <UniqueIdentifier>{60EC827C-4C23-840D-F50F-6A10E125000F}</UniqueIdentifier>
+    <Filter Include="Resources">
+      <UniqueIdentifier>{000BCD17-6C75-818E-B5B3-3234215D5FE3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Core">
-      <UniqueIdentifier>{2EB4837C-1AEB-840D-C3D7-6A10AFED000F}</UniqueIdentifier>
+    <Filter Include="Resources\commons">
+      <UniqueIdentifier>{CB57621D-376E-60B3-80E5-EBD4EC3A313B}</UniqueIdentifier>
     </Filter>
-    <Filter Include="UI">
-      <UniqueIdentifier>{83755900-6F01-880B-D8AF-880BC45A880B}</UniqueIdentifier>
+    <Filter Include="Resources\commons\icons">
+      <UniqueIdentifier>{D6763CA9-42AE-8440-4BB8-E863B76EAB39}</UniqueIdentifier>
     </Filter>
-    <Filter Include="UI\Application">
-      <UniqueIdentifier>{C60D901B-B2DB-8321-9B6F-F44787DC5F86}</UniqueIdentifier>
+    <Filter Include="Resources\vendor">
+      <UniqueIdentifier>{5D41E6BF-493A-0512-726C-EA965EC4E41D}</UniqueIdentifier>
     </Filter>
-    <Filter Include="UI\Graphics">
-      <UniqueIdentifier>{23212975-8FD6-A16A-18CB-9B41847F986E}</UniqueIdentifier>
+    <Filter Include="Resources\vendor\glfw">
+      <UniqueIdentifier>{3C77731B-A8E3-2E16-71D7-C673DD02517E}</UniqueIdentifier>
     </Filter>
-    <Filter Include="UI\Panels">
-      <UniqueIdentifier>{75F4DAE1-E15E-8F58-2A9D-40FE96466DAD}</UniqueIdentifier>
+    <Filter Include="Resources\vendor\glfw\examples">
+      <UniqueIdentifier>{6AA81921-56CE-E387-3F14-69532BD90854}</UniqueIdentifier>
     </Filter>
-    <Filter Include="UI\Window">
-      <UniqueIdentifier>{0AD1BFF2-763B-7469-BF79-250F2B2352BE}</UniqueIdentifier>
+    <Filter Include="src">
+      <UniqueIdentifier>{2DAB880B-99B4-887C-2230-9F7C8E38947C}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Utils">
-      <UniqueIdentifier>{F68B420E-62A0-6ABF-2B22-0E1F97F566F0}</UniqueIdentifier>
+    <Filter Include="src\Base">
+      <UniqueIdentifier>{D70B1CCF-C3D8-76DA-ECF1-6482D81DAC68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{A5D31CCF-91A0-77DA-BAB9-6582A6E5AC68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI">
+      <UniqueIdentifier>{3A4B661C-26ED-90F2-0FA8-A446FBE81743}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI\Application">
+      <UniqueIdentifier>{FD2D7479-E911-35CF-5272-2F223E751F51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI\Graphics">
+      <UniqueIdentifier>{BA54038D-26E0-7051-2FF1-F3459BFBCC51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI\Panels">
+      <UniqueIdentifier>{4C569521-B816-1158-8151-5AD5EDD05534}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI\Window">
+      <UniqueIdentifier>{E1327A32-4DF3-F568-162E-3FE682AD3A45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Utils">
+      <UniqueIdentifier>{4D9AFFB3-B904-B42A-0243-65D06EEC917F}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Base\Assert.h">
-      <Filter>Base</Filter>
+      <Filter>src\Base</Filter>
     </ClInclude>
     <ClInclude Include="src\Base\Base.h">
-      <Filter>Base</Filter>
+      <Filter>src\Base</Filter>
     </ClInclude>
     <ClInclude Include="src\Base\Bus.h">
-      <Filter>Base</Filter>
+      <Filter>src\Base</Filter>
     </ClInclude>
     <ClInclude Include="src\Base\PlatformDetection.h">
-      <Filter>Base</Filter>
+      <Filter>src\Base</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\Bios.h">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\DMA.h">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\GPU.h">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\InterruptControl.h">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\MemoryControl.h">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\PIO.h">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\R3000.h">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\RAM.h">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\SPU.h">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\Timer.h">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Application\Application.h">
-      <Filter>UI\Application</Filter>
+      <Filter>src\UI\Application</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Application\ApplicationManager.h">
-      <Filter>UI\Application</Filter>
+      <Filter>src\UI\Application</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Application\Timer.h">
-      <Filter>UI\Application</Filter>
+      <Filter>src\UI\Application</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Graphics\BatchRenderer.h">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Graphics\FrameBuffer.h">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Graphics\IndexBuffer.h">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Graphics\Shader.h">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Graphics\VertexArray.h">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Graphics\VertexBuffer.h">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\CPUStatusPanel.h">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\ConsolePanel.h">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\DisassemblerPanel.h">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\MemoryEditor.h">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\MemoryEditorPanel.h">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\Panel.h">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\ViewportPanel.h">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Utils.h">
-      <Filter>UI</Filter>
+      <Filter>src\UI</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Window\FontAwesome5.h">
-      <Filter>UI\Window</Filter>
+      <Filter>src\UI\Window</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Window\ImGuiManager.h">
-      <Filter>UI\Window</Filter>
+      <Filter>src\UI\Window</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Window\InputManager.h">
-      <Filter>UI\Window</Filter>
+      <Filter>src\UI\Window</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Window\Window.h">
-      <Filter>UI\Window</Filter>
+      <Filter>src\UI\Window</Filter>
     </ClInclude>
     <ClInclude Include="src\Utils\LoggingSystem.h">
-      <Filter>Utils</Filter>
+      <Filter>src\Utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
-      <Filter>Base</Filter>
+      <Filter>src\Base</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\Bios.cpp">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\DMA.cpp">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\GPU.cpp">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\InterruptControl.cpp">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\MemoryControl.cpp">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\PIO.cpp">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\R3000.cpp">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\RAM.cpp">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\SPU.cpp">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\Timer.cpp">
-      <Filter>Core</Filter>
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Application\ApplicationManager.cpp">
-      <Filter>UI\Application</Filter>
+      <Filter>src\UI\Application</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Graphics\BatchRenderer.cpp">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Graphics\FrameBuffer.cpp">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Graphics\IndexBuffer.cpp">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Graphics\Shader.cpp">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Graphics\VertexArray.cpp">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Graphics\VertexBuffer.cpp">
-      <Filter>UI\Graphics</Filter>
+      <Filter>src\UI\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\CPUStatusPanel.cpp">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\ConsolePanel.cpp">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\MemoryEditorPanel.cpp">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\Panel.cpp">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\ViewportPanel.cpp">
-      <Filter>UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Utils.cpp">
-      <Filter>UI</Filter>
+      <Filter>src\UI</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Window\ImGuiManager.cpp">
-      <Filter>UI\Window</Filter>
+      <Filter>src\UI\Window</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Window\InputManager.cpp">
-      <Filter>UI\Window</Filter>
+      <Filter>src\UI\Window</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Window\Window.cpp">
-      <Filter>UI\Window</Filter>
+      <Filter>src\UI\Window</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\LoggingSystem.cpp">
-      <Filter>Utils</Filter>
+      <Filter>src\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="commons\icons\Logo.ico">
+      <Filter>Resources\commons\icons</Filter>
+    </None>
+    <None Include="vendor\glfw\examples\glfw.ico">
+      <Filter>Resources\vendor\glfw\examples</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="resources.rc">
+      <Filter>Resources</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

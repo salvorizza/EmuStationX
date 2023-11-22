@@ -140,8 +140,8 @@ namespace esx {
 			clipper.Begin(mInstructions.size());
 			while (clipper.Step())
 			{
-				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
-					Instruction& instruction = mInstructions[row];
+				for (U32 row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
+					Instruction instruction = mInstructions[row];
 					U32 address = instruction.Address;
 
 					ImGui::TableNextRow();

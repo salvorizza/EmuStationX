@@ -32,16 +32,16 @@ namespace esx {
 		BusDevice(const StringView& name) : mName(name) {}
 		virtual ~BusDevice() = default;
 
-		virtual void writeLine(const StringView& busName, const StringView& lineName, bool value) {}
+		virtual void writeLine(const StringView& busName, const StringView& lineName, BIT value) {}
 
-		virtual void store(const StringView& busName, U32 address, U32 value) { ESX_CORE_ASSERT(false, "Device {} does not implement store32", mName); }
-		virtual void load(const StringView& busName, U32 address, U32& output) { ESX_CORE_ASSERT(false, "Device {} does not implement load32", mName); }
+		virtual void store(const StringView& busName, U32 address, U32 value) { ESX_CORE_ASSERT(ESX_FALSE, "Device {} does not implement store32", mName); }
+		virtual void load(const StringView& busName, U32 address, U32& output) { ESX_CORE_ASSERT(ESX_FALSE, "Device {} does not implement load32", mName); }
 
-		virtual void store(const StringView& busName, U32 address, U16 value) { ESX_CORE_ASSERT(false, "Device {} does not implement store16", mName); }
-		virtual void load(const StringView& busName, U32 address, U16& output) { ESX_CORE_ASSERT(false, "Device {} does not implement load16", mName); }
+		virtual void store(const StringView& busName, U32 address, U16 value) { ESX_CORE_ASSERT(ESX_FALSE, "Device {} does not implement store16", mName); }
+		virtual void load(const StringView& busName, U32 address, U16& output) { ESX_CORE_ASSERT(ESX_FALSE, "Device {} does not implement load16", mName); }
 
-		virtual void store(const StringView& busName, U32 address, U8 value) { ESX_CORE_ASSERT(false, "Device {} does not implement store8", mName); }
-		virtual void load(const StringView& busName, U32 address, U8& output) { ESX_CORE_ASSERT(false, "Device {} does not implement load8", mName); }
+		virtual void store(const StringView& busName, U32 address, U8 value) { ESX_CORE_ASSERT(ESX_FALSE, "Device {} does not implement store8", mName); }
+		virtual void load(const StringView& busName, U32 address, U8& output) { ESX_CORE_ASSERT(ESX_FALSE, "Device {} does not implement load8", mName); }
 
 		const StringView& getName() const { return mName; }
 
@@ -63,7 +63,7 @@ namespace esx {
 		Bus(const StringView& name);
 		~Bus();
 
-		void writeLine(const StringView& lineName, bool value);
+		void writeLine(const StringView& lineName, BIT value);
 
 		template<typename T>
 		void store(U32 address, T value) {
@@ -73,11 +73,11 @@ namespace esx {
 				if (address >= busRange.Start && address < busRange.End) {
 					device->store(mName, address & busRange.Mask, value);
 				} else {
-					ESX_ASSERT(false, "Writing Address 0x{:08x}: not found", address);
+					ESX_ASSERT(ESX_FALSE, "Writing Address 0x{:08x}: not found", address);
 				}
 			}
 			else {
-				ESX_ASSERT(false, "Writing Address 0x{:08x}: not found", address);
+				ESX_ASSERT(ESX_FALSE, "Writing Address 0x{:08x}: not found", address);
 			}
 		}
 
@@ -93,10 +93,10 @@ namespace esx {
 					device->load(mName, address & busRange.Mask, result);
 				}
 				else {
-					ESX_ASSERT(false, "Reading Address 0x{:08x}: not found", address);
+					ESX_ASSERT(ESX_FALSE, "Reading Address 0x{:08x}: not found", address);
 				}
 			} else {
-				ESX_ASSERT(false, "Reading Address 0x{:08x}: not found", address);
+				ESX_ASSERT(ESX_FALSE, "Reading Address 0x{:08x}: not found", address);
 			}
 
 			return result;

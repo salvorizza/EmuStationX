@@ -88,6 +88,10 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -110,6 +114,10 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -133,6 +141,10 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -209,6 +221,13 @@
     <ClCompile Include="src\UI\Window\Window.cpp" />
     <ClCompile Include="src\Utils\LoggingSystem.cpp" />
     <ClCompile Include="src\main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="commons\icons\Logo.ico" />
+    <None Include="vendor\glfw\examples\glfw.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="resources.rc" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="vendor\Glad\Glad.vcxproj">

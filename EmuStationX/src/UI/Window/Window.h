@@ -7,12 +7,15 @@
 #include <GLFW/glfw3.h>
 #include "InputManager.h"
 
+#include "UI/Utils.h"
+#include "stb_image.h"
+
 
 namespace esx {
 
 	class Window {
 	public:
-		Window(const std::string& title,int32_t width,int32_t height);
+		Window(const std::string& title,int32_t width,int32_t height,const std::string& icoPath);
 		~Window();
 		
 		void show();

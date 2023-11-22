@@ -12,7 +12,7 @@ namespace esx {
 	void ApplicationManager::run(const std::shared_ptr<Application>& pApplication)
 	{
 		mApplication = pApplication;
-		mWindow = std::make_shared<Window>(mApplication->getName(), 1280, 720);
+		mWindow = std::make_shared<Window>(mApplication->getName(), 1280, 720, pApplication->getICOPath());
 		mImGuiManager = std::make_shared<ImGuiManager>(mWindow);
 
 		mApplication->onSetup();
@@ -33,5 +33,4 @@ namespace esx {
 
 		mImGuiManager->cleanUp();
 	}
-
 }

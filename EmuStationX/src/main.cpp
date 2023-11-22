@@ -8,6 +8,7 @@
 
 #include "UI/Graphics/BatchRenderer.h"
 #include "UI/Window/FontAwesome5.h"
+#include "UI/Utils.h"
 
 #include "Utils/LoggingSystem.h"
 
@@ -51,23 +52,23 @@ public:
 		if (mConsolePanel) {
 			switch (type)
 			{
-			case esx::LogType::Info:
-				mConsolePanel->getInternalConsole().System().Log(csys::ItemType::INFO) << message;
-				break;
-			case esx::LogType::Trace:
-				mConsolePanel->getInternalConsole().System().Log(csys::ItemType::LOG) << message;
-				break;
-			case esx::LogType::Warning:
-				mConsolePanel->getInternalConsole().System().Log(csys::ItemType::WARNING) << message;
-				break;
-			case esx::LogType::Error:
-				mConsolePanel->getInternalConsole().System().Log(csys::ItemType::ERROR) << message;
-				break;
-			case esx::LogType::Fatal:
-				mConsolePanel->getInternalConsole().System().Log(csys::ItemType::ERROR) << message;
-				break;
-			default:
-				break;
+				case esx::LogType::Info:
+					mConsolePanel->getInternalConsole().System().Log(csys::ItemType::INFO) << message;
+					break;
+				case esx::LogType::Trace:
+					mConsolePanel->getInternalConsole().System().Log(csys::ItemType::LOG) << message;
+					break;
+				case esx::LogType::Warning:
+					mConsolePanel->getInternalConsole().System().Log(csys::ItemType::WARNING) << message;
+					break;
+				case esx::LogType::Error:
+					mConsolePanel->getInternalConsole().System().Log(csys::ItemType::ERROR) << message;
+					break;
+				case esx::LogType::Fatal:
+					mConsolePanel->getInternalConsole().System().Log(csys::ItemType::ERROR) << message;
+					break;
+				default:
+					break;
 			}
 		}
 	}
@@ -78,7 +79,7 @@ private:
 class EmuStationXApp : public Application {
 public:
 	EmuStationXApp()
-		: Application("EmuStationX"),
+		: Application("EmuStationX", "commons/icons/Logo.ico"),
 			bios(ESX_TEXT("scph1001.bin")),
 			root(ESX_TEXT("Root"))
 	{
@@ -195,11 +196,26 @@ private:
 	std::shared_ptr<DisassemblerPanel> mDisassemblerPanel;
 	std::shared_ptr<MemoryEditorPanel> mMemoryEditorPanel;
 	std::shared_ptr<ConsolePanel> mConsolePanel;
-	std::shared_ptr <EmuStationXLogger> mLogger;
+	std::shared_ptr<EmuStationXLogger> mLogger;
 
 };
 
-int  WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance, LPSTR lpCmdLine,int nShowCmd) {
+int
+#if !defined(_MAC)
+	#if defined(_M_CEE_PURE)
+		__clrcall
+	#else
+		WINAPI
+	#endif
+#else
+	CALLBACK
+#endif
+WinMain(
+	_In_ HINSTANCE hInstance,
+	_In_opt_ HINSTANCE hPrevInstance,
+	_In_ LPSTR lpCmdLine,
+	_In_ int nShowCmd
+) {
 	LoggingSpecifications specs(ESX_TEXT(""));
 	LoggingSystem::Start(specs);
 
@@ -208,4 +224,4 @@ int  WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance, LPSTR lpCmdLine,int nS
 
 	LoggingSystem::Shutdown();
 	return 0;
-}
+};

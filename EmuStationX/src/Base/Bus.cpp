@@ -16,7 +16,7 @@ namespace esx {
 	{
 	}
 
-	void Bus::writeLine(const StringView& lineName, bool value)
+	void Bus::writeLine(const StringView& lineName, BIT value)
 	{
 		for (auto& [name, device] : mDevices) {
 			device->writeLine(mName, lineName, value);

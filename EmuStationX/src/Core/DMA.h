@@ -35,14 +35,14 @@ namespace esx {
 	};
 
 	struct Channel {
-		bool Enable = false;
+		BIT Enable = ESX_FALSE;
 		Direction Direction = Direction::ToMainRAM;
 		Step Step = Step::Forward;
-		bool ChoppingEnable = false;
+		BIT ChoppingEnable = ESX_FALSE;
 		SyncMode SyncMode = SyncMode::Manual;
 		U8 ChoppingDMAWindowSize = 0;
 		U8 ChoppingCPUWindowSize = 0;
-		bool Trigger = false;
+		BIT Trigger = ESX_FALSE;
 		U8 Dummy = 0;
 
 		U32 BaseAddress = 0;
@@ -53,32 +53,32 @@ namespace esx {
 
 	struct ControlRegister {
 		U8 MDECinPriority = 0;
-		bool MDECinMasterEnable = false;
+		BIT MDECinMasterEnable = ESX_FALSE;
 		U8 MDECoutPriority = 0;
-		bool MDECoutMasterEnable = false;
+		BIT MDECoutMasterEnable = ESX_FALSE;
 		U8 GPUPriority = 0;
-		bool GPUMasterEnable = false;
+		BIT GPUMasterEnable = ESX_FALSE;
 		U8 CDROMPriority = 0;
-		bool CDROMMasterEnable = false;
+		BIT CDROMMasterEnable = ESX_FALSE;
 		U8 SPUPriority = 0;
-		bool SPUMasterEnable = false;
+		BIT SPUMasterEnable = ESX_FALSE;
 		U8 PIOPriority = 0;
-		bool PIOMasterEnable = false;
+		BIT PIOMasterEnable = ESX_FALSE;
 		U8 OTCPriority = 0;
-		bool OTCMasterEnable = false;
+		BIT OTCMasterEnable = ESX_FALSE;
 		U8 Dummy1 = 0;
 		U8 Dummy2 = 0;
 	};
 
 	struct InterruptRegister {
 		U8 Dummy = 0;
-		bool ForceIRQ = false;
+		BIT ForceIRQ = ESX_FALSE;
 		U8 IRQEnable = 0;
-		bool IRQMasterEnable = false;
+		BIT IRQMasterEnable = ESX_FALSE;
 		U8 IRQFlags = 0;
 
-		bool IRQMasterFlag() {
-			return (ForceIRQ || (IRQMasterEnable && ((IRQEnable & IRQFlags) > 0)));
+		BIT IRQMasterFlag() {
+			return (ForceIRQ || (IRQMasterEnable && ((IRQEnable & IRQFlags) > 0))) ? ESX_TRUE : ESX_FALSE;
 		}
 	};
 
@@ -100,7 +100,7 @@ namespace esx {
 		void setChannelBlockControl(Port port, U32 value);
 		U32 getChannelBlockControl(Port port);
 
-		bool isChannelActive(Port port);
+		BIT isChannelActive(Port port);
 		void setChannelDone(Port port);
 
 		void setInterruptRegister(U32 value);

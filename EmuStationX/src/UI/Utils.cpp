@@ -44,4 +44,32 @@ namespace esx {
 		buffer.Size = 0;
 		buffer.Data = NULL;
 	}
+	Vector<ICOImage> ReadICO(const String& path)
+	{
+		Vector<ICOImage> result;
+
+		FILE* f = NULL;
+		errno_t err;
+
+		err = fopen_s(&f, path.c_str(), "rb");
+		if (err == 0) {
+			ICOHeader header = {};
+			fread_s(&header, sizeof(ICOHeader), sizeof(ICOHeader), 1, f);
+
+			result.resize(header.ImageCount);
+			for (I32 i = 0; i < header.ImageCount; i++) {
+				fread_s(&result[i].ICOEntry, sizeof(ICOImageEntry), sizeof(ICOImageEntry), 1, f);
+				result[i].Data.resize(result[i].ICOEntry.ImageSize);
+			}
+
+			for (ICOImage& image : result) {
+				fseek(f, image.ICOEntry.ImageOffset, SEEK_SET);
+				fread_s(image.Data.data(), image.ICOEntry.ImageSize, image.ICOEntry.ImageSize, 1, f);
+			}
+
+			fclose(f);
+		}
+
+		return result;
+	}
 }

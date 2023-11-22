@@ -4,6 +4,7 @@ project "EmuStationX"
 	language "C++"
 	cppdialect "C++20"
 	staticruntime "off"
+	icon "%{wks.location}/%{prj.name}/commons/icons/Logo.ico"
 
 	targetdir ("%{wks.location}/bin/" .. outputdir .. "/%{prj.name}")
 	objdir ("%{wks.location}/bin-int/" .. outputdir .. "/%{prj.name}")
@@ -45,6 +46,8 @@ project "EmuStationX"
 
 	filter "system:windows"
 		systemversion "latest"
+		files { 'resources.rc', '**.ico' }
+		vpaths { ['Resources/*'] = { '*.rc', '**.ico' } }
 
 	filter "configurations:Debug"
 		defines "ESX_DEBUG"
