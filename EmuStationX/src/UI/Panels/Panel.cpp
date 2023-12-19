@@ -58,13 +58,14 @@ namespace esx {
 			if (mIsModal) {
 				if (ImGui::BeginPopupModal(mName.c_str(), &mOpen)) {
 					onImGuiRender();
-					ImGui::EndPopup();
 				}
+				ImGui::EndPopup();
 			}
 			else {
 				ImGui::PushStyleColor(ImGuiCol_WindowBg, mBGColor);
-				ImGui::Begin(mName.c_str(), &mOpen, window_flags);
-				onImGuiRender();
+				if (ImGui::Begin(mName.c_str(), &mOpen, window_flags)) {
+					onImGuiRender();
+				}
 				ImGui::End();
 				ImGui::PopStyleColor(1);
 				

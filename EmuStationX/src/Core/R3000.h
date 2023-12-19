@@ -12,19 +12,9 @@
 
 namespace esx {
 
-	#define OPCODE(x) (x >> 26) & 0x3F
-	#define RS(x) (x >> 21) & 0x1F
-	#define RT(x) (x >> 16) & 0x1F
-	#define RD(x) (x >> 11) & 0x1F
-	#define SHAMT(x) (x >> 6) & 0x1F
-	#define FUNCT(x) x & 0x3F
-	#define IMM(x) x & 0xFFFF
-	#define ADDRESS(x) x & 0x3FFFFFF
-	#define CODE(x) (x >> 6) & 0xFFFFF
 	#define CO(x) ((x >> 25) & 0x1)
 	#define CO_N(x) ((x >> 26) & 0x3)
 	#define COP_FUNC(x) (x & 0x1F)
-
 
 	#define SIGNEXT8(x) ((x & 0x80) ? x | 0xFFFFFF00 : x)
 	#define SIGNEXT16(x) ((x & 0x8000) ? x | 0xFFFF0000 : x)
@@ -33,6 +23,7 @@ namespace esx {
 	#define ADDRESS_UNALIGNED(x,type) ((x & (sizeof(type) - 1)) != 0x0)
 	#define OVERFLOW_ADD32(a,b,s) (~((a & 0x80000000) ^ (b & 0x80000000)) & ((a & 0x80000000) ^ (s & 0x80000000)))
 	#define OVERFLOW_SUB32(a,b,s) ((a & 0x80000000) ^ (b & 0x80000000)) & ((a & 0x80000000) ^ (s & 0x80000000))
+
 
 	constexpr std::array<U32, 8> SEGS_MASKS = {
 		//KUSEG:2048MB
@@ -43,6 +34,41 @@ namespace esx {
 		0x1FFFFFFF,
 		//KSEG2:1024MB
 		0xFFFFFFFF,0xFFFFFFFF
+	};
+
+	enum class GPRRegister : U8 {
+		zero,
+		at,
+		v0, 
+		v1,
+		a0, 
+		a1, 
+		a2, 
+		a3,
+		t0,
+		t1,
+		t2, 
+		t3, 
+		t4,
+		t5, 
+		t6, 
+		t7,
+		s0, 
+		s1, 
+		s2, 
+		s3, 
+		s4, 
+		s5, 
+		s6, 
+		s7,
+		t8, 
+		t9,
+		k0, 
+		k1,
+		gp,
+		sp,
+		fp,
+		ra
 	};
 
 	enum class COP0Register : U8 {
@@ -70,21 +96,69 @@ namespace esx {
 		ArithmeticOverflow = 0x0C
 	};
 
-	struct Instruction {
-		U32 Address;
-		U32 binaryInstruction;
-		String Mnemonic;
-		std::function<void(const Instruction&)> Execute;
+	struct Instruction;
+	class R3000;
+	typedef void(R3000::*ExecuteFunction)();
 
-		U8 Opcode;
-		U8 RegisterSource;
-		U8 RegisterTarget;
-		U8 RegisterDestination;
-		U8 ShiftAmount;
-		U8 Function;
-		U16 Immediate;
-		U32 Code;
-		U32 PseudoAddress;
+	struct RegisterIndex {
+		I32 Value;
+
+		RegisterIndex() : Value(-1) {}
+		explicit RegisterIndex(U8 value) : Value(value) {}
+		RegisterIndex(COP0Register r) : Value((U8)r) {}
+		RegisterIndex(GPRRegister r) : Value((U8)r) {}
+
+		operator U8() {
+			return Value;
+		}
+	};
+
+	struct Instruction {
+		U32 Address = 0;
+		U32 binaryInstruction = 0;
+		ExecuteFunction Execute = nullptr;
+
+		U8 Opcode() const {
+			return ((binaryInstruction >> 26) & 0x3F);
+		}
+
+		RegisterIndex RegisterSource() const {
+			return RegisterIndex(((binaryInstruction >> 21) & 0x1F));
+		}
+
+		RegisterIndex RegisterTarget() const {
+			return RegisterIndex(((binaryInstruction >> 16) & 0x1F));
+		}
+
+		RegisterIndex RegisterDestination() const  {
+			return RegisterIndex(((binaryInstruction >> 11) & 0x1F));
+		}
+
+		U8 ShiftAmount() const  {
+			return ((binaryInstruction >> 6) & 0x1F);
+		}
+
+		U8 Function() const {
+			return (binaryInstruction & 0x3F);
+		}
+
+		U16 Immediate() const {
+			return (binaryInstruction & 0xFFFF);
+		}
+
+		U32 ImmediateSE() const {
+			return (((binaryInstruction & 0xFFFF) & 0x8000) ? Immediate() | 0xFFFF0000 : Immediate());
+		}
+
+		U32 Code() const {
+			return ((binaryInstruction >> 6) & 0xFFFFF);
+		}
+
+		U32 PseudoAddress() const {
+			return (binaryInstruction & 0x3FFFFFF);
+		}
+
+		String Mnemonic() const;
 	};
 
 	class CPUStatusPanel;
@@ -100,29 +174,14 @@ namespace esx {
 		~R3000();
 
 		void clock();
-	private:
 		U32 fetch(U32 address);
-		Instruction decode(U32 instruction, U32 address, BIT suppressMnemonic = ESX_TRUE, BIT suppressException = ESX_FALSE);
+		void decode(Instruction& result, U32 instruction, U32 address, BIT suppressException = ESX_FALSE);
 
 		template<typename T>
 		U32 load(U32 address) {
 			if (ADDRESS_UNALIGNED(address,T)) {
 				raiseException(ExceptionType::AddressErrorLoad);
 				return 0;
-			}
-
-			U32 sr = getCP0Register((U8)COP0Register::SR);
-
-			//Isc is 1
-			if ((sr & (1 << 16)) != 0 && address < 0x1000) {
-				U32 output = 0;
-
-				for (size_t i = 0; i < sizeof(T); i++) {
-					output <<= 8;
-					output |= mICache[address + (sizeof(T) - 1 - i)];
-				}
-
-				return output;
 			}
 
 			return getBus(ESX_TEXT("Root"))->load<T>(address & SEGS_MASKS[address >> 29]);
@@ -135,114 +194,109 @@ namespace esx {
 				return;
 			}
 
-			U32 sr = getCP0Register((U8)COP0Register::SR);
-
-			//Isc is 1
-			if ((sr & (1 << 16)) != 0 && address < 0x1000) {
-				for (size_t i = 0; i < sizeof(T); i++) {
-					mICache[address + i] = (value & 0xFF);
-					value >>= 8;
-				}
-
-				return;
-			}
-
 			getBus(ESX_TEXT("Root"))->store<T>(address & SEGS_MASKS[address >> 29], value);
 		}
 
 		//Arithmetic
-		void ADD(const Instruction& instruction);
-		void ADDU(const Instruction& instruction);
-		void SUB(const Instruction& instruction);
-		void SUBU(const Instruction& instruction);
-		void ADDI(const Instruction& instruction);
-		void ADDIU(const Instruction& instruction);
-		void MULT(const Instruction& instruction);
-		void MULTU(const Instruction& instruction);
-		void DIV(const Instruction& instruction);
-		void DIVU(const Instruction& instruction);
-		void MFLO(const Instruction& instruction);
-		void MTLO(const Instruction& instruction);
-		void MFHI(const Instruction& instruction);
-		void MTHI(const Instruction& instruction);
+		void ADD();
+		void ADDU();
+		void SUB();
+		void SUBU();
+		void ADDI();
+		void ADDIU();
+		void MULT();
+		void MULTU();
+		void DIV();
+		void DIVU();
+		void MFLO();
+		void MTLO();
+		void MFHI();
+		void MTHI();
 
 		//Memory
-		void LW(const Instruction& instruction);
-		void LH(const Instruction& instruction);
-		void LHU(const Instruction& instruction);
-		void LB(const Instruction& instruction);
-		void LBU(const Instruction& instruction);
-		void LWL(const Instruction& instruction);
-		void LWR(const Instruction& instruction);
-		void SW(const Instruction& instruction);
-		void SWL(const Instruction& instruction);
-		void SWR(const Instruction& instruction);
-		void SH(const Instruction& instruction);
-		void SB(const Instruction& instruction);
-		void LUI(const Instruction& instruction);
+		void LW();
+		void LH();
+		void LHU();
+		void LB();
+		void LBU();
+		void LWL();
+		void LWR();
+		void SW();
+		void SWL();
+		void SWR();
+		void SH();
+		void SB();
+		void LUI();
 
 		//Comparison
-		void SLT(const Instruction& instruction);
-		void SLTU(const Instruction& instruction);
-		void SLTI(const Instruction& instruction);
-		void SLTIU(const Instruction& instruction);
+		void SLT();
+		void SLTU();
+		void SLTI();
+		void SLTIU();
 
 		//Binary
-		void AND(const Instruction& instruction);
-		void ANDI(const Instruction& instruction);
-		void OR(const Instruction& instruction);
-		void ORI(const Instruction& instruction);
-		void XOR(const Instruction& instruction);
-		void XORI(const Instruction& instruction);
-		void NOR(const Instruction& instruction);
-		void SLL(const Instruction& instruction);
-		void SRL(const Instruction& instruction);
-		void SRA(const Instruction& instruction);
-		void SLLV(const Instruction& instruction);
-		void SRLV(const Instruction& instruction);
-		void SRAV(const Instruction& instruction);
+		void AND();
+		void ANDI();
+		void OR();
+		void ORI();
+		void XOR();
+		void XORI();
+		void NOR();
+		void SLL();
+		void SRL();
+		void SRA();
+		void SLLV();
+		void SRLV();
+		void SRAV();
 
 		//Control
-		void BEQ(const Instruction& instruction);
-		void BNE(const Instruction& instruction);
-		void BLTZ(const Instruction& instruction);
-		void BLTZAL(const Instruction& instruction);
-		void BLEZ(const Instruction& instruction);
-		void BGTZ(const Instruction& instruction);
-		void BGEZ(const Instruction& instruction);
-		void BGEZAL(const Instruction& instruction);
-		void J(const Instruction& instruction);
-		void JR(const Instruction& instruction);
-		void JAL(const Instruction& instruction);
-		void JALR(const Instruction& instruction);
-		void BREAK(const Instruction& instruction);
-		void SYSCALL(const Instruction& instruction);
+		void BEQ();
+		void BNE();
+		void BLTZ();
+		void BLTZAL();
+		void BLEZ();
+		void BGTZ();
+		void BGEZ();
+		void BGEZAL();
+		void J();
+		void JR();
+		void JAL();
+		void JALR();
+		void BREAK();
+		void SYSCALL();
 
 		//COPx
-		void MTC0(const Instruction& instruction);
-		void MFC0(const Instruction& instruction);
-		void RFE(const Instruction& instruction);
-		void LWC2(const Instruction& instruction);
-		void SWC2(const Instruction& instruction);
+		void MTC0();
+		void MFC0();
+		void MTC2();
+		void MFC2();
+		void RFE();
+		void LWC2();
+		void SWC2();
 
-		void addPendingLoad(U8 index, U32 value);
+	private:
+		void addPendingLoad(RegisterIndex index, U32 value);
 
-		void setRegister(U8 index, U32 value);
-		U32 getRegister(U8 index);
+		void setRegister(RegisterIndex index, U32 value);
+		U32 getRegister(RegisterIndex index);
 
-		void setCP0Register(U8 index, U32 value);
-		U32 getCP0Register(U8 index);
+		void setCP0Register(RegisterIndex index, U32 value);
+		U32 getCP0Register(RegisterIndex index);
 
 		void raiseException(ExceptionType type);
 	private:
 		Array<U32, 32> mRegisters;
-		Queue<Pair<U32, U32>> mPendingLoads;
-		U32 mPC, mNextPC, mCurrentPC;
-		U32 mHI, mLO;
+		Queue<Pair<RegisterIndex, U32>> mPendingLoads;
+		U32 mPC = 0;
+		U32 mNextPC = 0;
+		U32 mCurrentPC = 0;
+		U32 mHI = 0;
+		U32 mLO = 0;
 		Array<U32, 64> mCP0Registers;
-		Vector<U8> mICache;
+		Instruction mCurrentInstruction;
 
-		BIT mBranch, mBranchSlot;
+		BIT mBranch = ESX_FALSE;
+		BIT mBranchSlot = ESX_FALSE;
 	};
 
 }

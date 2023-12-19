@@ -8,8 +8,6 @@ namespace esx {
 			return;
 		}
 
-		
-
 		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 		
 		GLFWwindow* window = glfwCreateWindow(width, height, title.c_str(), NULL, NULL);

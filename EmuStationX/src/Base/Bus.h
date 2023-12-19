@@ -91,8 +91,7 @@ namespace esx {
 
 				if (address >= busRange.Start && address < busRange.End) {
 					device->load(mName, address & busRange.Mask, result);
-				}
-				else {
+				} else {
 					ESX_ASSERT(ESX_FALSE, "Reading Address 0x{:08x}: not found", address);
 				}
 			} else {

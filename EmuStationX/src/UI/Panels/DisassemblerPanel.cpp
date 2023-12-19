@@ -137,10 +137,10 @@ namespace esx {
 			ImGui::TableHeadersRow();
 
 			ImGuiListClipper clipper;
-			clipper.Begin(mInstructions.size());
+			clipper.Begin((int)mInstructions.size());
 			while (clipper.Step())
 			{
-				for (U32 row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
+				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
 					Instruction instruction = mInstructions[row];
 					U32 address = instruction.Address;
 
@@ -184,7 +184,7 @@ namespace esx {
 			ImGui::TableHeadersRow();
 
 			I64 indexToDelete = -1;
-			I64 i = 0;
+			int i = 0;
 			static char addressBuffer[32];
 			for (auto& breakpoint : mBreakpoints) {
 				ImGui::TableNextRow();
@@ -203,7 +203,7 @@ namespace esx {
 				if (ImGui::InputText("##goto", addressBuffer, IM_ARRAYSIZE(addressBuffer), ImGuiInputTextFlags_CharsHexadecimal))
 				{
 					U32 addr;
-					if (sscanf(addressBuffer, "0x%08X", &addr) == 1 || sscanf(addressBuffer, "%08X", &addr) == 1) {
+					if (sscanf_s(addressBuffer, "0x%08X", &addr) == 1 || sscanf_s(addressBuffer, "%08X", &addr) == 1) {
 						breakpoint.Address = addr;
 					}
 				}
@@ -211,9 +211,11 @@ namespace esx {
 				ImGui::PopStyleColor(1);
 
 				ImGui::TableNextColumn();
+				ImGui::PushID(i);
 				if (ImGui::Button(ICON_FA_TRASH)) {
 					indexToDelete = i;
 				}
+				ImGui::PopID();
 
 				i++;
 			}
@@ -235,6 +237,8 @@ namespace esx {
 	}
 
 	void DisassemblerPanel::disassemble(uint32_t startAddress, size_t size){
+		esx::Instruction cpuInstruction;
+
 		mInstructions.clear();
 		for (U32 address = startAddress; address < startAddress + size; address +=4) {
 			U32 physAddress = address & SEGS_MASKS[address >> 29];
@@ -242,11 +246,11 @@ namespace esx {
 			if ((physAddress >= 0x00000000 && physAddress <= KIBI(2048)) || (physAddress >= 0x1FC00000 && physAddress < 0x1FC00000 + KIBI(512))) {
 
 				U32 opcode = mInstance->getBus(ESX_TEXT("Root"))->load<U32>(physAddress);
-				auto cpuInstruction = mInstance->decode(opcode, physAddress, false, true);
+				mInstance->decode(cpuInstruction, opcode, physAddress, ESX_TRUE);
 
 				Instruction instruction;
 				instruction.Address = address;
-				instruction.Mnemonic = std::string(cpuInstruction.Mnemonic.begin(), cpuInstruction.Mnemonic.end());
+				instruction.Mnemonic = cpuInstruction.Mnemonic();
 				mInstructions.push_back(instruction);
 			}
 
