@@ -4,6 +4,7 @@
 #include "Base/Bus.h"
 
 #include "Core/RAM.h"
+#include "Core/GPU.h"
 
 namespace esx {
 

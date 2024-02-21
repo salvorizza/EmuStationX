@@ -8,10 +8,10 @@ namespace esx {
 
 	R3000::R3000()
 		:	BusDevice(ESX_TEXT("R3000")),
+			mRegisters(),
 			mCP0Registers(),
-			mRegisters()
+			mPC(0xBFC00000)
 	{
-		mPC = 0xBFC00000;
 		mNextPC = mPC + 4;
 	}
 
@@ -39,9 +39,9 @@ namespace esx {
 		(this->*mCurrentInstruction.Execute)();
 
 		if (pendingLoadsEmpty == ESX_FALSE) {
-			const auto& pendingLoad = mPendingLoads.front();
+			const auto& [registerIndex, value] = mPendingLoads.front();
 
-			setRegister(pendingLoad.first, pendingLoad.second);
+			setRegister(registerIndex, value);
 
 			mPendingLoads.pop();
 		}
@@ -55,22 +55,6 @@ namespace esx {
 
 	void R3000::decode(Instruction& result, U32 instruction, U32 address, BIT suppressException)
 	{
-		constexpr static StringView registersMnemonics[] = {
-
-			ESX_TEXT("$zero"),
-			ESX_TEXT("$at"),
-			ESX_TEXT("$v0"),ESX_TEXT("$v1"),
-			ESX_TEXT("$a0"),ESX_TEXT("$a1"),ESX_TEXT("$a2"),ESX_TEXT("$a3"),
-			ESX_TEXT("$t0"),ESX_TEXT("$t1"),ESX_TEXT("$t2"),ESX_TEXT("$t3"),ESX_TEXT("$t4"),ESX_TEXT("$t5"),ESX_TEXT("$t6"),ESX_TEXT("$t7"),
-			ESX_TEXT("$s0"),ESX_TEXT("$s1"),ESX_TEXT("$s2"),ESX_TEXT("$s3"),ESX_TEXT("$s4"),ESX_TEXT("$s5"),ESX_TEXT("$s6"),ESX_TEXT("$s7"),
-			ESX_TEXT("$t8"),ESX_TEXT("$t9"),
-			ESX_TEXT("$k0"),ESX_TEXT("$k1"),
-			ESX_TEXT("$gp"),
-			ESX_TEXT("$sp"),
-			ESX_TEXT("$fp"),
-			ESX_TEXT("$ra")
-		};
-
 		result.Address = address;
 		result.binaryInstruction = instruction;
 		result.Execute = nullptr;
@@ -397,8 +381,7 @@ namespace esx {
 					case 0x31: 
 					case 0x32:
 					case 0x33: {
-						U8 cpn = CO_N(instruction);
-						if (cpn != 0x02) {
+						if (CO_N(instruction) != 0x02) {
 							if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
 							break;
 						}
@@ -412,8 +395,7 @@ namespace esx {
 					case 0x39:
 					case 0x3A:
 					case 0x3B: {
-						U8 cpn = CO_N(instruction);
-						if (cpn != 0x02) {
+						if (CO_N(instruction) != 0x02) {
 							if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
 							break;
 						}
@@ -509,8 +491,8 @@ namespace esx {
 
 	void R3000::MULT()
 	{
-		I32 a = getRegister(mCurrentInstruction.RegisterSource());
-		I32 b = getRegister(mCurrentInstruction.RegisterTarget());
+		I64 a = getRegister(mCurrentInstruction.RegisterSource());
+		I64 b = getRegister(mCurrentInstruction.RegisterTarget());
 
 		I64 r = a * b;
 
@@ -520,8 +502,8 @@ namespace esx {
 
 	void R3000::MULTU()
 	{
-		U32 a = getRegister(mCurrentInstruction.RegisterSource());
-		U32 b = getRegister(mCurrentInstruction.RegisterTarget());
+		U64 a = getRegister(mCurrentInstruction.RegisterSource());
+		U64 b = getRegister(mCurrentInstruction.RegisterTarget());
 
 		U64 r = a * b;
 
@@ -1024,9 +1006,6 @@ namespace esx {
 			mNextPC -= 4;
 			mBranch = ESX_TRUE;
 		}
-		else {
-			int i = 0;
-		}
 	}
 
 	void R3000::BLTZ()
@@ -1144,7 +1123,7 @@ namespace esx {
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 r = getRegister(mCurrentInstruction.RegisterTarget());
 
-		if ((mCurrentInstruction.RegisterDestination() >= 0 && mCurrentInstruction.RegisterDestination() <= 2) ||
+		if (mCurrentInstruction.RegisterDestination() <= 2 ||
 			mCurrentInstruction.RegisterDestination() == 4 ||
 			mCurrentInstruction.RegisterDestination() == 10 ||
 			(mCurrentInstruction.RegisterDestination() >= 32 && mCurrentInstruction.RegisterDestination() <= 63)) {
@@ -1289,7 +1268,7 @@ namespace esx {
 
 	String Instruction::Mnemonic() const
 	{
-		constexpr static StringView registersMnemonics[] = {
+		constexpr static std::array<StringView,32> registersMnemonics = {
 			ESX_TEXT("$zero"),
 			ESX_TEXT("$at"),
 			ESX_TEXT("$v0"),ESX_TEXT("$v1"),

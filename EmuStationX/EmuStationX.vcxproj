@@ -161,6 +161,7 @@
     <ClInclude Include="src\Core\DMA.h" />
     <ClInclude Include="src\Core\GPU.h" />
     <ClInclude Include="src\Core\InterruptControl.h" />
+    <ClInclude Include="src\Core\IRenderer.h" />
     <ClInclude Include="src\Core\MemoryControl.h" />
     <ClInclude Include="src\Core\PIO.h" />
     <ClInclude Include="src\Core\R3000.h" />

@@ -24,8 +24,8 @@ namespace esx {
 		const char* items[] = { "RAM", "Bios"};
 		static int item_current = 0;
 
-		RAM* ram = mInstance->getDevice<RAM>(ESX_TEXT("RAM"));
-		Bios* bios = mInstance->getDevice<Bios>(ESX_TEXT("Bios"));
+		SharedPtr<RAM> ram = mInstance->getDevice<RAM>(ESX_TEXT("RAM"));
+		SharedPtr<Bios> bios = mInstance->getDevice<Bios>(ESX_TEXT("Bios"));
 
 		if (ImGui::BeginCombo("##combo", items[item_current])) // The second parameter is the label previewed before opening the combo.
 		{

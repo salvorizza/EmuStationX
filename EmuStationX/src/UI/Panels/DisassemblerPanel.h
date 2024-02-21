@@ -13,7 +13,7 @@ namespace esx {
 		DisassemblerPanel();
 		~DisassemblerPanel();
 
-		void setInstance(R3000* pInstance) { mInstance = pInstance;}
+		void setInstance(const SharedPtr<R3000>& pInstance) { mInstance = pInstance;}
 
 		bool breakFunction(U32 address);
 
@@ -52,7 +52,7 @@ namespace esx {
 
 		void setDebugState(DebugState debugState) { mPrevDebugState = mDebugState; mDebugState = debugState; }
 
-		R3000* mInstance;
+		SharedPtr<R3000> mInstance;
 
 		std::vector<Instruction> mInstructions;
 		std::vector<Breakpoint> mBreakpoints;

@@ -11,13 +11,13 @@ namespace esx {
 		CPUStatusPanel();
 		~CPUStatusPanel();
 
-		void setInstance(R3000* pInstance) { mInstance = pInstance; }
+		void setInstance(const SharedPtr<R3000>& pInstance) { mInstance = pInstance; }
 
 	protected:
 		virtual void onImGuiRender() override;
 
 	private:
-		R3000* mInstance;
+		SharedPtr<R3000> mInstance;
 	};
 
 }

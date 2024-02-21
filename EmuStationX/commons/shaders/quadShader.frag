@@ -32,5 +32,5 @@ void main() {
     vec4 rect = vec4(vec2(pos,pos * uAspectRatio), vec2(size,size * uAspectRatio));
     result = blend(result, drawRect(oUV, rect, oColor));
 
-    fragColor = result;
+    fragColor = oColor;
 }

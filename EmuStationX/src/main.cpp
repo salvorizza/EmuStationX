@@ -12,6 +12,7 @@
 
 #include "Utils/LoggingSystem.h"
 
+#include "Base/Base.h"
 #include "Base/Bus.h"
 #include "Core/R3000.h"
 #include "Core/Bios.h"
@@ -33,11 +34,13 @@
 
 #ifdef ESX_PLATFORM_WINDOWS
 	#include <Windows.h>
+	#undef ERROR
 #endif // ESX_PLATFORM_WINDOWS
 
-#undef ERROR
+
 
 using namespace esx;
+
 
 class EmuStationXLogger : public Logger {
 public:
@@ -79,9 +82,7 @@ private:
 class EmuStationXApp : public Application {
 public:
 	EmuStationXApp()
-		: Application("EmuStationX", "commons/icons/Logo.ico"),
-			bios(ESX_TEXT("scph1001.bin")),
-			root(ESX_TEXT("Root"))
+		: Application("EmuStationX", "commons/icons/Logo.ico")
 	{
 	}
 
@@ -94,27 +95,68 @@ public:
 		mMemoryEditorPanel = std::make_shared<MemoryEditorPanel>();
 		mConsolePanel = std::make_shared<ConsolePanel>();
 		mLogger = std::make_shared<EmuStationXLogger>(mConsolePanel);
+		mBatchRenderer = std::make_shared<BatchRenderer>();
+		mViewportPanel = std::make_shared<ViewportPanel>();
+
+		root = MakeShared<Bus>(ESX_TEXT("Root"));
+		cpu = MakeShared<R3000>();
+		mainRAM = MakeShared<RAM>();
+		memoryControl = MakeShared<MemoryControl>();
+		interruptControl = MakeShared<InterruptControl>();
+		spu = MakeShared<SPU>();
+		pio = MakeShared<PIO>();
+		bios = MakeShared<Bios>(ESX_TEXT("scph1001.bin"));
+		timer = MakeShared<Timer>();
+		dma = MakeShared<DMA>();
+		gpu = MakeShared<GPU>(mBatchRenderer);
 
 		LoggingSystem::SetCoreLogger(mLogger);
 
-		root.connectDevice(&cpu);
-		root.connectDevice(&bios);
-		root.connectDevice(&mainRAM);
-		root.connectDevice(&memoryControl);
-		root.connectDevice(&spu);
-		root.connectDevice(&pio);
-		root.connectDevice(&interruptControl);
-		root.connectDevice(&timer);
-		root.connectDevice(&dma);
-		root.connectDevice(&gpu);
+		root->connectDevice(cpu);
+		cpu->connectToBus(root);
 
-		mCPUStatusPanel->setInstance(&cpu);
-		mDisassemblerPanel->setInstance(&cpu);
-		mMemoryEditorPanel->setInstance(&root);
+		root->connectDevice(bios);
+		bios->connectToBus(root);
+
+		root->connectDevice(mainRAM);
+		mainRAM->connectToBus(root);
+
+		root->connectDevice(memoryControl);
+		memoryControl->connectToBus(root);
+
+		root->connectDevice(spu);
+		spu->connectToBus(root);
+
+		root->connectDevice(pio);
+		pio->connectToBus(root);
+
+		root->connectDevice(interruptControl);
+		interruptControl->connectToBus(root);
+
+		root->connectDevice(timer);
+		timer->connectToBus(root);
+
+		root->connectDevice(dma);
+		dma->connectToBus(root);
+
+		root->connectDevice(gpu);
+		gpu->connectToBus(root);
+
+		mCPUStatusPanel->setInstance(cpu);
+		mDisassemblerPanel->setInstance(cpu);
+		mMemoryEditorPanel->setInstance(root);
 	}
 
 	virtual void onUpdate() override {
+		mProjectionMatrix = glm::ortho(0.0f, (float)mViewportPanel->width(), (float)mViewportPanel->height(), 0.0f);
+
+		mViewportPanel->startFrame();
+		//glClearColor(1, 0, 1, 1);
+		//glClear(GL_COLOR_BUFFER_BIT);
+		mBatchRenderer->begin(mProjectionMatrix, 0.2f, 1);
 		mDisassemblerPanel->onUpdate();
+		mBatchRenderer->end();
+		mViewportPanel->endFrame();
 	}
 
 	virtual void onRender() override {
@@ -177,26 +219,30 @@ public:
 		mMemoryEditorPanel->render(pManager);
 		mDisassemblerPanel->render(pManager);
 		mConsolePanel->render(pManager);
+		mViewportPanel->render(pManager);
 	}
 
 private:
-	Bus root;
-	R3000 cpu;
-	RAM mainRAM;
-	MemoryControl memoryControl;
-	InterruptControl interruptControl;
-	SPU spu;
-	PIO pio;
-	Bios bios;
-	Timer timer;
-	DMA dma;
-	GPU gpu;
+	SharedPtr<Bus> root;
+	SharedPtr<R3000> cpu;
+	SharedPtr<RAM> mainRAM;
+	SharedPtr<MemoryControl> memoryControl;
+	SharedPtr<InterruptControl> interruptControl;
+	SharedPtr<SPU> spu;
+	SharedPtr<PIO> pio;
+	SharedPtr<Bios> bios;
+	SharedPtr<Timer> timer;
+	SharedPtr<DMA> dma;
+	SharedPtr<GPU> gpu;
 
-	std::shared_ptr<CPUStatusPanel> mCPUStatusPanel;
-	std::shared_ptr<DisassemblerPanel> mDisassemblerPanel;
-	std::shared_ptr<MemoryEditorPanel> mMemoryEditorPanel;
-	std::shared_ptr<ConsolePanel> mConsolePanel;
-	std::shared_ptr<EmuStationXLogger> mLogger;
+	SharedPtr<CPUStatusPanel> mCPUStatusPanel;
+	SharedPtr<DisassemblerPanel> mDisassemblerPanel;
+	SharedPtr<MemoryEditorPanel> mMemoryEditorPanel;
+	SharedPtr<ConsolePanel> mConsolePanel;
+	SharedPtr<EmuStationXLogger> mLogger;
+	SharedPtr<BatchRenderer> mBatchRenderer;
+	SharedPtr<ViewportPanel> mViewportPanel;
+	glm::mat4 mProjectionMatrix;
 
 };
 

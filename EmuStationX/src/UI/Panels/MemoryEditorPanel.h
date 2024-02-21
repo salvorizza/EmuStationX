@@ -13,13 +13,13 @@ namespace esx {
 		MemoryEditorPanel();
 		~MemoryEditorPanel();
 
-		void setInstance(Bus* pInstance) { mInstance = pInstance; }
+		void setInstance(SharedPtr<Bus> pInstance) { mInstance = pInstance; }
 
 	protected:
 		virtual void onImGuiRender() override;
 
 	private:
-		Bus* mInstance;
+		SharedPtr<Bus> mInstance;
 	};
 
 }

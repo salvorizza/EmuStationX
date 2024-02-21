@@ -45,13 +45,14 @@ namespace esx {
 
 		const StringView& getName() const { return mName; }
 
-		void connectToBus(Bus* pBus);
-		Bus* getBus(const StringView& busName);
+		void connectToBus(const SharedPtr<Bus>& pBus);
+		SharedPtr<Bus> getBus(const StringView& busName);
 
 	protected:
 		void addRange(const StringView& busName, U64 start, U64 sizeInBytes, U64 mask);
+
 	protected:
-		UnorderedMap<StringView, Bus*> mBusses;
+		UnorderedMap<StringView, SharedPtr<Bus>> mBusses;
 		Vector<BusRange> mStoredRanges;
 
 		StringView mName;
@@ -61,7 +62,7 @@ namespace esx {
 	class Bus {
 	public:
 		Bus(const StringView& name);
-		~Bus();
+		~Bus() = default;
 
 		void writeLine(const StringView& lineName, BIT value);
 
@@ -101,21 +102,21 @@ namespace esx {
 			return result;
 		}
 
-		void connectDevice(BusDevice* device);
+		void connectDevice(const SharedPtr<BusDevice>& device);
 
 		template<typename T>
-		T* getDevice(const StringView& name) {
-			return dynamic_cast<T*>(mDevices.at(name));
+		SharedPtr<T> getDevice(const StringView& name) {
+			return std::dynamic_pointer_cast<T>(mDevices.at(name));
 		}
 
 		const StringView& getName() const { return mName; }
 
-		void addRange(BusDevice* device, BusRange range);
+		void addRange(const StringView& deviceName, BusRange range);
 
 	private:
 		StringView mName;
-		UnorderedMap<StringView,BusDevice*> mDevices;
-		Map<U64, Pair<BusRange,BusDevice*>> mRanges;
+		UnorderedMap<StringView, SharedPtr<BusDevice>> mDevices;
+		Map<U64, Pair<BusRange, SharedPtr<BusDevice>>> mRanges;
 	};
 
 

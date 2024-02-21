@@ -7,41 +7,35 @@ namespace esx {
 	
 
 	Bus::Bus(const StringView& name)
-		: mName(name),
-			mRanges()
-	{
-	}
-
-	Bus::~Bus()
+		: mName(name)
 	{
 	}
 
 	void Bus::writeLine(const StringView& lineName, BIT value)
 	{
-		for (auto& [name, device] : mDevices) {
+		for (const auto& [name, device] : mDevices) {
 			device->writeLine(mName, lineName, value);
 		}
 	}
 
-	void Bus::connectDevice(BusDevice* device) {
+	void Bus::connectDevice(const SharedPtr<BusDevice>& device) {
 		mDevices[device->getName()] = device;
-		device->connectToBus(this);
 	}
 
-	void Bus::addRange(BusDevice* device, BusRange range)
+	void Bus::addRange(const StringView& deviceName, BusRange range)
 	{
-		mRanges[range.End] = std::make_pair(range, device);
+		mRanges[range.End] = std::make_pair(range, mDevices.at(deviceName));
 	}
 
-	void BusDevice::connectToBus(Bus* pBus)
+	void BusDevice::connectToBus(const SharedPtr<Bus>& pBus)
 	{
-		for (BusRange& range : mStoredRanges) {
-			pBus->addRange(this, range);
+		for (const BusRange& range : mStoredRanges) {
+			pBus->addRange(mName, range);
 		}
 		mBusses[pBus->getName()] = pBus;
 	}
 
-	Bus* BusDevice::getBus(const StringView& busName)
+	SharedPtr<Bus> BusDevice::getBus(const StringView& busName)
 	{
 		return mBusses[busName];
 	}

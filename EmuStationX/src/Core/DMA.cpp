@@ -260,8 +260,9 @@ namespace esx {
 				break;
 		}
 
-		Bus* bus = getBus(ESX_TEXT("Root"));
-		RAM* ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
+		SharedPtr<Bus> bus = getBus(ESX_TEXT("Root"));
+		SharedPtr<RAM> ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
+		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
 
 		ESX_CORE_LOG_TRACE("\nStarting Block DMA:\n\tPort: {}\n\tBase Address: {:08x}\n\tSize: {}\n\tIncrement: {}\n\tDirection: {}", (U8)port, address, transferSize, increment, (U8)channel.Direction);
 		for (I32 remainingSize = transferSize; remainingSize > 0; remainingSize--) {
@@ -297,7 +298,7 @@ namespace esx {
 
 					switch (port) {
 						case Port::GPU: {
-							ESX_CORE_LOG_TRACE("GPU Data: {:08x}", value);
+							gpu->gp0(value);
 							break;
 						}
 						default: {
@@ -322,11 +323,13 @@ namespace esx {
 		ESX_CORE_ASSERT(port == Port::GPU, "DMA Port {} not supported yet", (U8)port);
 		ESX_CORE_ASSERT(channel.Direction == Direction::FromMainRAM, "ToMainRAM Direction not supported yet");
 
-		Bus* bus = getBus(ESX_TEXT("Root"));
-		RAM* ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
+		SharedPtr<Bus> bus = getBus(ESX_TEXT("Root"));
+		SharedPtr<RAM> ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
+		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
 
 		U32 nodeAddress = channel.BaseAddress & 0x1FFFFC;
-		U32 header = 0, packet = 0;
+		U32 header = 0;
+		U32 packet = 0;
 
 		ESX_CORE_LOG_TRACE("\nStarting Linked List DMA:\n\tPort: {}\n\tStart Address: {:08x}", (U8)port, nodeAddress);
 
@@ -341,7 +344,7 @@ namespace esx {
 			for (I32 remainingSize = extraWords; remainingSize > 0; remainingSize--) {
 				ram->load(ESX_TEXT("Root"), packetAddress, packet);
 
-				ESX_CORE_LOG_TRACE("GPU Command: {:08x}", packet);
+				gpu->gp0(packet);
 
 				packetAddress = (packetAddress + 4) & 0x1FFFFC;
 			}

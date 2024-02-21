@@ -12,24 +12,24 @@ namespace esx {
 			mCurrentVertex(nullptr),
 			mNumIndices(0)
 	{
-		uint32_t* indices = new uint32_t[QUAD_MAX_NUM_INDICES];
-
+		Vector<U32> indices(QUAD_MAX_NUM_INDICES);
 		for (uint32_t i = 0; i < MAX_QUADS; i++) {
 			indices[(i * 6) + 0] = (i * 4) + 0;
 			indices[(i * 6) + 1] = (i * 4) + 1;
 			indices[(i * 6) + 2] = (i * 4) + 2;
-			indices[(i * 6) + 3] = (i * 4) + 2;
-			indices[(i * 6) + 4] = (i * 4) + 3;
-			indices[(i * 6) + 5] = (i * 4) + 0;
+			indices[(i * 6) + 3] = (i * 4) + 1;
+			indices[(i * 6) + 4] = (i * 4) + 2;
+			indices[(i * 6) + 5] = (i * 4) + 3;
 		}
 
-		mIBO = std::make_shared<IndexBuffer>(indices, QUAD_MAX_NUM_INDICES);
+		mIBO = std::make_shared<IndexBuffer>(indices.data(), QUAD_MAX_NUM_INDICES);
 		mVBO = std::make_shared<VertexBuffer>();
 		mVBO->setLayout({
 			BufferElement("aPosition", ShaderType::Float2),
 			BufferElement("aUV", ShaderType::Float2),
 			BufferElement("aColor", ShaderType::Uint4, true)
 		});
+		mVerticesBase = new QuadVertex[MAX_QUADS];
 		mVBO->setData(NULL, QUAD_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
 
 		mVAO = std::make_shared<VertexArray>();
@@ -39,9 +39,21 @@ namespace esx {
 		mVBO->unbind();
 		mIBO->unbind();
 
-		mShader = Shader::LoadFromFile("commons/shaders/quadShader.vert","commons/shaders/quadShader.frag");
+		mTriVBO = std::make_shared<VertexBuffer>();
+		mTriVBO->setLayout({
+			BufferElement("aPosition", ShaderType::Float2),
+			BufferElement("aUV", ShaderType::Float2),
+			BufferElement("aColor", ShaderType::Uint4, true)
+			});
+		mTriVerticesBase = new QuadVertex[MAX_TRIS];
+		mTriVBO->setData(NULL, TRI_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
 
-		delete[] indices;
+		mTriVAO = std::make_shared<VertexArray>();
+		mTriVAO->addVertexBuffer(mTriVBO);
+		mTriVAO->unbind();
+		mTriVBO->unbind();
+
+		mShader = Shader::LoadFromFile("commons/shaders/quadShader.vert","commons/shaders/quadShader.frag");
 	}
 
 	BatchRenderer::~BatchRenderer()
@@ -55,10 +67,11 @@ namespace esx {
 		mBorderWidth = borderWidth;
 		mAspectRatio = aspectRatio;
 
-		mVBO->bind();
-		mVerticesBase = (QuadVertex*)mVBO->map();
 		mCurrentVertex = mVerticesBase;
 		mNumIndices = 0;
+
+		mTriCurrentVertex = mTriVerticesBase;
+		mTriNumIndices = 0;
 	}
 
 	void BatchRenderer::end()
@@ -68,17 +81,28 @@ namespace esx {
 
 	void BatchRenderer::flush()
 	{
-		mVBO->unMap();
-		mVBO->unbind();
-
 		mShader->start();
-
 		mShader->uploadUniform("uProjectionMatrix", mProjectionMatrix);
 		mShader->uploadUniform("uBorderWidth", mBorderWidth);
 		mShader->uploadUniform("uAspectRatio", mAspectRatio);
 
-		mVAO->bind();
-		glDrawElements(GL_TRIANGLES, mNumIndices, GL_UNSIGNED_INT, NULL);
+		if (mNumIndices) {
+			U32 dataSize = (U32)((U8*)mCurrentVertex - (U8*)mVerticesBase);
+			mVBO->bind();
+			mVBO->setData(mVerticesBase, dataSize, VertexBufferDataUsage::Dynamic);
+
+			mVAO->bind();
+			glDrawElements(GL_TRIANGLES, mNumIndices, GL_UNSIGNED_INT, NULL);
+		}
+
+		if (mTriNumIndices) {
+			U32 dataSize = (U32)((U8*)mTriCurrentVertex - (U8*)mTriVerticesBase);
+			mTriVBO->bind();
+			mTriVBO->setData(mTriVerticesBase, dataSize, VertexBufferDataUsage::Dynamic);
+
+			mTriVAO->bind();
+			glDrawArrays(GL_TRIANGLES, 0, mTriNumIndices);
+		}
 	}
 
 	void BatchRenderer::drawQuad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color)
@@ -117,6 +141,56 @@ namespace esx {
 		mCurrentVertex++;
 
 		mNumIndices += 6;
+	}
+
+	void BatchRenderer::DrawPolygon(const Vector<PolygonVertex>& vertices)
+	{
+		if (vertices.size() == 4) {
+			if (mNumIndices == QUAD_MAX_NUM_INDICES) {
+				flush();
+				begin(mProjectionMatrix, mBorderWidth, mAspectRatio);
+			}
+
+			for (const PolygonVertex& vertex : vertices) {
+				uint32_t a = (uint32_t)(255);
+				uint32_t b = (uint32_t)(vertex.color.b);
+				uint32_t g = (uint32_t)(vertex.color.g);
+				uint32_t r = (uint32_t)(vertex.color.r);
+				uint32_t u32color = a << 24 | b << 16 | g << 8 | r;
+
+				mCurrentVertex->Position = glm::vec2(vertex.vertex.x, vertex.vertex.y);
+				mCurrentVertex->Color = u32color;
+				mCurrentVertex->UV = glm::vec2(0.0, 0.0);
+				mCurrentVertex++;
+			}
+
+			mNumIndices += 6;
+		}
+		else {
+			if (mTriNumIndices == TRI_MAX_NUM_INDICES) {
+				flush();
+				begin(mProjectionMatrix, mBorderWidth, mAspectRatio);
+			}
+
+			for (const PolygonVertex& vertex : vertices) {
+				uint32_t a = (uint32_t)(255);
+				uint32_t b = (uint32_t)(vertex.color.b);
+				uint32_t g = (uint32_t)(vertex.color.g);
+				uint32_t r = (uint32_t)(vertex.color.r);
+				uint32_t u32color = a << 24 | b << 16 | g << 8 | r;
+
+				mTriCurrentVertex->Position = glm::vec2(vertex.vertex.x, vertex.vertex.y);
+				mTriCurrentVertex->Color = u32color;
+				mTriCurrentVertex->UV = glm::vec2(0.0, 0.0);
+				mTriCurrentVertex++;
+			}
+
+			mTriNumIndices += 3;
+		}
+	}
+
+	void BatchRenderer::DrawRectangle(const Vertex& topLeft, U16 width, U16 height, const Color& color)
+	{
 	}
 
 }
