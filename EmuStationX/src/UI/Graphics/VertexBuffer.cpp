@@ -14,10 +14,15 @@ namespace esx {
 
 	uint32_t getShaderDataTypeSize(ShaderType type) {
 		switch (type) {
-			case ShaderType::Float: return 4;
+			case ShaderType::Float: return  4 * 1;
 			case ShaderType::Float2: return 4 * 2;
 			case ShaderType::Float4: return 4 * 4;
-			case ShaderType::Uint4: return 4;
+
+			case ShaderType::Short2: return 2 * 2;
+
+			case ShaderType::UByte2: return 1 * 2;
+			case ShaderType::UByte3: return 1 * 3;
+			case ShaderType::UByte4: return 1 * 4;
 		}
 		return 0;
 	}
@@ -42,7 +47,8 @@ namespace esx {
 		uint32_t currentStride = 0;
 		for (BufferElement& bufferElement : mBufferElements) {
 			bufferElement.Offset = currentStride;
-			currentStride += getShaderDataTypeSize(bufferElement.Type);
+			size_t typeSize = getShaderDataTypeSize(bufferElement.Type);
+			currentStride += typeSize;
 		}
 		mStride = currentStride;
 	}

@@ -1,5 +1,7 @@
 #include "UI/Graphics/Shader.h"
 
+#include "Base/Assert.h"
+
 #include <glad/glad.h>
 
 
@@ -19,7 +21,7 @@ namespace esx {
 			glGetShaderiv(vertexShaderID, GL_INFO_LOG_LENGTH, &maxLength);
 			char* infoLog = new char[maxLength];
 			glGetShaderInfoLog(vertexShaderID, maxLength, &maxLength, &infoLog[0]);
-			printf("Error: \n%s\n\n", infoLog);
+			ESX_CORE_LOG_ERROR("Error: \n{}\n\n", infoLog);
 			glDeleteShader(vertexShaderID);
 			delete[] infoLog;
 			return;
@@ -33,7 +35,7 @@ namespace esx {
 			glGetShaderiv(fragentShaderID, GL_INFO_LOG_LENGTH, &maxLength);
 			char* infoLog = new char[maxLength];
 			glGetShaderInfoLog(fragentShaderID, maxLength, &maxLength, &infoLog[0]);
-			printf("Error: \n%s\n\n", infoLog);
+			ESX_CORE_LOG_ERROR("Error: \n{}\n\n", infoLog);
 			glDeleteShader(fragentShaderID);
 			delete[] infoLog;
 			return;
@@ -49,7 +51,7 @@ namespace esx {
 			glGetProgramiv(program, GL_INFO_LOG_LENGTH, &maxLength);
 			char* infoLog = new char[maxLength];
 			glGetProgramInfoLog(program, maxLength, &maxLength, &infoLog[0]);
-			printf("Error: \n%s\n\n", infoLog);
+			ESX_CORE_LOG_ERROR("Error: \n{}\n\n", infoLog);
 			glDeleteProgram(program);
 			glDeleteShader(vertexShaderID);
 			glDeleteShader(fragentShaderID);

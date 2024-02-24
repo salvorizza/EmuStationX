@@ -29,6 +29,10 @@ namespace esx {
 	void GPU::load(const StringView& busName, U32 address, U32& output)
 	{
 		switch (address) {
+			case 0x1F801810: {
+				output = 0;
+				break;
+			}
 			case 0x1F801814: {
 				output = getGPUStat();
 				break;
@@ -522,6 +526,9 @@ namespace esx {
 
 		mDrawOffsetX = ((I16)(drawOffsetX << 5)) >> 5;
 		mDrawOffsetY = ((I16)(drawOffsetY << 5)) >> 5;
+
+		mRenderer->Flush();
+		mRenderer->Begin();
 	}
 
 	void GPU::gp0MaskBitSettingCommand()
@@ -566,6 +573,7 @@ namespace esx {
 	{
 		mCommandBuffer.clear();
 		mCurrentCommand.RemainingParameters = 0;
+		mMode = GP0Mode::Command;
 	}
 
 	void GPU::gp1AckInterrupt()
@@ -676,7 +684,7 @@ namespace esx {
 		result |= (mGPUStat.TexturePageYBase2 & 0x1) << 15;
 		result |= ((U8)mGPUStat.HorizontalResolution & 0x1) << 16;
 		result |= (((U8)mGPUStat.HorizontalResolution >> 1) & 0x3) << 17;
-		result |= ((U8)mGPUStat.VerticalResolution & 0x1) << 19;
+		//result |= ((U8)mGPUStat.VerticalResolution & 0x1) << 19; TODO: Emulate Bit 31 correctly endless loop
 		result |= ((U8)mGPUStat.VideoMode & 0x1) << 20;
 		result |= ((U8)mGPUStat.ColorDepth & 0x1) << 21;
 		result |= (mGPUStat.VerticalInterlace & 0x1) << 22;

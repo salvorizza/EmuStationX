@@ -48,7 +48,7 @@ namespace esx {
 		ImVec2 vMin = ImGui::GetWindowPos() + ImGui::GetWindowContentRegionMin();
 		ImVec2 cursorPos = ImGui::GetCursorPos();
 
-		ImVec2 screenSize = ImVec2(640.0f, 480.0f);
+		ImVec2 screenSize = ImVec2(1024.0f, 512.0f);
 		ImVec2 scales = size / screenSize;
 		float scale = floor(std::min(scales.x, scales.y));
 		ImVec2 newSize = screenSize * scale;

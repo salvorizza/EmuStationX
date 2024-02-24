@@ -10,7 +10,10 @@ namespace esx {
 		Float,
 		Float2,
 		Float4,
-		Uint4
+		Short2,
+		UByte2,
+		UByte3,
+		UByte4,
 	};
 
 	struct BufferElement {

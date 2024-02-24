@@ -4,22 +4,30 @@
 
 namespace esx {
 
-	uint32_t getShaderDataTypeOpenGLPrimitiveType(ShaderType type) {
+	GLenum getShaderDataTypeOpenGLPrimitiveType(ShaderType type) {
 		switch (type) {
 			case ShaderType::Float: return GL_FLOAT;
 			case ShaderType::Float2: return GL_FLOAT;
 			case ShaderType::Float4: return GL_FLOAT;
-			case ShaderType::Uint4: return GL_UNSIGNED_BYTE;
+			case ShaderType::UByte2: return GL_UNSIGNED_BYTE;
+			case ShaderType::UByte3: return GL_UNSIGNED_BYTE;
+			case ShaderType::UByte4: return GL_UNSIGNED_BYTE;
+			case ShaderType::Short2: return GL_SHORT;
 		}
 		return 0;
 	}
 
-	uint32_t getShaderDataTypeNumComponents(ShaderType type) {
+	GLint getShaderDataTypeNumComponents(ShaderType type) {
 		switch (type) {
 			case ShaderType::Float: return 1;
 			case ShaderType::Float2: return 2;
 			case ShaderType::Float4: return 4;
-			case ShaderType::Uint4: return 4;
+
+			case ShaderType::Short2: return 2;
+
+			case ShaderType::UByte2: return 2;
+			case ShaderType::UByte3: return 3;
+			case ShaderType::UByte4: return 4;
 		}
 		return 0;
 	}
@@ -43,12 +51,15 @@ namespace esx {
 
 	void VertexArray::addVertexBuffer(const std::shared_ptr<VertexBuffer>& vbo)
 	{
+		vbo->bind();
 		const BufferLayout& layout = vbo->getLayout();
-		size_t attribIndex = mVertexBuffers.size();
+		GLuint attribIndex = mVertexBuffers.size();
 
 		for (const BufferElement& bufferElement : layout) {
-			glEnableVertexAttribArray((GLuint)attribIndex);
-			glVertexAttribPointer((GLuint)attribIndex, getShaderDataTypeNumComponents(bufferElement.Type), getShaderDataTypeOpenGLPrimitiveType(bufferElement.Type), bufferElement.Normalized, layout.getStride(), (const void*)bufferElement.Offset);
+			glEnableVertexAttribArray(attribIndex);
+			GLint numComponents = getShaderDataTypeNumComponents(bufferElement.Type);
+			GLenum primitiveType = getShaderDataTypeOpenGLPrimitiveType(bufferElement.Type);
+			glVertexAttribPointer(attribIndex, numComponents, primitiveType, bufferElement.Normalized, layout.getStride(), (const void*)bufferElement.Offset);
 			attribIndex++;
 		}
 	}

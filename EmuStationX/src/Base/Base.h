@@ -23,13 +23,13 @@ namespace esx {
 	#define KIBI(x) x * BYTE(1024)
 	#define MIBI(x) x * KIBI(1024)
 
-	typedef char I8;
+	typedef signed char I8;
 	typedef unsigned char U8;
-	typedef short I16;
+	typedef signed short I16;
 	typedef unsigned short U16;
-	typedef int I32;
+	typedef signed int I32;
 	typedef unsigned int U32;
-	typedef long long I64;
+	typedef signed long long I64;
 	typedef unsigned long long U64;
 	typedef float F32;
 	typedef double F64;

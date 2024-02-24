@@ -145,17 +145,46 @@ public:
 		mCPUStatusPanel->setInstance(cpu);
 		mDisassemblerPanel->setInstance(cpu);
 		mMemoryEditorPanel->setInstance(root);
+
+		mBatchRenderer->Begin();
 	}
 
 	virtual void onUpdate() override {
-		mProjectionMatrix = glm::ortho(0.0f, (float)mViewportPanel->width(), (float)mViewportPanel->height(), 0.0f);
+
+		Vector<PolygonVertex> vertices(4);
+		vertices[0].vertex.x = 50;
+		vertices[0].vertex.y = 50;
+		vertices[0].color.r = 255;
+		vertices[0].color.g = 0;
+		vertices[0].color.b = 0;
+
+		vertices[1].vertex.x = 20;
+		vertices[1].vertex.y = 50;
+		vertices[1].color.r = 255;
+		vertices[1].color.g = 0;
+		vertices[1].color.b = 0;
+
+		vertices[2].vertex.x = 50;
+		vertices[2].vertex.y = 20;
+		vertices[2].color.r = 255;
+		vertices[2].color.g = 0;
+		vertices[2].color.b = 0;
+
+		vertices[3].vertex.x = 20;
+		vertices[3].vertex.y = 20;
+		vertices[3].color.r = 255;
+		vertices[3].color.g = 0;
+		vertices[3].color.b = 0;
 
 		mViewportPanel->startFrame();
 		//glClearColor(1, 0, 1, 1);
 		//glClear(GL_COLOR_BUFFER_BIT);
-		mBatchRenderer->begin(mProjectionMatrix, 0.2f, 1);
-		mDisassemblerPanel->onUpdate();
-		mBatchRenderer->end();
+		//mDisassemblerPanel->onUpdate();
+
+		mBatchRenderer->DrawPolygon(vertices);
+		mBatchRenderer->Flush();
+		mBatchRenderer->Begin();
+
 		mViewportPanel->endFrame();
 	}
 
