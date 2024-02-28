@@ -297,17 +297,9 @@ namespace esx {
 
 		size_t numVertices = quad ? 4 : 3;
 		for(size_t i = 0; i < numVertices;i++) {
-			Color color;
-			Vertex vertex;
-			UV uv;
-
-			if (textured) uv = unpackUV(mCommandBuffer.pop());
-			vertex = unpackVertex(mCommandBuffer.pop());
-			if (gourad) color = unpackColor(mCommandBuffer.pop());
-
-			vertices[i].vertex = vertex;
-			vertices[i].color = gourad ? color : flatColor;
-			if (textured) vertices[i].uv = uv;
+			vertices[i].uv = textured ? unpackUV(mCommandBuffer.pop()) : UV();
+			vertices[i].vertex = unpackVertex(mCommandBuffer.pop());
+			vertices[i].color = gourad ? unpackColor(mCommandBuffer.pop()) : flatColor;
 		}
 
 		mRenderer->DrawPolygon(vertices);
@@ -508,6 +500,8 @@ namespace esx {
 		U32 instruction = mCommandBuffer.pop();
 		mDrawAreaTopLeftX = (instruction >> 0) & 0x3FF;
 		mDrawAreaTopLeftY = (instruction >> 10) & 0x3FF;
+
+		mRenderer->SetDrawTopLeft(mDrawAreaTopLeftX, mDrawAreaTopLeftY);
 	}
 
 	void GPU::gp0SetDrawingAreaBottomRightCommand()
@@ -515,10 +509,15 @@ namespace esx {
 		U32 instruction = mCommandBuffer.pop();
 		mDrawAreaBottomRightX = (instruction >> 0) & 0x3FF;
 		mDrawAreaBottomRightY = (instruction >> 10) & 0x3FF;
+
+		mRenderer->SetDrawBottomRight(mDrawAreaBottomRightX, mDrawAreaBottomRightY);
 	}
 
 	void GPU::gp0SetDrawingOffsetCommand()
 	{
+		mRenderer->Flush();
+		mRenderer->Begin();
+
 		U32 instruction = mCommandBuffer.pop();
 
 		U16 drawOffsetX = (instruction >> 0) & 0x7FF;
@@ -527,8 +526,7 @@ namespace esx {
 		mDrawOffsetX = ((I16)(drawOffsetX << 5)) >> 5;
 		mDrawOffsetY = ((I16)(drawOffsetY << 5)) >> 5;
 
-		mRenderer->Flush();
-		mRenderer->Begin();
+		mRenderer->SetDrawOffset(mDrawOffsetX, mDrawOffsetY);
 	}
 
 	void GPU::gp0MaskBitSettingCommand()

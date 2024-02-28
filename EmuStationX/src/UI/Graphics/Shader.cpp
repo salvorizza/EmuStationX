@@ -79,6 +79,18 @@ namespace esx {
 		glUseProgram(0);
 	}
 
+	void Shader::uploadUniform(const char* uniformName, const glm::uvec2& vec)
+	{
+		int32_t location = getLocation(uniformName);
+		glUniform2uiv(location, 1, glm::value_ptr(vec));
+	}
+
+	void Shader::uploadUniform(const char* uniformName, const glm::ivec2& vec)
+	{
+		int32_t location = getLocation(uniformName);
+		glUniform2iv(location, 1, glm::value_ptr(vec));
+	}
+
 	void Shader::uploadUniform(const char* uniformName, const glm::mat4& mat)
 	{
 		int32_t location = getLocation(uniformName);

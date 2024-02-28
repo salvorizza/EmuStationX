@@ -22,6 +22,8 @@ namespace esx {
 		void start();
 		void stop();
 
+		void uploadUniform(const char* uniformName, const glm::uvec2& vec);
+		void uploadUniform(const char* uniformName, const glm::ivec2& vec);
 		void uploadUniform(const char* uniformName, const glm::mat4& mat);
 		void uploadUniform(const char* uniformName, float value);
 

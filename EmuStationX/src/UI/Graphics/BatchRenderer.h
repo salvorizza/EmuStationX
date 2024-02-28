@@ -23,6 +23,9 @@ namespace esx {
 		void end();
 		void Flush() override;
 
+		void SetDrawOffset(I16 offsetX, I16 offsetY) override;
+		void SetDrawTopLeft(U16 x, U16 y) override;
+		void SetDrawBottomRight(U16 x, U16 y) override;
 		void DrawPolygon(const Vector<PolygonVertex>& vertices) override;
 		void DrawRectangle(const Vertex& topLeft, U16 width, U16 height, const Color& color) override;
 
@@ -54,6 +57,10 @@ namespace esx {
 		Vector<PolygonVertex> mTriVerticesBase;
 		Vector<PolygonVertex>::iterator mTriCurrentVertex;
 		uint32_t mTriNumIndices;
+
+		glm::ivec2 mDrawOffset = glm::ivec2(0,0);
+		glm::uvec2 mDrawTopLeft = glm::uvec2(0,0);
+		glm::uvec2 mDrawBottomRight = glm::uvec2(0,0);
 	};
 
 }

@@ -37,20 +37,17 @@ namespace esx {
 		U8 r;
 		U8 g;
 		U8 b;
-		U8 a;
 
 		Color()
 			:	r(0),
 				g(0),
-				b(0),
-				a(0)
+				b(0)
 		{}
 
 		Color(U8 _r, U8 _g, U8 _b)
 			:	r(_r),
 				g(_g),
-				b(_b),
-				a(0)
+				b(_b)
 		{}
 	};
 
@@ -66,6 +63,9 @@ namespace esx {
 
 		virtual void Flush() = 0;
 		virtual void Begin() = 0;
+		virtual void SetDrawOffset(I16 offsetX, I16 offsetY) = 0;
+		virtual void SetDrawTopLeft(U16 x, U16 y) = 0;
+		virtual void SetDrawBottomRight(U16 x, U16 y) = 0;
 		virtual void DrawPolygon(const Vector<PolygonVertex>& vertices) = 0;
 		virtual void DrawRectangle(const Vertex& topLeft, U16 width, U16 height, const Color& color) = 0;
 

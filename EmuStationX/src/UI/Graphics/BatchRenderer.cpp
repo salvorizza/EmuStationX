@@ -26,7 +26,7 @@ namespace esx {
 		mVBO->setLayout({
 			BufferElement("aPos", ShaderType::Short2),
 			BufferElement("aUV", ShaderType::UByte2),
-			BufferElement("aColor", ShaderType::UByte4)
+			BufferElement("aColor", ShaderType::UByte3)
 		});
 		mVBO->setData(nullptr, QUAD_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
 
@@ -41,7 +41,7 @@ namespace esx {
 		mTriVBO->setLayout({
 			BufferElement("aPos", ShaderType::Short2),
 			BufferElement("aUV", ShaderType::UByte2),
-			BufferElement("aColor", ShaderType::UByte4)
+			BufferElement("aColor", ShaderType::UByte3)
 		});
 		mTriVBO->setData(nullptr, TRI_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
 
@@ -70,14 +70,14 @@ namespace esx {
 	void BatchRenderer::Flush()
 	{
 		mShader->start();
+		mShader->uploadUniform("uOffset", mDrawOffset);
+		mShader->uploadUniform("uTopLeft", mDrawTopLeft);
+		mShader->uploadUniform("uBottomRight", mDrawBottomRight);
 
 		if (mNumIndices) {
 			ptrdiff_t dataSize = std::distance(mVerticesBase.begin(), mCurrentVertex) * sizeof(PolygonVertex);
 			mVBO->bind();
 			mVBO->setData(mVerticesBase.data(), dataSize, VertexBufferDataUsage::Dynamic);
-
-			U8* data = (U8*)mVerticesBase.data();
-
 
 			mVAO->bind();
 			glDrawElements(GL_TRIANGLES, mNumIndices, GL_UNSIGNED_INT, nullptr);
@@ -86,8 +86,6 @@ namespace esx {
 
 		if (mTriNumIndices) {
 			ptrdiff_t dataSize = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex) * sizeof(PolygonVertex);
-
-
 			mTriVBO->bind();
 			mTriVBO->setData(mTriVerticesBase.data(), dataSize, VertexBufferDataUsage::Dynamic);
 
@@ -95,6 +93,24 @@ namespace esx {
 			glDrawArrays(GL_TRIANGLES, 0, mTriNumIndices);
 			glFinish();
 		}
+	}
+
+	void BatchRenderer::SetDrawOffset(I16 offsetX, I16 offsetY)
+	{
+		mDrawOffset.x = offsetX;
+		mDrawOffset.y = offsetY;
+	}
+
+	void BatchRenderer::SetDrawTopLeft(U16 x, U16 y)
+	{
+		mDrawTopLeft.x = x;
+		mDrawTopLeft.y = y;
+	}
+
+	void BatchRenderer::SetDrawBottomRight(U16 x, U16 y)
+	{
+		mDrawBottomRight.x = x;
+		mDrawBottomRight.y = y;
 	}
 
 	void BatchRenderer::DrawPolygon(const Vector<PolygonVertex>& vertices)
@@ -129,6 +145,32 @@ namespace esx {
 
 	void BatchRenderer::DrawRectangle(const Vertex& topLeft, U16 width, U16 height, const Color& color)
 	{
+		if (mNumIndices == QUAD_MAX_NUM_INDICES) {
+			Flush();
+			Begin();
+		}
+
+		mCurrentVertex->vertex = Vertex(topLeft.x + width, topLeft.y + height);
+		mCurrentVertex->color = color;
+		mCurrentVertex->uv = UV(0,0);
+		mCurrentVertex++;
+
+		mCurrentVertex->vertex = Vertex(topLeft.x, topLeft.y + height);
+		mCurrentVertex->color = color;
+		mCurrentVertex->uv = UV(0, 0);
+		mCurrentVertex++;
+
+		mCurrentVertex->vertex = Vertex(topLeft.x + width, topLeft.y);
+		mCurrentVertex->color = color;
+		mCurrentVertex->uv = UV(0, 0);
+		mCurrentVertex++;
+
+		mCurrentVertex->vertex = Vertex(topLeft.x, topLeft.y);
+		mCurrentVertex->color = color;
+		mCurrentVertex->uv = UV(0, 0);
+		mCurrentVertex++;
+
+		mNumIndices += 6;
 	}
 
 }

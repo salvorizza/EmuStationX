@@ -2,15 +2,21 @@
 
 in ivec2 aPos;
 in uvec2 aUV;
-in uvec4 aColor;
+in uvec3 aColor;
+
+uniform ivec2 uOffset;
+uniform uvec2 uTopLeft;
+uniform uvec2 uBottomRight;
 
 out vec3 oColor;
 out vec2 oUV;
 
 void main() {
-    /*float xpos = (float(aPos.x) / 512) - 1.0;
-    float ypos = 1.0 - (float(aPos.y) / 256);*/
-    gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
+    ivec2 position = aPos;
+
+    float xpos = (float(position.x) / 512) - 1.0;
+    float ypos = 1.0 - (float(position.y) / 256);
+    gl_Position = vec4(xpos, ypos, 0.0, 1.0);
     oColor = vec3(
         float(aColor.r) / 255,
         float(aColor.g) / 255,
