@@ -1,11 +1,11 @@
 #version 450 core
 
-in ivec2 aPos;
-in uvec2 aUV;
-in uvec3 aColor;
-in uint aTextured;
-in uvec2 aClutUV;
-in uint aBPP;
+ layout(location = 0) in ivec2 aPos;
+ layout(location = 1) in uvec2 aUV;
+ layout(location = 2) in uvec3 aColor;
+ layout(location = 3) in uint aTextured;
+ layout(location = 4) in uvec2 aClutUV;
+ layout(location = 5) in uint aBPP;
 
 uniform ivec2 uOffset;
 uniform uvec2 uTopLeft;
@@ -13,9 +13,9 @@ uniform uvec2 uBottomRight;
 
 out vec3 oColor;
 out vec2 oUV;
-out uint oTextured;
+flat out uint oTextured;
 out vec2 oClutUV;
-out uint oBPP;
+flat out uint oBPP;
 
 void main() {
     ivec2 position = aPos;

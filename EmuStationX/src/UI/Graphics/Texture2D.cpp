@@ -6,14 +6,14 @@ namespace esx {
 
 	static GLenum fromInternalFormat(InternalFormat internalFormat) {
 		switch (internalFormat) {
-			case InternalFormat::R16: return GL_R16;
-			case InternalFormat::R8: return GL_R8;
+			case InternalFormat::R16: return GL_R16UI;
+			case InternalFormat::R8: return GL_R8UI;
 		}
 	}
 
 	static GLenum fromDataFormat(DataFormat dataFormat) {
 		switch (dataFormat) {
-			case DataFormat::RED: return GL_RED;
+			case DataFormat::RED: return GL_RED_INTEGER;
 		}
 	}
 

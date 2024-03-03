@@ -185,6 +185,7 @@ namespace esx {
 	void BatchRenderer::VRAMWrite(U16 x, U16 y, U16 data)
 	{
 		U64 index = (y * 1024) + x;
+
 		mPixels16[index] = data;
 
 		mPixels8[index * 2 + 0] = (U8)data;

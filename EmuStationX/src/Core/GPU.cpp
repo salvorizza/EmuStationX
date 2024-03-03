@@ -370,14 +370,20 @@ namespace esx {
 			}
 			vertices[i].vertex = unpackVertex(mCommandBuffer.pop());
 			vertices[i].color = gourad ? unpackColor(mCommandBuffer.pop()) : flatColor;
+			vertices[i].textured = textured;
+			vertices[i].bpp = 4;
 		}
 
 		if (textured) {
 			U16 tx = page & 0xF;
 			U16 ty = (page >> 4) & 0x1;
 
+			U16 cy = (clut >> 6) & 0x1FF;
+			U16 cx = (clut & 0x3F) * 16;
+
 			for (PolygonVertex& vertex : vertices) {
 				transformUV(vertex.uv, tx, ty, 4);
+				vertex.clutUV = UV(cx, cy);
 			}
 
 			ESX_CORE_LOG_TRACE("Page/Clut: {},{}", fromTexPageToVRAMAddress(page), fromClutToVRAMAddress(clut));
