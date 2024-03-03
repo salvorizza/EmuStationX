@@ -9,9 +9,11 @@ namespace esx {
 			case ShaderType::Float: return GL_FLOAT;
 			case ShaderType::Float2: return GL_FLOAT;
 			case ShaderType::Float4: return GL_FLOAT;
+			case ShaderType::UByte1: return GL_UNSIGNED_BYTE;
 			case ShaderType::UByte2: return GL_UNSIGNED_BYTE;
 			case ShaderType::UByte3: return GL_UNSIGNED_BYTE;
 			case ShaderType::UByte4: return GL_UNSIGNED_BYTE;
+			case ShaderType::UShort2: return GL_UNSIGNED_SHORT;
 			case ShaderType::Short2: return GL_SHORT;
 		}
 		return 0;
@@ -24,7 +26,9 @@ namespace esx {
 			case ShaderType::Float4: return 4;
 
 			case ShaderType::Short2: return 2;
+			case ShaderType::UShort2: return 2;
 
+			case ShaderType::UByte1: return 1;
 			case ShaderType::UByte2: return 2;
 			case ShaderType::UByte3: return 3;
 			case ShaderType::UByte4: return 4;

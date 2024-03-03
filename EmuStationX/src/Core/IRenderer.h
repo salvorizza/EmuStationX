@@ -19,15 +19,15 @@ namespace esx {
 	};
 
 	struct UV {
-		U8 u;
-		U8 v;
+		U16 u;
+		U16 v;
 
 		UV()
 			:	u(0),
 				v(0)
 		{}
 
-		UV(U8 _u, U8 _v)
+		UV(U16 _u, U16 _v)
 			:	u(_u),
 				v(_v)
 		{}
@@ -55,6 +55,9 @@ namespace esx {
 		Vertex vertex;
 		UV uv;
 		Color color;
+		U8 textured;
+		UV clutUV;
+		U8 bpp;
 	};
 
 	class IRenderer {
@@ -69,5 +72,7 @@ namespace esx {
 		virtual void DrawPolygon(const Vector<PolygonVertex>& vertices) = 0;
 		virtual void DrawRectangle(const Vertex& topLeft, U16 width, U16 height, const Color& color) = 0;
 
+		virtual void VRAMWrite(U16 x, U16 y, U16 data) = 0;
+		virtual U16 VRAMRead(U16 x, U16 y) = 0;
 	};
 }

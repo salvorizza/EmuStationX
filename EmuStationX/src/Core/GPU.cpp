@@ -1,5 +1,7 @@
 #include "GPU.h"
 
+#include <stdio.h>
+
 namespace esx {
 
 	GPU::GPU(const SharedPtr<IRenderer>& renderer)
@@ -111,8 +113,62 @@ namespace esx {
 
 			case GP0Mode::CPUtoVRAM: {
 				//Copy from CPU
+				static int indX = 0;
+				static int indY = 0;
+
+				U32 destinationCoords = mCommandBuffer.Data[1];
+				U32 size = mCommandBuffer.Data[2];
+
+				U16 dimY = (size >> 16) & 0xFFFF;
+				U16 dimX = (size >> 0) & 0xFFFF;
+
+				U16 pixel1 = (instruction >> 16) & 0xFFFF;
+				U16 pixel2 = (instruction >> 0) & 0xFFFF;
+
+				U16 y = (destinationCoords >> 16) & 0xFFFF;
+				U16 x = (destinationCoords >> 0) & 0xFFFF;
+
+				
+
+				mRenderer->VRAMWrite(x + indX, y + indY, pixel2);
+				indX++;
+				if (indX >= dimX) {
+					indX = 0;
+					indY++;
+				}
+
+
+				mRenderer->VRAMWrite(x + indX, y + indY, pixel1);
+				indX++;
+				if (indX >= dimX) {
+					indX = 0;
+					indY++;
+				}
+				
+
+				Color color1 = unpackColor(pixel1);
+				Color color2 = unpackColor(pixel2);
+
+				static FILE* ofs = NULL;
+				if (ofs == NULL) {
+					U32 vramAddr = fromCoordsToVRAMAddress(destinationCoords);
+					std::string filePath = std::to_string((U8)mGPUStat.TexturePageColors) + "_" + std::to_string(vramAddr) + ".ppm";
+					
+					ofs = fopen(filePath.c_str(), "wb");
+					fprintf(ofs, "P6\n%zu %zu 255\n", dimX, dimY);
+				}
+
+				fwrite(&color2, sizeof(Color), 1, ofs);
+
+				fwrite(&color1, sizeof(Color), 1, ofs);
 
 				if (mCurrentCommand.IsComplete(instruction)) {
+					indX = 0;
+					indY = 0;
+
+					fclose(ofs);
+					ofs = NULL;
+
 					mCurrentCommand.Complete = ESX_TRUE;
 					mMode = GP0Mode::Command;
 				}
@@ -292,14 +348,39 @@ namespace esx {
 		BIT semiTransparent = (command >> 25) & 0x1;
 		BIT rawTexture = (command >> 24) & 0x1;
 		Color flatColor = unpackColor(command & 0xFFFFFF);
+		U16 page = 0,clut = 0;
 
 		Vector<PolygonVertex> vertices(quad ? 4 : 3);
 
 		size_t numVertices = quad ? 4 : 3;
-		for(size_t i = 0; i < numVertices;i++) {
-			vertices[i].uv = textured ? unpackUV(mCommandBuffer.pop()) : UV();
+		for(I32 i = numVertices - 1; i >= 0;i--) {
+			if (textured) {
+				U32 uvWord = mCommandBuffer.pop();
+				vertices[i].uv = unpackUV(uvWord & 0xFFFF);
+				switch (i) {
+					case 0:
+						clut = (uvWord >> 16) & 0xFFFF;
+						break;
+
+					case 1:
+						page = (uvWord >> 16) & 0xFFFF;
+						break;
+				}
+
+			}
 			vertices[i].vertex = unpackVertex(mCommandBuffer.pop());
 			vertices[i].color = gourad ? unpackColor(mCommandBuffer.pop()) : flatColor;
+		}
+
+		if (textured) {
+			U16 tx = page & 0xF;
+			U16 ty = (page >> 4) & 0x1;
+
+			for (PolygonVertex& vertex : vertices) {
+				transformUV(vertex.uv, tx, ty, 4);
+			}
+
+			ESX_CORE_LOG_TRACE("Page/Clut: {},{}", fromTexPageToVRAMAddress(page), fromClutToVRAMAddress(clut));
 		}
 
 		mRenderer->DrawPolygon(vertices);
@@ -713,6 +794,43 @@ namespace esx {
 
 	Color GPU::unpackColor(U32 value) {
 		return Color((U8)((value >> 0) & 0xFF), (U8)((value >> 8) & 0xFF), (U8)((value >> 16) & 0xFF));
+	}
+
+	Color GPU::unpackColor(U16 value)
+	{
+		U8 r5 = (value >> 0) & 0x1F;
+		U8 g5 = (value >> 5) & 0x1F;
+		U8 b5 = (value >> 10) & 0x1F;
+
+		return Color(r5 << 3, g5 << 3, b5 << 3);
+	}
+
+	U32 GPU::fromTexPageToVRAMAddress(U16 texPage)
+	{
+		U16 pageX = texPage & 0xF;
+		U16 pageY = (texPage >> 11) & 0x1;
+		return pageY * 2048 + pageX * 64;
+	}
+
+	U32 GPU::fromClutToVRAMAddress(U16 clut)
+	{
+		U16 clutY = (clut >> 6) & 0x1FF;
+		U16 clutX = clut & 0x3F;
+		return clutY * 2048 + clutX * 16;
+	}
+
+	U32 GPU::fromCoordsToVRAMAddress(U32 coords)
+	{
+		U16 y = (coords >> 16) & 0xFFFF;
+		U16 x = (coords >> 0) & 0xFFFF;
+		return y * 2048 + x;
+	}
+
+	void GPU::transformUV(UV& uv, U16 tx, U16 ty, U8 bpp)
+	{
+		U16 r = 16 / bpp;
+		uv.u = tx * 64 * r + uv.u;
+		uv.v = ty * 256 + uv.v;
 	}
 
 	void CommandBuffer::push(U32 word)

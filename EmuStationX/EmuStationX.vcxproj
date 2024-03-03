@@ -160,8 +160,8 @@
     <ClInclude Include="src\Core\Bios.h" />
     <ClInclude Include="src\Core\DMA.h" />
     <ClInclude Include="src\Core\GPU.h" />
-    <ClInclude Include="src\Core\InterruptControl.h" />
     <ClInclude Include="src\Core\IRenderer.h" />
+    <ClInclude Include="src\Core\InterruptControl.h" />
     <ClInclude Include="src\Core\MemoryControl.h" />
     <ClInclude Include="src\Core\PIO.h" />
     <ClInclude Include="src\Core\R3000.h" />
@@ -174,7 +174,9 @@
     <ClInclude Include="src\UI\Graphics\BatchRenderer.h" />
     <ClInclude Include="src\UI\Graphics\FrameBuffer.h" />
     <ClInclude Include="src\UI\Graphics\IndexBuffer.h" />
+    <ClInclude Include="src\UI\Graphics\PixelBuffer.h" />
     <ClInclude Include="src\UI\Graphics\Shader.h" />
+    <ClInclude Include="src\UI\Graphics\Texture2D.h" />
     <ClInclude Include="src\UI\Graphics\VertexArray.h" />
     <ClInclude Include="src\UI\Graphics\VertexBuffer.h" />
     <ClInclude Include="src\UI\Panels\CPUStatusPanel.h" />
@@ -207,7 +209,9 @@
     <ClCompile Include="src\UI\Graphics\BatchRenderer.cpp" />
     <ClCompile Include="src\UI\Graphics\FrameBuffer.cpp" />
     <ClCompile Include="src\UI\Graphics\IndexBuffer.cpp" />
+    <ClCompile Include="src\UI\Graphics\PixelBuffer.cpp" />
     <ClCompile Include="src\UI\Graphics\Shader.cpp" />
+    <ClCompile Include="src\UI\Graphics\Texture2D.cpp" />
     <ClCompile Include="src\UI\Graphics\VertexArray.cpp" />
     <ClCompile Include="src\UI\Graphics\VertexBuffer.cpp" />
     <ClCompile Include="src\UI\Panels\CPUStatusPanel.cpp" />

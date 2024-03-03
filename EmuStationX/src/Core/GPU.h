@@ -188,6 +188,11 @@ namespace esx {
 		static Vertex unpackVertex(U32 value);
 		static UV unpackUV(U32 value);
 		static Color unpackColor(U32 value);
+		static Color unpackColor(U16 value);
+		static U32 fromTexPageToVRAMAddress(U16 texPage);
+		static U32 fromClutToVRAMAddress(U16 clut);
+		static U32 fromCoordsToVRAMAddress(U32 coords);
+		static void transformUV(UV& uv, U16 tx, U16 ty, U8 bpp);
 
 	private:
 		GPUStat	mGPUStat;

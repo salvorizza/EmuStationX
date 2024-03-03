@@ -19,7 +19,9 @@ namespace esx {
 			case ShaderType::Float4: return 4 * 4;
 
 			case ShaderType::Short2: return 2 * 2;
+			case ShaderType::UShort2: return 2 * 2;
 
+			case ShaderType::UByte1: return 1 * 1;
 			case ShaderType::UByte2: return 1 * 2;
 			case ShaderType::UByte3: return 1 * 3;
 			case ShaderType::UByte4: return 1 * 4;

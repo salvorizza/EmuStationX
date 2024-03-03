@@ -8,40 +8,16 @@ namespace esx {
 
 
 	BatchRenderer::BatchRenderer()
-		:	mVerticesBase(MAX_QUADS),
-			mTriVerticesBase(MAX_TRIS)
+		:	mTriVerticesBase(MAX_TRIS)
 	{
-		Vector<U32> indices(QUAD_MAX_NUM_INDICES);
-		for (uint32_t i = 0; i < MAX_QUADS; i++) {
-			indices[(i * 6) + 0] = (i * 4) + 0;
-			indices[(i * 6) + 1] = (i * 4) + 1;
-			indices[(i * 6) + 2] = (i * 4) + 2;
-			indices[(i * 6) + 3] = (i * 4) + 1;
-			indices[(i * 6) + 4] = (i * 4) + 2;
-			indices[(i * 6) + 5] = (i * 4) + 3;
-		}
-
-		mIBO = std::make_shared<IndexBuffer>(indices.data(), QUAD_MAX_NUM_INDICES);
-		mVBO = std::make_shared<VertexBuffer>();
-		mVBO->setLayout({
-			BufferElement("aPos", ShaderType::Short2),
-			BufferElement("aUV", ShaderType::UByte2),
-			BufferElement("aColor", ShaderType::UByte3)
-		});
-		mVBO->setData(nullptr, QUAD_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
-
-		mVAO = std::make_shared<VertexArray>();
-		mVAO->addVertexBuffer(mVBO);
-		mVAO->setIndexBuffer(mIBO);
-		mVAO->unbind();
-		mVBO->unbind();
-		mIBO->unbind();
-
 		mTriVBO = std::make_shared<VertexBuffer>();
 		mTriVBO->setLayout({
 			BufferElement("aPos", ShaderType::Short2),
-			BufferElement("aUV", ShaderType::UByte2),
-			BufferElement("aColor", ShaderType::UByte3)
+			BufferElement("aUV", ShaderType::UShort2),
+			BufferElement("aColor", ShaderType::UByte3),
+			BufferElement("aTextured", ShaderType::UByte1),
+			BufferElement("aClutUV", ShaderType::UShort2),
+			BufferElement("aBPP", ShaderType::UByte1)
 		});
 		mTriVBO->setData(nullptr, TRI_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
 
@@ -50,14 +26,45 @@ namespace esx {
 		mTriVAO->unbind();
 		mTriVBO->unbind();
 
+		U32 flags = BufferMode::Write | BufferMode::Persistent;
+
+		mPBO16 = MakeShared<PixelBuffer>();
+		mPBO16->setData(nullptr, 1024 * 512, flags);
+		mPBO16->unbind();
+		mTexture16 = MakeShared<Texture2D>(0);
+		mTexture16->setData(nullptr, 1024, 512, InternalFormat::R16, DataType::UnsignedByte, DataFormat::RED);
+		mPBO16->bind();
+		mPixels16 = (U16*)mPBO16->mapBufferRange();
+		mPBO16->unbind();
+		mTexture16->unbind();
+
+
+		mPBO8 = MakeShared<PixelBuffer>();
+		mPBO8->setData(nullptr, 1024 * 512 * 2, flags);
+		mPBO8->unbind();
+		mTexture8 = MakeShared<Texture2D>(1);
+		mTexture8->setData(nullptr, 2048, 512, InternalFormat::R8, DataType::UnsignedByte, DataFormat::RED);
+		mPBO8->bind();
+		mPixels8 = (U8*)mPBO8->mapBufferRange();
+		mPBO8->unbind();
+		mTexture8->unbind();
+
+
+		mPBO4 = MakeShared<PixelBuffer>();
+		mPBO4->setData(nullptr, 1024 * 512 * 4, flags);
+		mPBO4->unbind();
+		mTexture4 = MakeShared<Texture2D>(2);
+		mTexture4->setData(nullptr, 4096, 512, InternalFormat::R8, DataType::UnsignedByte, DataFormat::RED);
+		mPBO4->bind();
+		mPixels4 = (U8*)mPBO4->mapBufferRange();
+		mPBO4->unbind();
+		mTexture4->unbind();
+
 		mShader = Shader::LoadFromFile("commons/shaders/shader.vert","commons/shaders/shader.frag");
 	}
 
 	void BatchRenderer::Begin()
 	{
-		mCurrentVertex = mVerticesBase.begin();
-		mNumIndices = 0;
-
 		mTriCurrentVertex = mTriVerticesBase.begin();
 		mTriNumIndices = 0;
 	}
@@ -69,28 +76,27 @@ namespace esx {
 
 	void BatchRenderer::Flush()
 	{
+		mTexture16->bind();
+		mTexture16->copy(mPBO16);
+
+		mTexture8->bind();
+		mTexture8->copy(mPBO8);
+
+		mTexture4->bind();
+		mTexture4->copy(mPBO4);
+
 		mShader->start();
 		mShader->uploadUniform("uOffset", mDrawOffset);
 		mShader->uploadUniform("uTopLeft", mDrawTopLeft);
 		mShader->uploadUniform("uBottomRight", mDrawBottomRight);
 
-		if (mNumIndices) {
-			ptrdiff_t dataSize = std::distance(mVerticesBase.begin(), mCurrentVertex) * sizeof(PolygonVertex);
-			mVBO->bind();
-			mVBO->setData(mVerticesBase.data(), dataSize, VertexBufferDataUsage::Dynamic);
-
-			mVAO->bind();
-			glDrawElements(GL_TRIANGLES, mNumIndices, GL_UNSIGNED_INT, nullptr);
-			glFinish();
-		}
-
-		if (mTriNumIndices) {
-			ptrdiff_t dataSize = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex) * sizeof(PolygonVertex);
+		ptrdiff_t numIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
+		if (numIndices) {
 			mTriVBO->bind();
-			mTriVBO->setData(mTriVerticesBase.data(), dataSize, VertexBufferDataUsage::Dynamic);
+			mTriVBO->setData(mTriVerticesBase.data(), numIndices * sizeof(PolygonVertex), VertexBufferDataUsage::Dynamic);
 
 			mTriVAO->bind();
-			glDrawArrays(GL_TRIANGLES, 0, mTriNumIndices);
+			glDrawArrays(GL_TRIANGLES, 0, numIndices);
 			glFinish();
 		}
 	}
@@ -115,62 +121,85 @@ namespace esx {
 
 	void BatchRenderer::DrawPolygon(const Vector<PolygonVertex>& vertices)
 	{
-		if (vertices.size() == 4) {
-			if (mNumIndices == QUAD_MAX_NUM_INDICES) {
-				Flush();
-				Begin();
-			}
+		ESX_CORE_LOG_TRACE("DrawPolygon");
 
-			for (const PolygonVertex& vertex : vertices) {
-				*mCurrentVertex = vertex;
-				mCurrentVertex++;
-			}
+		for (U64 i = 0; i < 3; i++) {
+			const PolygonVertex& vertex = vertices[i];
 
-			mNumIndices += 6;
+			ESX_CORE_LOG_TRACE("[{},{}],[{},{},{}],[{},{}]", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v);
+
+			*mTriCurrentVertex = vertex;
+			mTriCurrentVertex++;
 		}
-		else {
-			if (mTriNumIndices == TRI_MAX_NUM_INDICES) {
-				Flush();
-				Begin();
-			}
 
-			for (const PolygonVertex& vertex : vertices) {
+		if (vertices.size() == 4) {
+			for (U64 i = 1; i < 4; i++) {
+				const PolygonVertex& vertex = vertices[i];
+
+				ESX_CORE_LOG_TRACE("[{},{}],[{},{},{}],[{},{}]", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v);
 				*mTriCurrentVertex = vertex;
 				mTriCurrentVertex++;
 			}
-
-			mTriNumIndices += 3;
 		}
+
 	}
 
 	void BatchRenderer::DrawRectangle(const Vertex& topLeft, U16 width, U16 height, const Color& color)
 	{
-		if (mNumIndices == QUAD_MAX_NUM_INDICES) {
-			Flush();
-			Begin();
-		}
+		ESX_CORE_LOG_TRACE("DrawRectangle");
 
-		mCurrentVertex->vertex = Vertex(topLeft.x + width, topLeft.y + height);
-		mCurrentVertex->color = color;
-		mCurrentVertex->uv = UV(0,0);
-		mCurrentVertex++;
+		//Triangle 1,2,3
+		mTriCurrentVertex->vertex = Vertex(topLeft.x + width, topLeft.y + height);
+		mTriCurrentVertex->color = color;
+		mTriCurrentVertex->uv = UV(0,0);
+		mTriCurrentVertex++;
 
-		mCurrentVertex->vertex = Vertex(topLeft.x, topLeft.y + height);
-		mCurrentVertex->color = color;
-		mCurrentVertex->uv = UV(0, 0);
-		mCurrentVertex++;
+		mTriCurrentVertex->vertex = Vertex(topLeft.x, topLeft.y + height);
+		mTriCurrentVertex->color = color;
+		mTriCurrentVertex->uv = UV(0, 0);
+		mTriCurrentVertex++;
 
-		mCurrentVertex->vertex = Vertex(topLeft.x + width, topLeft.y);
-		mCurrentVertex->color = color;
-		mCurrentVertex->uv = UV(0, 0);
-		mCurrentVertex++;
+		mTriCurrentVertex->vertex = Vertex(topLeft.x + width, topLeft.y);
+		mTriCurrentVertex->color = color;
+		mTriCurrentVertex->uv = UV(0, 0);
+		mTriCurrentVertex++;
 
-		mCurrentVertex->vertex = Vertex(topLeft.x, topLeft.y);
-		mCurrentVertex->color = color;
-		mCurrentVertex->uv = UV(0, 0);
-		mCurrentVertex++;
 
-		mNumIndices += 6;
+		//Triangle 2,3,4
+		mTriCurrentVertex->vertex = Vertex(topLeft.x, topLeft.y + height);
+		mTriCurrentVertex->color = color;
+		mTriCurrentVertex->uv = UV(0, 0);
+		mTriCurrentVertex++;
+
+		mTriCurrentVertex->vertex = Vertex(topLeft.x + width, topLeft.y);
+		mTriCurrentVertex->color = color;
+		mTriCurrentVertex->uv = UV(0, 0);
+		mTriCurrentVertex++;
+
+		mTriCurrentVertex->vertex = Vertex(topLeft.x, topLeft.y);
+		mTriCurrentVertex->color = color;
+		mTriCurrentVertex->uv = UV(0, 0);
+		mTriCurrentVertex++;
+	}
+
+	void BatchRenderer::VRAMWrite(U16 x, U16 y, U16 data)
+	{
+		U64 index = (y * 1024) + x;
+		mPixels16[index] = data;
+
+		mPixels8[index * 2 + 0] = (U8)data;
+		mPixels8[index * 2 + 1] = (U8)(data >> 8);
+
+		mPixels4[index * 4 + 0] = (U8)data & 0xF;
+		mPixels4[index * 4 + 1] = (U8)(data >> 4) & 0xF;
+		mPixels4[index * 4 + 2] = (U8)(data >> 8) & 0xF;
+		mPixels4[index * 4 + 3] = (U8)(data >> 12) & 0xF;
+	}
+
+	U16 BatchRenderer::VRAMRead(U16 x, U16 y)
+	{
+		U64 index = (y * 1024) + x;
+		return mPixels16[index];
 	}
 
 }

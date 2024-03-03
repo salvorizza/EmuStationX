@@ -90,11 +90,13 @@ public:
 	}
 
 	virtual void onSetup() override {
+		mConsolePanel = std::make_shared<ConsolePanel>();
+		mLogger = std::make_shared<EmuStationXLogger>(mConsolePanel);
+		LoggingSystem::SetCoreLogger(mLogger);
+
 		mCPUStatusPanel = std::make_shared<CPUStatusPanel>();
 		mDisassemblerPanel = std::make_shared<DisassemblerPanel>();
 		mMemoryEditorPanel = std::make_shared<MemoryEditorPanel>();
-		mConsolePanel = std::make_shared<ConsolePanel>();
-		mLogger = std::make_shared<EmuStationXLogger>(mConsolePanel);
 		mBatchRenderer = std::make_shared<BatchRenderer>();
 		mViewportPanel = std::make_shared<ViewportPanel>();
 
@@ -110,7 +112,6 @@ public:
 		dma = MakeShared<DMA>();
 		gpu = MakeShared<GPU>(mBatchRenderer);
 
-		LoggingSystem::SetCoreLogger(mLogger);
 
 		root->connectDevice(cpu);
 		cpu->connectToBus(root);

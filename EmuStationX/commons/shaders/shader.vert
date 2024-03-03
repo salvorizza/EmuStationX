@@ -1,8 +1,11 @@
-#version 330 core
+#version 450 core
 
 in ivec2 aPos;
 in uvec2 aUV;
 in uvec3 aColor;
+in uint aTextured;
+in uvec2 aClutUV;
+in uint aBPP;
 
 uniform ivec2 uOffset;
 uniform uvec2 uTopLeft;
@@ -10,6 +13,9 @@ uniform uvec2 uBottomRight;
 
 out vec3 oColor;
 out vec2 oUV;
+out uint oTextured;
+out vec2 oClutUV;
+out uint oBPP;
 
 void main() {
     ivec2 position = aPos;
@@ -23,7 +29,13 @@ void main() {
         float(aColor.b) / 255
     );
     oUV = vec2(
-        float(aUV.x) / 255,
-        float(aUV.y) / 255
+        float(aUV.x),
+        float(aUV.y)
     );
+     oClutUV = vec2(
+        float(aClutUV.x),
+        float(aClutUV.y)
+    );
+    oTextured = aTextured;
+    oBPP = aBPP;
 }

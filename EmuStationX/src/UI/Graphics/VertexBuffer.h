@@ -11,6 +11,8 @@ namespace esx {
 		Float2,
 		Float4,
 		Short2,
+		UShort2,
+		UByte1,
 		UByte2,
 		UByte3,
 		UByte4,
