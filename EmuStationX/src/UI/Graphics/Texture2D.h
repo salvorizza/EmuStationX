@@ -7,15 +7,18 @@ namespace esx {
 
 	enum InternalFormat {
 		R16,
-		R8
+		R8,
+		RGB8
 	};
 
 	enum DataFormat {
-		RED
+		RED,
+		RGB
 	};
 
 	enum DataType {
-		UnsignedByte
+		UnsignedByte,
+		UnsignedShort
 	};
 
 	class Texture2D {
@@ -27,6 +30,8 @@ namespace esx {
 		void unbind();
 		void setData(void* data, U32 width, U32 height, InternalFormat internalFormat, DataType type, DataFormat format);
 		void copy(const SharedPtr<PixelBuffer>& pixelBuffer);
+
+		U32 getRendererID() const { return mRendererID; }
 
 
 	private:

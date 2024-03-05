@@ -8,12 +8,14 @@ namespace esx {
 		switch (internalFormat) {
 			case InternalFormat::R16: return GL_R16UI;
 			case InternalFormat::R8: return GL_R8UI;
+			case InternalFormat::RGB8: return GL_RGB8;
 		}
 	}
 
 	static GLenum fromDataFormat(DataFormat dataFormat) {
 		switch (dataFormat) {
 			case DataFormat::RED: return GL_RED_INTEGER;
+			case DataFormat::RGB: return GL_RGB;
 		}
 	}
 
@@ -21,6 +23,7 @@ namespace esx {
 	static GLenum fromDataType(DataType dataType) {
 		switch (dataType) {
 			case DataType::UnsignedByte: return GL_UNSIGNED_BYTE;
+			case DataType::UnsignedShort: return GL_UNSIGNED_SHORT;
 		}
 	}
 

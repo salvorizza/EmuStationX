@@ -58,6 +58,7 @@ namespace esx {
 		U8 textured;
 		UV clutUV;
 		U8 bpp;
+		U8 semiTransparency;
 	};
 
 	class IRenderer {

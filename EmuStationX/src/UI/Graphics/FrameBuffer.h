@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "Texture2D.h"
 
 namespace esx {
 
@@ -21,13 +22,14 @@ namespace esx {
 		uint32_t width() const { return mWidth; }
 		uint32_t height() const { return mHeight; }
 
-		uint32_t getColorAttachment() const { return mColorAttachment; }
+		SharedPtr<Texture2D> getColorAttachment() const { return mColorAttachment; }
 		
 	private:
 		void invalidate();
 	private:
 		uint32_t mRendererID;
-		uint32_t mColorAttachment, mColorAttachmentMS;
+		SharedPtr<Texture2D> mColorAttachment;
+		//uint32_t mColorAttachment;
 		int32_t mWidth, mHeight;
 	};
 

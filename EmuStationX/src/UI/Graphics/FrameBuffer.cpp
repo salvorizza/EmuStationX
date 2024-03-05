@@ -17,7 +17,6 @@ namespace esx {
 
 	FrameBuffer::~FrameBuffer()
 	{
-		glDeleteTextures(1, &mColorAttachment);
 		glDeleteFramebuffers(1, &mRendererID);
 	}
 
@@ -45,29 +44,18 @@ namespace esx {
 	void FrameBuffer::invalidate()
 	{
 		if (mRendererID != 0) {
-			glDeleteTextures(1, &mColorAttachment);
-			glDeleteTextures(1, &mColorAttachmentMS);
-			glDeleteFramebuffers(1, &mRendererID);
-			mRendererID = mColorAttachment = mColorAttachmentMS =  0;
+			mColorAttachment.reset();
+			mRendererID =  0;
 		}
 
 		glGenFramebuffers(1, &mRendererID);
 		glBindFramebuffer(GL_FRAMEBUFFER, mRendererID);
 
-		glGenTextures(1, &mColorAttachment);
-		glGenTextures(1, &mColorAttachmentMS);
-
-		glGenTextures(1, &mColorAttachmentMS);
-		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, mColorAttachmentMS);
-		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, mWidth, mHeight, GL_TRUE);
-		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, mColorAttachmentMS, 0);
-
-		glBindTexture(GL_TEXTURE_2D, mColorAttachment);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mWidth, mHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		mColorAttachment = MakeShared<Texture2D>();
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mColorAttachment, 0);
+		mColorAttachment->setData(nullptr, mWidth, mHeight, InternalFormat::RGB8, DataType::UnsignedByte, DataFormat::RGB);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mColorAttachment->getRendererID(), 0);
 
 		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if (status != GL_FRAMEBUFFER_COMPLETE) {

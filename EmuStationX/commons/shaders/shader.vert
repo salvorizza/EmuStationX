@@ -1,11 +1,12 @@
 #version 450 core
 
- layout(location = 0) in ivec2 aPos;
- layout(location = 1) in uvec2 aUV;
- layout(location = 2) in uvec3 aColor;
- layout(location = 3) in uint aTextured;
- layout(location = 4) in uvec2 aClutUV;
- layout(location = 5) in uint aBPP;
+layout(location = 0) in ivec2 aPos;
+layout(location = 1) in uvec2 aUV;
+layout(location = 2) in uvec3 aColor;
+layout(location = 3) in uint aTextured;
+layout(location = 4) in uvec2 aClutUV;
+layout(location = 5) in uint aBPP;
+layout(location = 6) in uint aSemiTransparency;
 
 uniform ivec2 uOffset;
 uniform uvec2 uTopLeft;
@@ -16,12 +17,14 @@ out vec2 oUV;
 flat out uint oTextured;
 out vec2 oClutUV;
 flat out uint oBPP;
+flat out uint oSemiTransparency;
+
 
 void main() {
     ivec2 position = aPos;
 
-    float xpos = (float(position.x) / 512) - 1.0;
-    float ypos = 1.0 - (float(position.y) / 256);
+    float xpos = (float(position.x) / 320) - 1.0;
+    float ypos = 1.0 - (float(position.y) / 240);
     gl_Position = vec4(xpos, ypos, 0.0, 1.0);
     oColor = vec3(
         float(aColor.r) / 255,
@@ -38,4 +41,5 @@ void main() {
     );
     oTextured = aTextured;
     oBPP = aBPP;
+    oSemiTransparency = aSemiTransparency;
 }

@@ -151,12 +151,8 @@ public:
 	}
 
 	virtual void onUpdate() override {
-		mViewportPanel->startFrame();
-		//glClearColor(1, 0, 1, 1);
-		//glClear(GL_COLOR_BUFFER_BIT);
 		mDisassemblerPanel->onUpdate();
-
-		mViewportPanel->endFrame();
+		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
 	}
 
 	virtual void onRender() override {

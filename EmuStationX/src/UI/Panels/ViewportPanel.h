@@ -12,19 +12,13 @@ namespace esx {
 		ViewportPanel();
 		~ViewportPanel();
 
-		void startFrame();
-		void endFrame();
-
-		uint32_t width() const { return mFBO ? mFBO->width() : 0; }
-		uint32_t height() const { return mFBO ? mFBO->height() : 0; }
+		void setFrame(const SharedPtr<FrameBuffer>& frame) { mFrame = frame; }
 
 	protected:
 		virtual void onImGuiRender() override;
 
 	private:
-		std::shared_ptr<FrameBuffer> mFBO;
-		uint32_t mResizeWidth, mResizeHeight;
-		bool mNeedResize;
+		SharedPtr<FrameBuffer> mFrame;
 	};
 
 }

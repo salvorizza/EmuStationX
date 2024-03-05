@@ -10,18 +10,19 @@ namespace esx {
 	BatchRenderer::BatchRenderer()
 		:	mTriVerticesBase(MAX_TRIS)
 	{
-		mTriVBO = std::make_shared<VertexBuffer>();
+		mTriVBO = MakeShared<VertexBuffer>();
 		mTriVBO->setLayout({
 			BufferElement("aPos", ShaderType::Short2),
 			BufferElement("aUV", ShaderType::UShort2),
 			BufferElement("aColor", ShaderType::UByte3),
 			BufferElement("aTextured", ShaderType::UByte1),
 			BufferElement("aClutUV", ShaderType::UShort2),
-			BufferElement("aBPP", ShaderType::UByte1)
+			BufferElement("aBPP", ShaderType::UByte1),
+			BufferElement("aSemiTransparency", ShaderType::UByte1)
 		});
 		mTriVBO->setData(nullptr, TRI_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
 
-		mTriVAO = std::make_shared<VertexArray>();
+		mTriVAO = MakeShared<VertexArray>();
 		mTriVAO->addVertexBuffer(mTriVBO);
 		mTriVAO->unbind();
 		mTriVBO->unbind();
@@ -29,10 +30,10 @@ namespace esx {
 		U32 flags = BufferMode::Write | BufferMode::Persistent;
 
 		mPBO16 = MakeShared<PixelBuffer>();
-		mPBO16->setData(nullptr, 1024 * 512, flags);
+		mPBO16->setData(nullptr, 1024 * 512 * sizeof(U16), flags);
 		mPBO16->unbind();
 		mTexture16 = MakeShared<Texture2D>(0);
-		mTexture16->setData(nullptr, 1024, 512, InternalFormat::R16, DataType::UnsignedByte, DataFormat::RED);
+		mTexture16->setData(nullptr, 1024, 512, InternalFormat::R16, DataType::UnsignedShort, DataFormat::RED);
 		mPBO16->bind();
 		mPixels16 = (U16*)mPBO16->mapBufferRange();
 		mPBO16->unbind();
@@ -60,13 +61,15 @@ namespace esx {
 		mPBO4->unbind();
 		mTexture4->unbind();
 
+		mFBO = MakeShared<FrameBuffer>(640, 480);
+
+
 		mShader = Shader::LoadFromFile("commons/shaders/shader.vert","commons/shaders/shader.frag");
 	}
 
 	void BatchRenderer::Begin()
 	{
 		mTriCurrentVertex = mTriVerticesBase.begin();
-		mTriNumIndices = 0;
 	}
 
 	void BatchRenderer::end()
@@ -76,6 +79,9 @@ namespace esx {
 
 	void BatchRenderer::Flush()
 	{
+		mFBO->bind();
+		glViewport(0, 0, mFBO->width(), mFBO->height());
+
 		mTexture16->bind();
 		mTexture16->copy(mPBO16);
 
@@ -86,6 +92,14 @@ namespace esx {
 		mTexture4->copy(mPBO4);
 
 		mShader->start();
+		mTexture16->bind();
+		mTexture8->bind();
+		mTexture4->bind();
+
+		glActiveTexture(GL_TEXTURE0 + 3);
+		glBindTexture(GL_TEXTURE_2D, mFBO->getColorAttachment()->getRendererID());
+
+
 		mShader->uploadUniform("uOffset", mDrawOffset);
 		mShader->uploadUniform("uTopLeft", mDrawTopLeft);
 		mShader->uploadUniform("uBottomRight", mDrawBottomRight);
@@ -99,6 +113,8 @@ namespace esx {
 			glDrawArrays(GL_TRIANGLES, 0, numIndices);
 			glFinish();
 		}
+
+		mFBO->unbind();
 	}
 
 	void BatchRenderer::SetDrawOffset(I16 offsetX, I16 offsetY)
@@ -126,7 +142,7 @@ namespace esx {
 		for (U64 i = 0; i < 3; i++) {
 			const PolygonVertex& vertex = vertices[i];
 
-			ESX_CORE_LOG_TRACE("[{},{}],[{},{},{}],[{},{}]", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v);
+			ESX_CORE_LOG_TRACE("[{},{}],[{},{},{}],[{},{}],[{},{}]", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v, vertex.clutUV.u, vertex.clutUV.v);
 
 			*mTriCurrentVertex = vertex;
 			mTriCurrentVertex++;
@@ -136,7 +152,7 @@ namespace esx {
 			for (U64 i = 1; i < 4; i++) {
 				const PolygonVertex& vertex = vertices[i];
 
-				ESX_CORE_LOG_TRACE("[{},{}],[{},{},{}],[{},{}]", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v);
+				ESX_CORE_LOG_TRACE("[{},{}],[{},{},{}],[{},{}],[{},{}]", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v, vertex.clutUV.u, vertex.clutUV.v);
 				*mTriCurrentVertex = vertex;
 				mTriCurrentVertex++;
 			}

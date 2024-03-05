@@ -103,6 +103,8 @@ namespace esx {
 
 			case GP0Mode::VRAMtoVRAM: {
 				//Copy VRAM
+				ESX_CORE_LOG_ERROR("VRAMtoVRAM not implemented yet");
+
 
 				if (mCurrentCommand.IsComplete(instruction)) {
 					mCurrentCommand.Complete = ESX_TRUE;
@@ -113,61 +115,25 @@ namespace esx {
 
 			case GP0Mode::CPUtoVRAM: {
 				//Copy from CPU
-				static int indX = 0;
-				static int indY = 0;
-
-				U32 destinationCoords = mCommandBuffer.Data[1];
-				U32 size = mCommandBuffer.Data[2];
-
-				U16 dimY = (size >> 16) & 0xFFFF;
-				U16 dimX = (size >> 0) & 0xFFFF;
-
 				U16 pixel1 = (instruction >> 16) & 0xFFFF;
 				U16 pixel2 = (instruction >> 0) & 0xFFFF;
 
-				U16 y = (destinationCoords >> 16) & 0xFFFF;
-				U16 x = (destinationCoords >> 0) & 0xFFFF;
-
-				
-
-				mRenderer->VRAMWrite(x + indX, y + indY, pixel2);
-				indX++;
-				if (indX >= dimX) {
-					indX = 0;
-					indY++;
+				mRenderer->VRAMWrite(mMemoryTransferCoordsX + mMemoryTransferX, mMemoryTransferCoordsY + mMemoryTransferY, pixel2);
+				mMemoryTransferX++;
+				if (mMemoryTransferX >= mMemoryTransferWidth) {
+					mMemoryTransferX = 0;
+					mMemoryTransferY++;
 				}
 
-
-				mRenderer->VRAMWrite(x + indX, y + indY, pixel1);
-				indX++;
-				if (indX >= dimX) {
-					indX = 0;
-					indY++;
+				mRenderer->VRAMWrite(mMemoryTransferCoordsX + mMemoryTransferX, mMemoryTransferCoordsY + mMemoryTransferY, pixel1);
+				mMemoryTransferX++;
+				if (mMemoryTransferX >= mMemoryTransferWidth) {
+					mMemoryTransferX = 0;
+					mMemoryTransferY++;
 				}
-				
-
-				Color color1 = unpackColor(pixel1);
-				Color color2 = unpackColor(pixel2);
-
-				static FILE* ofs = NULL;
-				if (ofs == NULL) {
-					U32 vramAddr = fromCoordsToVRAMAddress(destinationCoords);
-					std::string filePath = std::to_string((U8)mGPUStat.TexturePageColors) + "_" + std::to_string(vramAddr) + ".ppm";
-					
-					ofs = fopen(filePath.c_str(), "wb");
-					fprintf(ofs, "P6\n%zu %zu 255\n", dimX, dimY);
-				}
-
-				fwrite(&color2, sizeof(Color), 1, ofs);
-
-				fwrite(&color1, sizeof(Color), 1, ofs);
 
 				if (mCurrentCommand.IsComplete(instruction)) {
-					indX = 0;
-					indY = 0;
-
-					fclose(ofs);
-					ofs = NULL;
+					mMemoryTransferX = mMemoryTransferY = 0;
 
 					mCurrentCommand.Complete = ESX_TRUE;
 					mMode = GP0Mode::Command;
@@ -177,6 +143,7 @@ namespace esx {
 
 			case GP0Mode::VRAMtoCPU: {
 				//Copy to CPU
+				ESX_CORE_LOG_ERROR("VRAMtoCPU not implemented yet");
 
 				if (mCurrentCommand.IsComplete(instruction)) {
 					mCurrentCommand.Complete = ESX_TRUE;
@@ -371,19 +338,30 @@ namespace esx {
 			vertices[i].vertex = unpackVertex(mCommandBuffer.pop());
 			vertices[i].color = gourad ? unpackColor(mCommandBuffer.pop()) : flatColor;
 			vertices[i].textured = textured;
-			vertices[i].bpp = 4;
 		}
 
 		if (textured) {
-			U16 tx = page & 0xF;
+			U16 tx = (page >> 0) & 0xF;
 			U16 ty = (page >> 4) & 0x1;
+			SemiTransparency semiTransparency = (SemiTransparency)((page >> 5) & 0x3);
+			TexturePageColors texturePageColors = (TexturePageColors)((page >> 7) & 0x3);
 
 			U16 cy = (clut >> 6) & 0x1FF;
 			U16 cx = (clut & 0x3F) * 16;
 
+
 			for (PolygonVertex& vertex : vertices) {
-				transformUV(vertex.uv, tx, ty, 4);
+				switch (texturePageColors) {
+					case TexturePageColors::T4Bit: vertex.bpp = 4; break;
+					case TexturePageColors::T8Bit: vertex.bpp = 8; break;
+					case TexturePageColors::T15Bit: vertex.bpp = 16; break;
+				}
+
+				vertex.semiTransparency = (U8)semiTransparency;
+
+				transformUV(vertex.uv, tx, ty, vertex.bpp);
 				vertex.clutUV = UV(cx, cy);
+
 			}
 
 			ESX_CORE_LOG_TRACE("Page/Clut: {},{}", fromTexPageToVRAMAddress(page), fromClutToVRAMAddress(clut));
@@ -483,16 +461,20 @@ namespace esx {
 
 	void GPU::gp0CPUtoVRAMBlitCommand()
 	{
+		U32 destinationCoords = mCommandBuffer.Data[1];
 		U32 size = mCommandBuffer.Data[2];
 
-		U16 width = size & 0xFFFF;
-		U16 height = (size >> 16) & 0xFFFF;
+		mMemoryTransferWidth = (size >> 0) & 0xFFFF;
+		mMemoryTransferHeight = (size >> 16) & 0xFFFF;
 
-		U32 numHalfWords = width * height;
+		U32 numHalfWords = mMemoryTransferWidth * mMemoryTransferHeight;
 		numHalfWords = (numHalfWords + 1) & ~1;
 		U32 numWords = numHalfWords >> 1;
 
 		mCurrentCommand.RemainingParameters = numWords;
+		mMemoryTransferCoordsX = (destinationCoords >> 0) & 0xFFFF;
+		mMemoryTransferCoordsY = (destinationCoords >> 16) & 0xFFFF;
+		mMemoryTransferX = mMemoryTransferY = 0;
 
 		mMode = GP0Mode::CPUtoVRAM;
 	}

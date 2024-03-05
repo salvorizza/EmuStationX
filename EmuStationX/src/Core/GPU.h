@@ -211,6 +211,10 @@ namespace esx {
 		GP0Mode mMode = GP0Mode::Command;
 
 		SharedPtr<IRenderer> mRenderer;
+
+		U16 mMemoryTransferX, mMemoryTransferY;
+		U16 mMemoryTransferCoordsX, mMemoryTransferCoordsY;
+		U16 mMemoryTransferWidth, mMemoryTransferHeight;
 	};
 
 }

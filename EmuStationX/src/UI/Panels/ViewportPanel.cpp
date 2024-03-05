@@ -11,35 +11,12 @@ namespace esx {
 
 
 	ViewportPanel::ViewportPanel()
-		: Panel("Viewport", false, true),
-			mResizeWidth(160),
-			mResizeHeight(144),
-			mNeedResize(true)
+		: Panel("Viewport", false, true)
 	{}
 
 	ViewportPanel::~ViewportPanel()
 	{}
 
-	void ViewportPanel::startFrame()
-	{
-		if (mFBO) {
-			if (mNeedResize) {
-				mFBO->resize(mResizeWidth, mResizeHeight);
-				mNeedResize = false;
-			}
-			mFBO->bind();
-
-			glViewport(0, 0, mFBO->width(), mFBO->height());
-
-		}
-	}
-
-	void ViewportPanel::endFrame()
-	{
-		if (mFBO) {
-			mFBO->unbind();
-		}
-	}
 
 	void ViewportPanel::onImGuiRender()
 	{
@@ -48,7 +25,7 @@ namespace esx {
 		ImVec2 vMin = ImGui::GetWindowPos() + ImGui::GetWindowContentRegionMin();
 		ImVec2 cursorPos = ImGui::GetCursorPos();
 
-		ImVec2 screenSize = ImVec2(1024.0f, 512.0f);
+		ImVec2 screenSize = ImVec2((float)mFrame->width(), (float)mFrame->height());
 		ImVec2 scales = size / screenSize;
 		float scale = floor(std::min(scales.x, scales.y));
 		ImVec2 newSize = screenSize * scale;
@@ -57,20 +34,8 @@ namespace esx {
 
 		uint32_t newWidth = (uint32_t)floor(newSize.x);
 		uint32_t newHeight = (uint32_t)floor(newSize.y);
-		if (!mFBO) {
-			mFBO = std::make_shared<FrameBuffer>(newWidth, newHeight);
-		} else {
-			uint32_t fboWidth, fboHeight;
-
-			mFBO->getSize(fboWidth, fboHeight);
-			if (newWidth != fboWidth || newHeight != fboHeight) {
-				mResizeWidth = newWidth;
-				mResizeHeight = newHeight;
-				mNeedResize = true;
-			}
-		}
 		
-		uint64_t textureID = mFBO->getColorAttachment();
+		uint64_t textureID = mFrame->getColorAttachment()->getRendererID();
 		cursorPos += offset;
 
 		ImGui::SetCursorPos(cursorPos);
