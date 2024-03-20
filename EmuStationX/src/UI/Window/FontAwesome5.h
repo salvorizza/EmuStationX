@@ -50,6 +50,7 @@
 #define ICON_FA_ARROWS_ALT "\xef\x82\xb2"	// U+f0b2
 #define ICON_FA_ARROWS_ALT_H "\xef\x8c\xb7"	// U+f337
 #define ICON_FA_ARROWS_ALT_V "\xef\x8c\xb8"	// U+f338
+#define ICON_FA_ARROWS_TURN_DOWN "\xef\x85\x89" //U+f149
 #define ICON_FA_ASSISTIVE_LISTENING_SYSTEMS "\xef\x8a\xa2"	// U+f2a2
 #define ICON_FA_ASTERISK "\xef\x81\xa9"	// U+f069
 #define ICON_FA_AT "\xef\x87\xba"	// U+f1fa

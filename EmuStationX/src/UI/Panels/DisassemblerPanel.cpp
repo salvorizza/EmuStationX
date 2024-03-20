@@ -28,7 +28,7 @@ namespace esx {
 		if (mBreakpoints.size() > 0) {
 			auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.Address == address && b.Enabled; });
 			if (it != mBreakpoints.end()) {
-				disassemble(address - 4 * disassembleRange, 4 * disassembleRange * 2);
+				//disassemble(address - 4 * disassembleRange, 4 * disassembleRange * 2);
 
 				setDebugState(DebugState::Breakpoint);
 				mScrollToCurrent = true;
@@ -62,11 +62,28 @@ namespace esx {
 			case DebugState::Step:
 				mInstance->clock();
 
-				disassemble(mInstance->mPC - 4 * disassembleRange, 4 * disassembleRange * 2);
+				//disassemble(mInstance->mPC - 4 * disassembleRange, 4 * disassembleRange * 2);
 				mScrollToCurrent = true;
 				mCurrent = mInstance->mPC;
 				setDebugState(DebugState::Breakpoint);
 				break;
+
+
+			case DebugState::StepOver: {
+				for (int i = 0; i < 1000000; i++) {
+					if (mInstance->mPC == mNextPC) {
+						mScrollToCurrent = true;
+						mCurrent = mInstance->mPC;
+						setDebugState(DebugState::Breakpoint);
+						break;
+					}
+					else {
+						mInstance->clock();
+					}
+				}
+				break;
+			}
+
 
 			case DebugState::Stop:
 				setDebugState(DebugState::Idle);
@@ -94,6 +111,8 @@ namespace esx {
 		if (mDebugState == DebugState::Breakpoint) {
 			ImGui::SameLine();
 			if (ImGui::Button(ICON_FA_STEP_FORWARD)) onStepForward();
+			ImGui::SameLine();
+			if (ImGui::Button(ICON_FA_ARROWS_TURN_DOWN)) onStepOver();
 		}
 		
 		switch (mDebugState)
@@ -131,39 +150,74 @@ namespace esx {
 
 		static bool p_open = true;
 		float sizeY = ImGui::GetContentRegionAvail().y;
-		if (ImGui::BeginTable("Disassembly Table", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders, ImVec2(0,sizeY * 0.75f))) {
-			ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, addressingSize);
-			ImGui::TableSetupColumn("Mnemonic", ImGuiTableColumnFlags_WidthFixed, contentCellsWidth);
-			ImGui::TableHeadersRow();
 
-			ImGuiListClipper clipper;
-			clipper.Begin((int)mInstructions.size());
-			while (clipper.Step())
-			{
-				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
-					Instruction instruction = mInstructions[row];
-					U32 address = instruction.Address;
 
-					ImGui::TableNextRow();
-					if (mScrollToCurrent && address == mCurrent) {
-						ImGui::SetScrollHereY(0.75);
-						mScrollToCurrent = false;
-					}
+		if (ImGui::BeginChild("##child", ImVec2(0, sizeY * 0.75f))) {
+			if (ImGui::BeginTable("Disassembly Table", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+				ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, addressingSize);
+				ImGui::TableSetupColumn("Mnemonic", ImGuiTableColumnFlags_WidthFixed, contentCellsWidth);
+				ImGui::TableHeadersRow();
 
-					if (mDebugState != DebugState::Idle && address == mInstance->mPC) {
-						ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(230, 100, 120, 125));
-						ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, IM_COL32(180, 50, 70, 125));
-					}
+				constexpr size_t numInstructionsRAM = 0x00800000 / 4;
+				constexpr size_t numInstructionsBios = 0x00080000 / 4;
 
-					ImGui::TableNextColumn();
-					ImGui::Text("0x%08X", address);
-
-					ImGui::TableNextColumn();
-					ImGui::Text(instruction.Mnemonic.c_str());
+				ImGuiListClipper clipper;
+				clipper.Begin(numInstructionsRAM + numInstructionsBios);
+				if (mScrollToCurrent) {
+					U32 index = 0;
+					
+					if (mCurrent >= 0xBFC00000) {
+						index = numInstructionsRAM + (mCurrent - 0xBFC00000) / 4;
+					} else if (mCurrent >= 0x80000000) {
+						index = (mCurrent - 0x80000000) / 4;
+					} 
+					clipper.ForceDisplayRangeByIndices(index, index + 1);
 				}
+				while (clipper.Step())
+				{
+					for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
+						esx::Instruction cpuInstruction;
+						
+						U32 physAddress = row * 4;
+						U32 translatedAddress = 0x80000000 + physAddress;
+						if (row >= numInstructionsRAM) {
+							physAddress = 0x1FC00000 + (row - numInstructionsRAM) * 4;
+							translatedAddress = 0xBFC00000 + (row - numInstructionsRAM) * 4;
+						}
+
+						U32 opcode = mInstance->getBus(ESX_TEXT("Root"))->load<U32>(physAddress);
+						mInstance->decode(cpuInstruction, opcode, physAddress, ESX_TRUE);
+
+						Instruction instruction;
+						instruction.Address = translatedAddress;
+						instruction.Mnemonic = cpuInstruction.Mnemonic();
+
+						//Instruction instruction = mInstructions[row];
+
+						U32 address = instruction.Address;
+
+						ImGui::TableNextRow();
+						if (mScrollToCurrent && address == mCurrent) {
+							ImGui::SetScrollHereY(0.75);
+							mScrollToCurrent = false;
+						}
+
+						if (mDebugState != DebugState::Idle && address == mInstance->mPC) {
+							ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(230, 100, 120, 125));
+							ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, IM_COL32(180, 50, 70, 125));
+						}
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", address);
+
+						ImGui::TableNextColumn();
+						ImGui::Text(instruction.Mnemonic.c_str());
+					}
+				}
+				clipper.End();
+				ImGui::EndTable();
 			}
-			clipper.End();
-			ImGui::EndTable();
+			ImGui::EndChild();
 		}
 		
 		if (ImGui::BeginTabBar("SelectDisassembleRom2"))
@@ -271,7 +325,7 @@ namespace esx {
 
 	void DisassemblerPanel::onPause() {
 		setDebugState(DebugState::Breakpoint);
-		disassemble(mInstance->mPC - 4 * disassembleRange, 4 * disassembleRange * 2);
+		//disassemble(mInstance->mPC - 4 * disassembleRange, 4 * disassembleRange * 2);
 		mScrollToCurrent = true;
 		mCurrent = mInstance->mPC;
 	}
@@ -279,6 +333,14 @@ namespace esx {
 	void DisassemblerPanel::onStepForward() {
 		if (mDebugState == DebugState::Breakpoint) {
 			setDebugState(DebugState::Step);
+		}
+	}
+
+	void DisassemblerPanel::onStepOver()
+	{
+		if (mDebugState == DebugState::Breakpoint) {
+			mNextPC = mInstance->mPC + 4;
+			setDebugState(DebugState::StepOver);
 		}
 	}
 

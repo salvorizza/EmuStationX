@@ -24,8 +24,6 @@ namespace esx {
 				break;
 			}
 		}
-
-		ESX_CORE_LOG_WARNING("GPU - Writing to address {:08x} value {:08x}", address, value);
 	}
 
 	void GPU::load(const StringView& busName, U32 address, U32& output)
@@ -40,7 +38,6 @@ namespace esx {
 				break;
 			}
 		}
-		//ESX_CORE_LOG_WARNING("GPU - Reading address {:08x} not implemented yet", address);
 	}
 
 	void GPU::gp0(U32 instruction)
@@ -104,7 +101,6 @@ namespace esx {
 			case GP0Mode::VRAMtoVRAM: {
 				//Copy VRAM
 				ESX_CORE_LOG_ERROR("VRAMtoVRAM not implemented yet");
-
 
 				if (mCurrentCommand.IsComplete(instruction)) {
 					mCurrentCommand.Complete = ESX_TRUE;

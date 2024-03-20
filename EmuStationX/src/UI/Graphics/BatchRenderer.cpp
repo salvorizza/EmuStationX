@@ -65,6 +65,10 @@ namespace esx {
 
 
 		mShader = Shader::LoadFromFile("commons/shaders/shader.vert","commons/shaders/shader.frag");
+
+
+		mDrawTopLeft = glm::uvec2(0, 0);
+		mDrawBottomRight = glm::uvec2(640, 240);
 	}
 
 	void BatchRenderer::Begin()
@@ -115,12 +119,14 @@ namespace esx {
 		}
 
 		mFBO->unbind();
+
 	}
 
 	void BatchRenderer::SetDrawOffset(I16 offsetX, I16 offsetY)
 	{
 		mDrawOffset.x = offsetX;
 		mDrawOffset.y = offsetY;
+		ESX_CORE_LOG_TRACE("Draw Offset: {},{}", mDrawOffset.x, mDrawOffset.y);
 	}
 
 	void BatchRenderer::SetDrawTopLeft(U16 x, U16 y)

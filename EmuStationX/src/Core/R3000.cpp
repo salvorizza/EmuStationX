@@ -35,9 +35,6 @@ namespace esx {
 		mBranch = ESX_FALSE;
 
 		BIT pendingLoadsEmpty = mPendingLoads.empty() ? ESX_TRUE : ESX_FALSE;
-
-		(this->*mCurrentInstruction.Execute)();
-
 		if (pendingLoadsEmpty == ESX_FALSE) {
 			const auto& [registerIndex, value] = mPendingLoads.front();
 
@@ -45,6 +42,8 @@ namespace esx {
 
 			mPendingLoads.pop();
 		}
+
+		(this->*mCurrentInstruction.Execute)();
 	}
 
 

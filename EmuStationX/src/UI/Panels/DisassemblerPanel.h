@@ -40,6 +40,7 @@ namespace esx {
 			Running,
 			Breakpoint,
 			Step,
+			StepOver,
 			Stop
 		};
 
@@ -49,6 +50,7 @@ namespace esx {
 		void onPlay();
 		void onPause();
 		void onStepForward();
+		void onStepOver();
 
 		void setDebugState(DebugState debugState) { mPrevDebugState = mDebugState; mDebugState = debugState; }
 
@@ -61,6 +63,7 @@ namespace esx {
 		DebugState mPrevDebugState;
 		bool mScrollToCurrent;
 		uint32_t mCurrent;
+		U32 mNextPC;
 
 		static const size_t disassembleRange = 10;
 	};

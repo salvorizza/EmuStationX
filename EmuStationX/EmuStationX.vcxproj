@@ -158,6 +158,7 @@
     <ClInclude Include="src\Base\Bus.h" />
     <ClInclude Include="src\Base\PlatformDetection.h" />
     <ClInclude Include="src\Core\Bios.h" />
+    <ClInclude Include="src\Core\CDROM.h" />
     <ClInclude Include="src\Core\DMA.h" />
     <ClInclude Include="src\Core\GPU.h" />
     <ClInclude Include="src\Core\IRenderer.h" />
@@ -196,6 +197,7 @@
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp" />
     <ClCompile Include="src\Core\Bios.cpp" />
+    <ClCompile Include="src\Core\CDROM.cpp" />
     <ClCompile Include="src\Core\DMA.cpp" />
     <ClCompile Include="src\Core\GPU.cpp" />
     <ClCompile Include="src\Core\InterruptControl.cpp" />

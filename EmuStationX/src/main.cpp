@@ -24,6 +24,7 @@
 #include "Core/Timer.h"
 #include "Core/DMA.h"
 #include "Core/GPU.h"
+#include "Core/CDROM.h"
 
 
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -52,6 +53,8 @@ public:
 	~EmuStationXLogger() = default;
 
 	virtual void Log(LogType type, const StringView& message) override {
+		if ((I32)type < mLogLevel) return;
+
 		if (mConsolePanel) {
 			switch (type)
 			{
@@ -75,8 +78,13 @@ public:
 			}
 		}
 	}
+
+	void SetLogLevel(LogType logLevel) {
+		mLogLevel = (I32)logLevel;
+	}
 private:
 	std::shared_ptr<ConsolePanel> mConsolePanel;
+	I32 mLogLevel = -1;
 };
 
 class EmuStationXApp : public Application {
@@ -93,6 +101,8 @@ public:
 		mConsolePanel = std::make_shared<ConsolePanel>();
 		mLogger = std::make_shared<EmuStationXLogger>(mConsolePanel);
 		LoggingSystem::SetCoreLogger(mLogger);
+
+		mLogger->SetLogLevel(LogType::Error);
 
 		mCPUStatusPanel = std::make_shared<CPUStatusPanel>();
 		mDisassemblerPanel = std::make_shared<DisassemblerPanel>();
@@ -111,6 +121,7 @@ public:
 		timer = MakeShared<Timer>();
 		dma = MakeShared<DMA>();
 		gpu = MakeShared<GPU>(mBatchRenderer);
+		cdrom = MakeShared<CDROM>();
 
 
 		root->connectDevice(cpu);
@@ -142,6 +153,9 @@ public:
 
 		root->connectDevice(gpu);
 		gpu->connectToBus(root);
+
+		root->connectDevice(cdrom);
+		cdrom->connectToBus(root);
 
 		mCPUStatusPanel->setInstance(cpu);
 		mDisassemblerPanel->setInstance(cpu);
@@ -230,6 +244,7 @@ private:
 	SharedPtr<Timer> timer;
 	SharedPtr<DMA> dma;
 	SharedPtr<GPU> gpu;
+	SharedPtr<CDROM> cdrom;
 
 	SharedPtr<CPUStatusPanel> mCPUStatusPanel;
 	SharedPtr<DisassemblerPanel> mDisassemblerPanel;

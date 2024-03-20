@@ -22,24 +22,28 @@ namespace esx {
 	{
 		ImVec2 size = ImGui::GetContentRegionAvail();
 		ImDrawList* drawList = ImGui::GetWindowDrawList();
-		ImVec2 vMin = ImGui::GetWindowPos() + ImGui::GetWindowContentRegionMin();
 		ImVec2 cursorPos = ImGui::GetCursorPos();
 
-		ImVec2 screenSize = ImVec2((float)mFrame->width(), (float)mFrame->height());
-		ImVec2 scales = size / screenSize;
-		float scale = floor(std::min(scales.x, scales.y));
-		ImVec2 newSize = screenSize * scale;
+		ImVec2 frameSize = ImVec2((float)mFrame->width(), (float)mFrame->height());
+		ImVec2 imageSize = ImVec2();
+		ImVec2 offset = ImVec2();
+		if (size.y < size.x) {
+			float aspectRatio = frameSize.x / frameSize.y;
 
-		ImVec2 offset = (size - newSize) / 2;
+			imageSize.y = size.y;
+			imageSize.x = size.y * aspectRatio;
+			offset = ImVec2((size.x - imageSize.x) / 2, 0);
+		} else {
+			float aspectRatio = frameSize.y / frameSize.x;
 
-		uint32_t newWidth = (uint32_t)floor(newSize.x);
-		uint32_t newHeight = (uint32_t)floor(newSize.y);
+			imageSize.x = size.x;
+			imageSize.y = size.x * aspectRatio;
+			offset = ImVec2(0, (size.y - imageSize.y) / 2);
+		}
 		
 		uint64_t textureID = mFrame->getColorAttachment()->getRendererID();
-		cursorPos += offset;
-
-		ImGui::SetCursorPos(cursorPos);
-		ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ newSize.x, newSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+		ImGui::SetCursorPos(cursorPos + offset);
+		ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ imageSize.x, imageSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 	}
 
 }
