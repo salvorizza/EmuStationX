@@ -2,6 +2,7 @@
 
 #include "Base/Base.h"
 #include "Base/Assert.h"
+#include "IntervalTree.h"
 
 #include <optional>
 
@@ -59,6 +60,27 @@ namespace esx {
 	};
 
 
+	struct DeviceRangeData {
+		BusRange Range = BusRange();
+		SharedPtr<BusDevice> Device = {};
+
+		DeviceRangeData(const BusRange& range, const SharedPtr<BusDevice>& device)
+			: Range(range), Device(device)
+		{}
+	};
+
+
+	using Interval = Pair<BusRange, SharedPtr<BusDevice>>;
+
+	struct IntervalTreeNode {
+		Interval interval;
+		uint32_t maxEnd; // Massimo valore di fine tra l'intervallo e i suoi sotto-alberi
+		IntervalTreeNode* left;
+		IntervalTreeNode* right;
+
+		IntervalTreeNode(const Interval& i) : interval(i), maxEnd(i.first.End), left(nullptr), right(nullptr) {}
+	};
+	
 	class Bus {
 	public:
 		Bus(const StringView& name);
@@ -66,16 +88,13 @@ namespace esx {
 
 		void writeLine(const StringView& lineName, BIT value);
 
+		void sortRanges();
+
 		template<typename T>
 		void store(U32 address, T value) {
-			auto it = mRanges.upper_bound(address);
-			if (it != mRanges.end()) {
-				auto [busRange, device] = it->second;
-				if (address >= busRange.Start && address < busRange.End) {
-					device->store(mName, address & busRange.Mask, value);
-				} else {
-					ESX_CORE_LOG_ERROR("Writing Address 0x{:08x}: not found at {} bytes", address, sizeof(T));
-				}
+			auto& [busRange, device] = findRangeInIntervalTree(mIntervalTree, address);
+			if (device) {
+				device->store(mName, address & busRange.Mask, value);
 			}
 			else {
 				ESX_CORE_LOG_ERROR("Writing Address 0x{:08x}: not found at {} bytes", address, sizeof(T));
@@ -86,15 +105,9 @@ namespace esx {
 		T load(U32 address) {
 			T result = 0;
 
-			auto it = mRanges.upper_bound(address);
-			if (it != mRanges.end()) {
-				auto [busRange, device] = it->second;
-
-				if (address >= busRange.Start && address < busRange.End) {
-					device->load(mName, address & busRange.Mask, result);
-				} else {
-					ESX_CORE_LOG_ERROR("Reading Address 0x{:08x}: not found at {} bytes", address, sizeof(T));
-				}
+			auto& [busRange, device] = findRangeInIntervalTree(mIntervalTree, address);
+			if (device) {
+				device->load(mName, address & busRange.Mask, result);
 			} else {
 				ESX_CORE_LOG_ERROR("Reading Address 0x{:08x}: not found at {} bytes", address, sizeof(T));
 			}
@@ -113,10 +126,15 @@ namespace esx {
 
 		void addRange(const StringView& deviceName, BusRange range);
 
+
+		IntervalTreeNode* buildIntervalTree(const Vector<Interval>& intervals);
+		const Interval& findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address);
+
 	private:
 		StringView mName;
 		UnorderedMap<StringView, SharedPtr<BusDevice>> mDevices;
-		Map<U64, Pair<BusRange, SharedPtr<BusDevice>>> mRanges;
+		Vector<Interval> mRanges;
+		IntervalTreeNode* mIntervalTree;
 	};
 
 

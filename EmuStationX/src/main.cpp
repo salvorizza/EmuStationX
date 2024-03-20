@@ -157,6 +157,8 @@ public:
 		root->connectDevice(cdrom);
 		cdrom->connectToBus(root);
 
+		root->sortRanges();
+
 		mCPUStatusPanel->setInstance(cpu);
 		mDisassemblerPanel->setInstance(cpu);
 		mMemoryEditorPanel->setInstance(root);

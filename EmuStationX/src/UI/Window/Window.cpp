@@ -47,7 +47,7 @@ namespace esx {
 		glfwMakeContextCurrent(window);
 		gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 		glDebugMessageCallback(debugCallbackOpenGL, nullptr);
-		glfwSwapInterval(0);
+		glfwSwapInterval(1);
 
 		glfwSetKeyCallback(window, [](GLFWwindow* windowRef, int key, int scancode, int action, int mods) {
 			switch (action) {

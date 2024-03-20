@@ -184,7 +184,9 @@ namespace esx {
 				return 0;
 			}
 
-			return getBus(ESX_TEXT("Root"))->load<T>(address & SEGS_MASKS[address >> 29]);
+			if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
+
+			return mRootBus->load<T>(address & SEGS_MASKS[address >> 29]);
 		}
 
 		template<typename T>
@@ -194,7 +196,9 @@ namespace esx {
 				return;
 			}
 
-			getBus(ESX_TEXT("Root"))->store<T>(address & SEGS_MASKS[address >> 29], value);
+			if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
+
+			mRootBus->store<T>(address & SEGS_MASKS[address >> 29], value);
 		}
 
 		//Arithmetic
@@ -285,6 +289,7 @@ namespace esx {
 
 		void raiseException(ExceptionType type);
 	private:
+		SharedPtr<Bus> mRootBus;
 		Array<U32, 32> mRegisters;
 		Queue<Pair<RegisterIndex, U32>> mPendingLoads;
 		U32 mPC = 0;
