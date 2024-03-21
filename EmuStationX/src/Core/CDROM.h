@@ -49,6 +49,7 @@ namespace esx {
 		U8 popResponse();
 
 		void pushData(U8 value);
+		U8 popData();
 
 	private:
 		IndexStatusRegister CDROM_REG0;

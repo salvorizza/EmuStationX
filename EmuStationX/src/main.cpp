@@ -39,13 +39,12 @@
 #endif // ESX_PLATFORM_WINDOWS
 
 
-
 using namespace esx;
 
 
 class EmuStationXLogger : public Logger {
 public:
-	EmuStationXLogger(const std::shared_ptr<ConsolePanel>& consolePanel)
+	EmuStationXLogger(const SharedPtr<ConsolePanel>& consolePanel)
 		: Logger(ESX_TEXT("Core")),
 			mConsolePanel(consolePanel)
 	{}
@@ -83,7 +82,7 @@ public:
 		mLogLevel = (I32)logLevel;
 	}
 private:
-	std::shared_ptr<ConsolePanel> mConsolePanel;
+	SharedPtr<ConsolePanel> mConsolePanel;
 	I32 mLogLevel = -1;
 };
 
@@ -98,17 +97,17 @@ public:
 	}
 
 	virtual void onSetup() override {
-		mConsolePanel = std::make_shared<ConsolePanel>();
-		mLogger = std::make_shared<EmuStationXLogger>(mConsolePanel);
+		mConsolePanel = MakeShared<ConsolePanel>();
+		mLogger = MakeShared<EmuStationXLogger>(mConsolePanel);
 		LoggingSystem::SetCoreLogger(mLogger);
 
-		mLogger->SetLogLevel(LogType::Error);
+		//mLogger->SetLogLevel(LogType::Error);
 
-		mCPUStatusPanel = std::make_shared<CPUStatusPanel>();
-		mDisassemblerPanel = std::make_shared<DisassemblerPanel>();
-		mMemoryEditorPanel = std::make_shared<MemoryEditorPanel>();
-		mBatchRenderer = std::make_shared<BatchRenderer>();
-		mViewportPanel = std::make_shared<ViewportPanel>();
+		mCPUStatusPanel = MakeShared<CPUStatusPanel>();
+		mDisassemblerPanel = MakeShared<DisassemblerPanel>();
+		mMemoryEditorPanel = MakeShared<MemoryEditorPanel>();
+		mBatchRenderer = MakeShared<BatchRenderer>();
+		mViewportPanel = MakeShared<ViewportPanel>();
 
 		root = MakeShared<Bus>(ESX_TEXT("Root"));
 		cpu = MakeShared<R3000>();
@@ -174,7 +173,7 @@ public:
 	virtual void onRender() override {
 	}
 
-	virtual void onImGuiRender(const std::shared_ptr<ImGuiManager>& pManager, const std::shared_ptr<Window>& pWindow) override {
+	virtual void onImGuiRender(const SharedPtr<ImGuiManager>& pManager, const SharedPtr<Window>& pWindow) override {
 		static bool p_open = true;
 
 		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_MenuBar;
@@ -279,7 +278,7 @@ WinMain(
 	LoggingSystem::Start(specs);
 
 	ApplicationManager appManager;
-	appManager.run(std::make_shared<EmuStationXApp>());
+	appManager.run(MakeShared<EmuStationXApp>());
 
 	LoggingSystem::Shutdown();
 	return 0;

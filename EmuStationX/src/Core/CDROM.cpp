@@ -29,6 +29,9 @@ namespace esx {
 						command((CommandType)value);
 						break;
 					}
+					default: {
+						ESX_CORE_LOG_ERROR("CDROM - Writing to address 0x{:08X} with Index 0x{:02X} not implemented yet", address, CDROM_REG0.Index);
+					}
 				}
 				break;
 			}
@@ -43,6 +46,9 @@ namespace esx {
 						setInterruptEnableRegister(CDROM_REG2,value);
 						break;
 					}
+					default: {
+						ESX_CORE_LOG_ERROR("CDROM - Writing to address 0x{:08X} with Index 0x{:02X} not implemented yet", address, CDROM_REG0.Index);
+					}
 				}
 				break;
 			}
@@ -52,6 +58,9 @@ namespace esx {
 					case 0x1: {
 						setInterruptFlagRegister(CDROM_REG3,value);
 						break;
+					}
+					default: {
+						ESX_CORE_LOG_ERROR("CDROM - Writing to address 0x{:08X} with Index 0x{:02X} not implemented yet", address, CDROM_REG0.Index);
 					}
 				}
 				break;
@@ -69,13 +78,40 @@ namespace esx {
 				output = getIndexStatusRegister();
 				break;
 			}
+
+			case 0x1F801801: {
+				output = popResponse();
+				break;
+			}
+
+			case 0x1F801802: {
+				output = popData();
+				break;
+			}
+
+			case 0x1F801803: {
+				switch (CDROM_REG0.Index) {
+					case 0x1:
+					case 0x3: {
+						output = getInterruptFlagRegister(CDROM_REG3);
+						break;
+					}
+
+					case 0x0:
+					case 0x2: {
+						output = getInterruptEnableRegister(CDROM_REG3);
+						break;
+					}
+				}
+				break;
+			}
 		}
 
 	}
 
 	void CDROM::command(CommandType command)
 	{
-		ESX_CORE_LOG_ERROR("CDRM - Command {}", (U8)command);
+		ESX_CORE_LOG_ERROR("CDROM - Command {}", (U8)command);
 		switch (command) {
 			case CommandType::Test: {
 				U8 parameter = popParameter();
@@ -136,12 +172,12 @@ namespace esx {
 
 	void CDROM::setInterruptFlagRegister(U8& REG, U8 value)
 	{
-
+		REG &= ~value;
 	}
 
 	U8 CDROM::getInterruptFlagRegister(U8 REG)
 	{
-		return U8();
+		return REG;
 	}
 
 	void CDROM::pushParameter(U8 value)
@@ -161,18 +197,45 @@ namespace esx {
 	void CDROM::pushResponse(U8 value)
 	{
 		mResponse.push(value);
+		CDROM_REG0.ResponseFifoEmpty = ESX_FALSE;
 	}
 
 	U8 CDROM::popResponse()
 	{
-		U8 value = mResponse.front();
-		mResponse.pop();
+		U8 value = 0;
+
+		if (!mResponse.empty()) {
+			value = mResponse.front();
+			mResponse.pop();
+		}
+
+		if (mResponse.empty()) {
+			CDROM_REG0.ResponseFifoEmpty = ESX_TRUE;
+		}
+
 		return value;
 	}
 
 	void CDROM::pushData(U8 value)
 	{
 		mData.push(value);
+		CDROM_REG0.DataFifoEmpty = ESX_FALSE;
+	}
+
+	U8 CDROM::popData()
+	{
+		U8 value = 0;
+
+		if (!mData.empty()) {
+			value = mData.front();
+			mData.pop();
+		}
+
+		if (mData.empty()) {
+			CDROM_REG0.DataFifoEmpty = ESX_TRUE;
+		}
+
+		return value;
 	}
 
 }

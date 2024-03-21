@@ -20,6 +20,7 @@ namespace esx {
 	void Timer::load(const StringView& busName, U32 address, U32& value)
 	{
 		ESX_CORE_LOG_WARNING("Timer - Reading address {:08x} not implemented yet", address);
+		value = 0;
 	}
 
 	void Timer::store(const StringView& busName, U32 address, U32 value)

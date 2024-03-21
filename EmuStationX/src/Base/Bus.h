@@ -2,7 +2,6 @@
 
 #include "Base/Base.h"
 #include "Base/Assert.h"
-#include "IntervalTree.h"
 
 #include <optional>
 

@@ -156,7 +156,6 @@
     <ClInclude Include="src\Base\Assert.h" />
     <ClInclude Include="src\Base\Base.h" />
     <ClInclude Include="src\Base\Bus.h" />
-    <ClInclude Include="src\Base\IntervalTree.h" />
     <ClInclude Include="src\Base\PlatformDetection.h" />
     <ClInclude Include="src\Core\Bios.h" />
     <ClInclude Include="src\Core\CDROM.h" />
