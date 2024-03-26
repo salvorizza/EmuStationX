@@ -4,15 +4,21 @@
 #include <iomanip>
 #include <fstream>
 
+#include "Core/GPU.h"
+#include "Core/Timer.h"
+
 namespace esx {
 
 	R3000::R3000()
 		:	BusDevice(ESX_TEXT("R3000")),
 			mRegisters(),
+			mOutRegisters(),
 			mCP0Registers(),
 			mPC(0xBFC00000)
 	{
 		mNextPC = mPC + 4;
+		setCP0Register(COP0Register::PRId, 0x00000002);
+		resetPendingLoad();
 	}
 
 	R3000::~R3000()
@@ -21,6 +27,8 @@ namespace esx {
 
 	void R3000::clock()
 	{
+		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
+
 		U32 opcode = fetch(mPC);
 
 		decode(mCurrentInstruction,opcode, mPC);
@@ -34,16 +42,23 @@ namespace esx {
 		mBranchSlot = mBranch;
 		mBranch = ESX_FALSE;
 
-		BIT pendingLoadsEmpty = mPendingLoads.empty() ? ESX_TRUE : ESX_FALSE;
-		if (pendingLoadsEmpty == ESX_FALSE) {
-			const auto& [registerIndex, value] = mPendingLoads.front();
-
-			setRegister(registerIndex, value);
-
-			mPendingLoads.pop();
-		}
+		setRegister(mPendingLoad.first, mPendingLoad.second);
+		resetPendingLoad();
 
 		(this->*mCurrentInstruction.Execute)();
+
+		mRegisters = mOutRegisters;
+
+		mGPUClock += 11.0f / 7.0f;
+		while (mGPUClock > 1) {
+			if (!mGPU) mGPU = getBus("Root")->getDevice<GPU>("GPU");
+
+			mGPU->clock();
+
+			mGPUClock -= 1;
+		}
+
+		mTimer->systemClock();
 	}
 
 
@@ -550,7 +565,7 @@ namespace esx {
 
 	void R3000::MFLO()
 	{
-		setRegister(mCurrentInstruction.RegisterDestination(), mLO);
+		addPendingLoad(mCurrentInstruction.RegisterDestination(), mLO);
 	}
 
 	void R3000::MTLO()
@@ -560,7 +575,7 @@ namespace esx {
 
 	void R3000::MFHI()
 	{
-		setRegister(mCurrentInstruction.RegisterDestination(), mHI);
+		addPendingLoad(mCurrentInstruction.RegisterDestination(), mHI);
 	}
 
 	void R3000::MTHI()
@@ -1167,7 +1182,7 @@ namespace esx {
 			return;
 		}
 
-		setRegister(mCurrentInstruction.RegisterTarget(), r);
+		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
 	}
 
 	void R3000::MTC2()
@@ -1208,18 +1223,25 @@ namespace esx {
 
 	void R3000::addPendingLoad(RegisterIndex index, U32 value)
 	{
-		mPendingLoads.emplace(index, value);
+		mPendingLoad.first = index;
+		mPendingLoad.second = value;
+	}
+
+	void R3000::resetPendingLoad()
+	{
+		mPendingLoad.first = RegisterIndex(0);
+		mPendingLoad.second = 0;
 	}
 
 	void R3000::setRegister(RegisterIndex index, U32 value)
 	{
-		mRegisters[index.Value] = value;
-		mRegisters[(U8)GPRRegister::zero] = 0;
+		mOutRegisters[index.Value] = value;
+		mOutRegisters[(U8)GPRRegister::zero] = 0;
 	}
 
 	U32 R3000::getRegister(RegisterIndex index)
 	{
-		return mRegisters[index.Value];
+		return mOutRegisters[index.Value];
 	}
 
 	void R3000::setCP0Register(RegisterIndex index, U32 value)
@@ -1234,9 +1256,7 @@ namespace esx {
 
 	void R3000::raiseException(ExceptionType type)
 	{
-		if (type != ExceptionType::Syscall) {
-			ESX_CORE_ASSERT(ESX_FALSE, "type of exception not tested yet");
-		}
+		ESX_CORE_LOG_ERROR("Exception - {}", (U32)type);
 
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 epc = getCP0Register(COP0Register::EPC);
@@ -1247,11 +1267,17 @@ namespace esx {
 			handler = 0xBFC00180;
 		}
 
+		BIT canHandleInterrupt = (sr & 0x401) == 0x401;
+
 		U32 mode = sr & 0x3F;
 		sr &= ~0x3F;
 		sr |= (mode << 2) & 0x3F;
 
 		cause = ((U32)type) << 2;
+		if (type == ExceptionType::Interrupt) {
+			cause |= (1 << 10);
+		}
+
 		epc = mCurrentPC;
 
 		if (mBranchSlot) {
@@ -1261,8 +1287,19 @@ namespace esx {
 
 		setCP0Register(COP0Register::Cause, cause);
 		setCP0Register(COP0Register::EPC, epc);
-		mPC = handler;
-		mNextPC = mPC + 4;
+		setCP0Register(COP0Register::SR, sr);
+
+		if ((type == ExceptionType::Interrupt && canHandleInterrupt) || type != ExceptionType::Interrupt) {
+			mPC = handler;
+			mNextPC = mPC + 4;
+		}
+	}
+
+	void R3000::acknowledge()
+	{
+		U32 sr = getCP0Register(COP0Register::SR);
+		sr &= ~(1 << 10);
+		setCP0Register(COP0Register::SR, sr);
 	}
 
 	String Instruction::Mnemonic() const

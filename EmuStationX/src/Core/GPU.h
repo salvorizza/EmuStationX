@@ -10,6 +10,9 @@ namespace esx {
 	class GPU;
 	using CommandFunction = void(GPU::*)();
 
+	constexpr U64 PAL_SCANLINES_PER_FRAME = 314;
+	constexpr U64 PAL_CLOCKS_PER_SCANLINE = 3406;
+
 	enum class SemiTransparency : U8 {
 		B2PlusF2 = 0,
 		BPlusF = 1,
@@ -88,30 +91,33 @@ namespace esx {
 
 
 	struct GPUStat {
-		U8 TexturePageX;
-		U8 TexturePageYBase1;
-		SemiTransparency SemiTransparency;
-		TexturePageColors TexturePageColors;
-		BIT DitherEnabled;
-		BIT DrawToDisplay;
-		BIT SetMaskWhenDrawingPixels;
-		BIT DrawPixels;
-		BIT InterlaceField;
-		BIT ReverseFlag;
-		U8 TexturePageYBase2;
-		HorizontalResolution HorizontalResolution;
-		VerticalResolution VerticalResolution;
-		VideoMode VideoMode;
-		ColorDepth ColorDepth;
-		BIT VerticalInterlace;
-		BIT DisplayEnable;
-		BIT InterruptRequest;
-		BIT ReadyCmdWord;
-		BIT ReadySendVRAMToCPU;
-		BIT ReadyToReceiveDMABlock;
-		DMADirection DMADirection;
-		BIT DrawOddLines;
+		U8 TexturePageX = 0;
+		U8 TexturePageYBase1 = 0;
+		SemiTransparency SemiTransparency = SemiTransparency::B2PlusF2;
+		TexturePageColors TexturePageColors = TexturePageColors::T4Bit;
+		BIT DitherEnabled = ESX_FALSE;
+		BIT DrawToDisplay = ESX_FALSE;
+		BIT SetMaskWhenDrawingPixels = ESX_FALSE;
+		BIT DrawPixels = ESX_FALSE;
+		BIT InterlaceField = ESX_FALSE;
+		BIT ReverseFlag = ESX_FALSE;
+		U8 TexturePageYBase2 = 0;
+		HorizontalResolution HorizontalResolution = HorizontalResolution::H256;
+		VerticalResolution VerticalResolution = VerticalResolution::V240;
+		VideoMode VideoMode = VideoMode::PAL;
+		ColorDepth ColorDepth = ColorDepth::C15Bit;
+		BIT VerticalInterlace = ESX_FALSE;
+		BIT DisplayEnable = ESX_FALSE;
+		BIT InterruptRequest = ESX_FALSE;
+		BIT ReadyCmdWord = ESX_FALSE;
+		BIT ReadySendVRAMToCPU = ESX_FALSE;
+		BIT ReadyToReceiveDMABlock = ESX_FALSE;
+		DMADirection DMADirection = DMADirection::Off;
+		BIT DrawOddLines = ESX_FALSE;
 	};
+
+	class Timer;
+	class InterruptControl;
 
 	class GPU : public BusDevice {
 	public:
@@ -124,6 +130,8 @@ namespace esx {
 	
 		void gp0(U32 instruction);
 		void gp1(U32 instruction);
+
+		void clock();
 
 	private:
 		//Misc commands
@@ -215,6 +223,10 @@ namespace esx {
 		U16 mMemoryTransferX, mMemoryTransferY;
 		U16 mMemoryTransferCoordsX, mMemoryTransferCoordsY;
 		U16 mMemoryTransferWidth, mMemoryTransferHeight;
+
+		U64 mClocks, mCurrentScanLine;
+		SharedPtr<Timer> mTimer;
+		SharedPtr<InterruptControl> mInterruptControl;
 	};
 
 }

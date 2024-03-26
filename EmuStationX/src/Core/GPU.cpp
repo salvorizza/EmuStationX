@@ -2,6 +2,9 @@
 
 #include <stdio.h>
 
+#include "Timer.h"
+#include "InterruptControl.h"
+
 namespace esx {
 
 	GPU::GPU(const SharedPtr<IRenderer>& renderer)
@@ -222,6 +225,38 @@ namespace esx {
 			case 0x20:
 				gp1SetTextureDisableSpecial(instruction);
 				break;
+		}
+	}
+
+	void GPU::clock()
+	{
+		static const Map<HorizontalResolution, U64> PAL_DOT_CLOCKS = {
+			{HorizontalResolution::H256, 10},
+			{HorizontalResolution::H320, 8},
+			{HorizontalResolution::H368, 7},
+			{HorizontalResolution::H512, 5},
+			{HorizontalResolution::H640, 4}
+		};
+
+		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
+		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+
+		mClocks++;
+
+		if (mClocks % PAL_DOT_CLOCKS.at(mGPUStat.HorizontalResolution) == 0) {
+			mTimer->dot();
+		}
+
+		if (mClocks % PAL_CLOCKS_PER_SCANLINE == 0) {
+			mTimer->hblank();
+			mClocks = 0;
+
+			mCurrentScanLine = (mCurrentScanLine + 1) % PAL_SCANLINES_PER_FRAME;
+			if (mCurrentScanLine == 0) {
+				mTimer->vblank();
+
+				//mInterruptControl->requestInterrupt(InterruptType::VBlank, 0, 1);
+			}
 		}
 	}
 

@@ -1,5 +1,7 @@
 #include "CDROM.h"
 
+#include "InterruptControl.h"
+
 namespace esx {
 
 	CDROM::CDROM()
@@ -15,8 +17,6 @@ namespace esx {
 
 	void CDROM::store(const StringView& busName, U32 address, U8 value)
 	{
-		ESX_CORE_LOG_ERROR("CDROM - Writing to address 0x{:08X} value 0x{:02X}", address, value);
-
 		switch (address) {
 			case 0x1F801800: {
 				setIndexStatusRegister(value);
@@ -71,8 +71,6 @@ namespace esx {
 
 	void CDROM::load(const StringView& busName, U32 address, U8& output)
 	{
-		ESX_CORE_LOG_ERROR("CDROM - Reading from address 0x{:08X}", address);
-
 		switch (address) {
 			case 0x1F801800: {
 				output = getIndexStatusRegister();
@@ -111,29 +109,97 @@ namespace esx {
 
 	void CDROM::command(CommandType command)
 	{
-		ESX_CORE_LOG_ERROR("CDROM - Command {}", (U8)command);
 		switch (command) {
+			case CommandType::GetStat: {
+				ESX_CORE_LOG_ERROR("CDROM - GetStat");
+
+				mResponseSize = 0;
+				mResponseReadPointer = 0;
+				pushResponse(mStat);
+
+				mStat = (StatusFlags)(mStat & ~StatusFlagsShellOpen);
+
+				CDROM_REG3 = 0x3; //INT3
+				SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+				ic->requestInterrupt(InterruptType::CDROM, 0, 1);
+				break;
+			}
+
 			case CommandType::Test: {
 				U8 parameter = popParameter();
+				ESX_CORE_LOG_ERROR("CDROM - Test 0x{:02X}h", parameter);
 
 				switch (parameter) {
-					case 0x20: {
-						//PSX (PU-7)
-						pushResponse(0x94);
-						pushResponse(0x09);
-						pushResponse(0x19);
-						pushResponse(0xC0);
+					case 0x00: {
+						mResponseSize = 0;
+						mResponseReadPointer = 0;
+
+						pushResponse(mStat);
+
 						CDROM_REG3 = 0x3; //INT3
+						SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+						ic->requestInterrupt(InterruptType::CDROM, 0, 1);
+						break;
+					}
+
+					case 0x20: {
+						mResponseSize = 0;
+						mResponseReadPointer = 0;
+
+						pushResponse(0x98);
+						pushResponse(0x06);
+						pushResponse(0x10);
+						pushResponse(0xC3);
+
+						CDROM_REG3 = 0x3; //INT3
+						SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+						ic->requestInterrupt(InterruptType::CDROM, 0, 1);
 						break;
 					}
 				}
 
 				break;
 			}
-		}
 
-		CDROM_REG0.ParameterFifoEmpty = ESX_TRUE;
-		CDROM_REG0.ParameterFifoFull = ESX_FALSE;
+			case CommandType::GetID: {
+				ESX_CORE_LOG_ERROR("CDROM - GetID");
+
+				mResponseSize = 0;
+				mResponseReadPointer = 0;
+
+				pushResponse(mStat | StatusFlagsIdError); //Stat shell open
+				pushResponse(0xC0); //No disk + unlicensed
+				pushResponse(0x00);
+				pushResponse(0x00);
+				pushResponse('S');
+				pushResponse('C');
+				pushResponse('E');
+				pushResponse('A');
+
+				CDROM_REG3 = 0x3;
+				SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+				ic->requestInterrupt(InterruptType::CDROM, 0, 1);
+				break;
+			}
+
+			case CommandType::ReadTOC: {
+				ESX_CORE_LOG_ERROR("CDROM - ReadTOC");
+
+				mResponseSize = 0;
+				mResponseReadPointer = 0;
+
+				pushResponse(mStat);
+
+				CDROM_REG3 = 0x3; //INT3
+				SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+				ic->requestInterrupt(InterruptType::CDROM, 0, 1);
+				break;
+			}
+
+			default: {
+				ESX_CORE_LOG_ERROR("CDROM - Unsupported command");
+			}
+		}
 	}
 
 	void CDROM::setIndexStatusRegister(U8 value)
@@ -166,37 +232,53 @@ namespace esx {
 		U8 result = 0;
 
 		result |= (REG & 0x1F) << 0;
+		result |= 0xE0;
 
 		return result;
 	}
 
 	void CDROM::setInterruptFlagRegister(U8& REG, U8 value)
 	{
+		if (value & 0x40) {
+			flushParameters();
+		}
+
 		REG &= ~value;
+		REG &= 0x1F;
 	}
 
 	U8 CDROM::getInterruptFlagRegister(U8 REG)
 	{
+		REG |= 0xE0;
 		return REG;
 	}
 
 	void CDROM::pushParameter(U8 value)
 	{
-		mParameters.push(value);
+		mParameters[mParametersSize++] = value;
 		CDROM_REG0.ParameterFifoEmpty = ESX_FALSE;
-		CDROM_REG0.ParameterFifoFull = mParameters.size() == 16 ? ESX_TRUE : ESX_FALSE;
+		CDROM_REG0.ParameterFifoFull = mResponseSize == 16 ? ESX_TRUE : ESX_FALSE;
+	}
+
+	void CDROM::flushParameters()
+	{
+		mParametersSize = 0;
+		mParametersReadPointer = 0;
+		CDROM_REG0.ParameterFifoEmpty = ESX_TRUE;
+		CDROM_REG0.ParameterFifoFull = ESX_FALSE;
 	}
 
 	U8 CDROM::popParameter()
 	{
-		U8 value = mParameters.front();
-		mParameters.pop();
+		U8 value = mParameters[mParametersReadPointer++];
+		CDROM_REG0.ParameterFifoEmpty = mParametersReadPointer == mParametersSize ? ESX_TRUE : ESX_FALSE;
+		CDROM_REG0.ParameterFifoFull = ESX_FALSE;
 		return value;
 	}
 
 	void CDROM::pushResponse(U8 value)
 	{
-		mResponse.push(value);
+		mResponse[mResponseSize++] = value;
 		CDROM_REG0.ResponseFifoEmpty = ESX_FALSE;
 	}
 
@@ -204,12 +286,12 @@ namespace esx {
 	{
 		U8 value = 0;
 
-		if (!mResponse.empty()) {
-			value = mResponse.front();
-			mResponse.pop();
+		if (mResponseReadPointer < mResponseSize) {
+			value = mResponse[mResponseReadPointer];
 		}
+		mResponseReadPointer = (mResponseReadPointer + 1) % 16;
 
-		if (mResponse.empty()) {
+		if (mResponseReadPointer == mResponseSize || mResponseSize == 0) {
 			CDROM_REG0.ResponseFifoEmpty = ESX_TRUE;
 		}
 

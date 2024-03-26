@@ -10,6 +10,7 @@
 #include "Base/Base.h"
 #include "Base/Bus.h"
 
+
 namespace esx {
 
 	#define CO(x) ((x >> 25) & 0x1)
@@ -71,6 +72,24 @@ namespace esx {
 		ra
 	};
 
+	/*
+	  cop0r0-r2   - N/A
+	  cop0r3      - BPC - Breakpoint on execute (R/W)
+	  cop0r4      - N/A
+	  cop0r5      - BDA - Breakpoint on data access (R/W)
+	  cop0r6      - JUMPDEST - Randomly memorized jump address (R)
+	  cop0r7      - DCIC - Breakpoint control (R/W)
+	  cop0r8      - BadVaddr - Bad Virtual Address (R)
+	  cop0r9      - BDAM - Data Access breakpoint mask (R/W)
+	  cop0r10     - N/A
+	  cop0r11     - BPCM - Execute breakpoint mask (R/W)
+	  cop0r12     - SR - System status register (R/W)
+	  cop0r13     - CAUSE - Describes the most recently recognised exception (R)
+	  cop0r14     - EPC - Return Address from Trap (R)
+	  cop0r15     - PRID - Processor ID (R)
+	  cop0r16-r31 - Garbage
+	  cop0r32-r63 - N/A - None such (Control regs)
+	*/
 	enum class COP0Register : U8 {
 		BPC = 3, //Breakpoint on Execute Address (R/W)
 		BDA = 5, //Breakpoint on Data Access Address (R/W)
@@ -99,6 +118,8 @@ namespace esx {
 	struct Instruction;
 	class R3000;
 	typedef void(R3000::*ExecuteFunction)();
+	class GPU;
+	class Timer;
 
 	struct RegisterIndex {
 		I32 Value;
@@ -186,7 +207,7 @@ namespace esx {
 
 			if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
 
-			return mRootBus->load<T>(address & SEGS_MASKS[address >> 29]);
+			return mRootBus->load<T>(toPhysicalAddress(address));
 		}
 
 		template<typename T>
@@ -198,8 +219,15 @@ namespace esx {
 
 			if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
 
-			mRootBus->store<T>(address & SEGS_MASKS[address >> 29], value);
+			mRootBus->store<T>(toPhysicalAddress(address), value);
 		}
+
+		static U32 toPhysicalAddress(U32 address) {
+			return address & SEGS_MASKS[address >> 29];
+		}
+
+		void raiseException(ExceptionType type);
+		void acknowledge();
 
 		//Arithmetic
 		void ADD();
@@ -280,18 +308,18 @@ namespace esx {
 
 	private:
 		void addPendingLoad(RegisterIndex index, U32 value);
+		void resetPendingLoad();
 
 		void setRegister(RegisterIndex index, U32 value);
 		U32 getRegister(RegisterIndex index);
 
 		void setCP0Register(RegisterIndex index, U32 value);
 		U32 getCP0Register(RegisterIndex index);
-
-		void raiseException(ExceptionType type);
 	private:
 		SharedPtr<Bus> mRootBus;
 		Array<U32, 32> mRegisters;
-		Queue<Pair<RegisterIndex, U32>> mPendingLoads;
+		Array<U32, 32> mOutRegisters;
+		Pair<RegisterIndex, U32> mPendingLoad;
 		U32 mPC = 0;
 		U32 mNextPC = 0;
 		U32 mCurrentPC = 0;
@@ -302,6 +330,10 @@ namespace esx {
 
 		BIT mBranch = ESX_FALSE;
 		BIT mBranchSlot = ESX_FALSE;
+
+		float mGPUClock = 0;
+		SharedPtr<GPU> mGPU;
+		SharedPtr<Timer> mTimer;
 	};
 
 }

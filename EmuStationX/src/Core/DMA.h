@@ -48,8 +48,8 @@ namespace esx {
 
 		U32 BaseAddress = 0;
 
-		U16 BlockSize;
-		U16 BlockCount;
+		U16 BlockSize = 0;
+		U16 BlockCount = 0;
 	};
 
 	struct ControlRegister {

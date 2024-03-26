@@ -1,4 +1,6 @@
-#include "InterruptControl.h"	
+#include "InterruptControl.h"
+
+#include "R3000.h"
 
 namespace esx {
 
@@ -20,15 +22,12 @@ namespace esx {
 	{
 		switch (address) {
 			case I_STAT_ADDRESS: {
-				ESX_CORE_LOG_WARNING("InterruptControl - Writing to I_STAT not implemented yet");
+				setInterruptStatus(value);
 				break;
 			}
 			case I_MASK_ADDRESS: {
-				ESX_CORE_LOG_WARNING("InterruptControl - Writing to I_MASK not implemented yet");
+				setInterruptMask(value);
 				break;
-			}
-			default: {
-				ESX_CORE_LOG_WARNING("InterruptControl - Writing to address {:08x} not implemented yet", address);
 			}
 		}
 	}
@@ -39,27 +38,81 @@ namespace esx {
 
 		switch (address) {
 			case I_STAT_ADDRESS: {
-				ESX_CORE_LOG_WARNING("InterruptControl - Reading I_STAT not implemented yet");
+				output = getInterruptStatus();
 				break;
 			}
 			case I_MASK_ADDRESS: {
-				ESX_CORE_LOG_WARNING("InterruptControl - Reading I_MASK not implemented yet");
+				output = getInterruptMask();
 				break;
-			}
-			default: {
-				ESX_CORE_LOG_WARNING("InterruptControl - Reading address {:08x} not implemented yet", address);
 			}
 		}
 	}
 
 	void InterruptControl::store(const StringView& busName, U32 address, U16 value)
 	{
-		ESX_CORE_LOG_WARNING("InterruptControl - Writing to address {:08x} not implemented yet", address);
+
+		switch (address) {
+			case I_STAT_ADDRESS: {
+				setInterruptStatus(value);
+				break;
+			}
+			case I_MASK_ADDRESS: {
+				setInterruptMask(value);
+				break;
+			}
+		}
 	}
 
 	void InterruptControl::load(const StringView& busName, U32 address, U16& output)
 	{
-		ESX_CORE_LOG_WARNING("InterruptControl - Reading address {:08x} not implemented yet", address);
+
+		switch (address) {
+			case I_STAT_ADDRESS: {
+				output = getInterruptStatus();
+				break;
+			}
+			case I_MASK_ADDRESS: {
+				output = getInterruptMask();
+				break;
+			}
+		}
+	}
+
+	void InterruptControl::requestInterrupt(InterruptType type, U8 prevValue, U8 newValue)
+	{
+		if (prevValue == 0 && newValue == 1) {
+			mInterruptStatus |= (U32)type;
+			if (mInterruptStatus & mInterruptMask) {
+				SharedPtr<R3000> cpu = getBus("Root")->getDevice<R3000>("R3000");
+				cpu->raiseException(ExceptionType::Interrupt);
+			}
+		}
+	}
+
+	void InterruptControl::setInterruptMask(U32 value)
+	{
+		value &= 0x7FF;
+		mInterruptMask = value;
+	}
+
+	U32 InterruptControl::getInterruptMask()
+	{
+		return mInterruptMask;
+	}
+
+	void InterruptControl::setInterruptStatus(U32 value)
+	{
+		value &= 0x7FF;
+		mInterruptStatus &= value;
+		if ((mInterruptStatus & mInterruptMask) == 0) {
+			SharedPtr<R3000> cpu = getBus("Root")->getDevice<R3000>("R3000");
+			cpu->acknowledge();
+		}
+	}
+
+	U32 InterruptControl::getInterruptStatus()
+	{
+		return mInterruptStatus;
 	}
 
 }

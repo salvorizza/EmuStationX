@@ -26,7 +26,7 @@ namespace esx {
 	bool DisassemblerPanel::breakFunction(U32 address)
 	{
 		if (mBreakpoints.size() > 0) {
-			auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.Address == address && b.Enabled; });
+			auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return R3000::toPhysicalAddress(b.Address) == R3000::toPhysicalAddress(address) && b.Enabled; });
 			if (it != mBreakpoints.end()) {
 				//disassemble(address - 4 * disassembleRange, 4 * disassembleRange * 2);
 
@@ -165,11 +165,13 @@ namespace esx {
 				clipper.Begin(numInstructionsRAM + numInstructionsBios);
 				if (mScrollToCurrent) {
 					U32 index = 0;
+
+					mCurrent = R3000::toPhysicalAddress(mCurrent);
 					
-					if (mCurrent >= 0xBFC00000) {
-						index = numInstructionsRAM + (mCurrent - 0xBFC00000) / 4;
-					} else if (mCurrent >= 0x80000000) {
-						index = (mCurrent - 0x80000000) / 4;
+					if (mCurrent >= 0x1FC00000) {
+						index = numInstructionsRAM + (mCurrent - 0x1FC00000) / 4;
+					} else if (mCurrent >= 0x00000000) {
+						index = (mCurrent - 0x00000000) / 4;
 					} 
 					clipper.ForceDisplayRangeByIndices(index, index + 1);
 				}
@@ -179,10 +181,10 @@ namespace esx {
 						esx::Instruction cpuInstruction;
 						
 						U32 physAddress = row * 4;
-						U32 translatedAddress = 0x80000000 + physAddress;
+						U32 translatedAddress = 0x00000000 + physAddress;
 						if (row >= numInstructionsRAM) {
 							physAddress = 0x1FC00000 + (row - numInstructionsRAM) * 4;
-							translatedAddress = 0xBFC00000 + (row - numInstructionsRAM) * 4;
+							translatedAddress = 0x1FC00000 + (row - numInstructionsRAM) * 4;
 						}
 
 						U32 opcode = mInstance->getBus(ESX_TEXT("Root"))->load<U32>(physAddress);
@@ -194,7 +196,7 @@ namespace esx {
 
 						//Instruction instruction = mInstructions[row];
 
-						U32 address = instruction.Address;
+						U32 address = R3000::toPhysicalAddress(instruction.Address);
 
 						ImGui::TableNextRow();
 						if (mScrollToCurrent && address == mCurrent) {
@@ -202,7 +204,7 @@ namespace esx {
 							mScrollToCurrent = false;
 						}
 
-						if (mDebugState != DebugState::Idle && address == mInstance->mPC) {
+						if (mDebugState != DebugState::Idle && address == R3000::toPhysicalAddress(mInstance->mPC)) {
 							ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(230, 100, 120, 125));
 							ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, IM_COL32(180, 50, 70, 125));
 						}

@@ -54,6 +54,11 @@ public:
 	virtual void Log(LogType type, const StringView& message) override {
 		if ((I32)type < mLogLevel) return;
 
+		auto& items = mConsolePanel->getInternalConsole().System().Items();
+		if (items.size() > 1000) {
+			items.erase(items.begin());
+		}
+
 		if (mConsolePanel) {
 			switch (type)
 			{

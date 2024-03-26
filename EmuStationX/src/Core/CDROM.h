@@ -7,8 +7,22 @@ namespace esx {
 
 	using FIFO = Queue<U8>;
 
-	enum CommandType : U8 {
-		Test = 0x19
+	enum StatusFlags {
+		StatusFlagsPlay = 1 << 7,
+		StatusFlagsSeek = 1 << 6,
+		StatusFlagsRead = 1 << 5,
+		StatusFlagsShellOpen = 1 << 4,
+		StatusFlagsIdError = 1 << 3,
+		StatusFlagsSeekError = 1 << 2,
+		StatusFlagsRotating = 1 << 1,
+		StatusFlagsError = 1 << 0,
+	};
+
+	enum class CommandType : U8 {
+		GetStat = 0x1,
+		Test = 0x19,
+		GetID = 0x1A,
+		ReadTOC = 0x1E
 	};
 
 	struct IndexStatusRegister {
@@ -38,11 +52,11 @@ namespace esx {
 		void setInterruptEnableRegister(U8& REG, U8 value);
 		U8 getInterruptEnableRegister(U8 REG);
 
-
 		void setInterruptFlagRegister(U8& REG, U8 value);
 		U8 getInterruptFlagRegister(U8 REG);
 
 		void pushParameter(U8 value);
+		void flushParameters();
 		U8 popParameter();
 
 		void pushResponse(U8 value);
@@ -53,13 +67,17 @@ namespace esx {
 
 	private:
 		IndexStatusRegister CDROM_REG0;
-		U8 CDROM_REG1;
-		U8 CDROM_REG2;
-		U8 CDROM_REG3;
+		U8 CDROM_REG1 = 0x00;
+		U8 CDROM_REG2 = 0x00;
+		U8 CDROM_REG3 = 0x00;
 
-		FIFO mParameters;
-		FIFO mResponse;
+		Array<U8, 16> mParameters; U8 mParametersSize = 0x00, mParametersReadPointer = 0x00;
+
+		Array<U8, 16> mResponse; U8 mResponseSize = 0x00, mResponseReadPointer = 0x00;
+
 		FIFO mData;
+
+		StatusFlags mStat = StatusFlagsRotating;
 
 	};
 
