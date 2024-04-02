@@ -1,6 +1,7 @@
 #include "CDROM.h"
 
 #include "InterruptControl.h"
+#include "R3000.h"
 
 namespace esx {
 
@@ -13,6 +14,24 @@ namespace esx {
 
 	CDROM::~CDROM()
 	{
+	}
+
+	void CDROM::clock()
+	{
+		if (!mResponses.empty() && mResponses.front().TargetCycle == mCycles) {
+			auto& response = mResponses.front();
+			
+			mResponseSize = 0;
+			mResponseReadPointer = 0;
+			while (!response.Empty()) {
+				pushResponse(response.Pop());
+			}
+			CDROM_REG3 = response.Code;
+			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
+
+			mResponses.pop();
+		}
+		mCycles++;
 	}
 
 	void CDROM::store(const StringView& busName, U32 address, U8 value)
@@ -109,19 +128,21 @@ namespace esx {
 
 	void CDROM::command(CommandType command)
 	{
+		if (!mResponses.empty()) {
+			return;
+		}
+
+		Response response = {};
+		response.Push(mStat);
+		response.Code = INT3;
+		response.TargetCycle = mCycles + 800;
+
+		Response secondResponse = {};
+
 		switch (command) {
 			case CommandType::GetStat: {
 				ESX_CORE_LOG_ERROR("CDROM - GetStat");
-
-				mResponseSize = 0;
-				mResponseReadPointer = 0;
-				pushResponse(mStat);
-
 				mStat = (StatusFlags)(mStat & ~StatusFlagsShellOpen);
-
-				CDROM_REG3 = 0x3; //INT3
-				SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-				ic->requestInterrupt(InterruptType::CDROM, 0, 1);
 				break;
 			}
 
@@ -131,29 +152,23 @@ namespace esx {
 
 				switch (parameter) {
 					case 0x00: {
-						mResponseSize = 0;
-						mResponseReadPointer = 0;
-
-						pushResponse(mStat);
-
-						CDROM_REG3 = 0x3; //INT3
-						SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-						ic->requestInterrupt(InterruptType::CDROM, 0, 1);
 						break;
 					}
 
 					case 0x20: {
-						mResponseSize = 0;
-						mResponseReadPointer = 0;
+						response = {};
 
-						pushResponse(0x98);
-						pushResponse(0x06);
-						pushResponse(0x10);
-						pushResponse(0xC3);
+						response.Push(0x98);
+						response.Push(0x06);
+						response.Push(0x10);
+						response.Push(0xC3);
+						response.Code = INT3;
+						response.TargetCycle = mCycles + 800;
+						break;
+					}
 
-						CDROM_REG3 = 0x3; //INT3
-						SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-						ic->requestInterrupt(InterruptType::CDROM, 0, 1);
+					default: {
+						ESX_CORE_LOG_ERROR("CDROM - Test 0x{:02X}h not handled yet", parameter);
 						break;
 					}
 				}
@@ -164,41 +179,36 @@ namespace esx {
 			case CommandType::GetID: {
 				ESX_CORE_LOG_ERROR("CDROM - GetID");
 
-				mResponseSize = 0;
-				mResponseReadPointer = 0;
-
-				pushResponse(mStat | StatusFlagsIdError); //Stat shell open
-				pushResponse(0xC0); //No disk + unlicensed
-				pushResponse(0x00);
-				pushResponse(0x00);
-				pushResponse('S');
-				pushResponse('C');
-				pushResponse('E');
-				pushResponse('A');
-
-				CDROM_REG3 = 0x3;
-				SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-				ic->requestInterrupt(InterruptType::CDROM, 0, 1);
+				secondResponse.Push(mStat | StatusFlagsIdError); //Stat shell open
+				secondResponse.Push(0xC0); //No disk + unlicensed
+				secondResponse.Push(0x00);
+				secondResponse.Push(0x00);
+				secondResponse.Push('S');
+				secondResponse.Push('C');
+				secondResponse.Push('E');
+				secondResponse.Push('A');
+				secondResponse.Code = INT2;
+				secondResponse.TargetCycle = mCycles + 20480;
 				break;
 			}
 
 			case CommandType::ReadTOC: {
 				ESX_CORE_LOG_ERROR("CDROM - ReadTOC");
 
-				mResponseSize = 0;
-				mResponseReadPointer = 0;
-
-				pushResponse(mStat);
-
-				CDROM_REG3 = 0x3; //INT3
-				SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-				ic->requestInterrupt(InterruptType::CDROM, 0, 1);
+				secondResponse.Push(mStat);
+				secondResponse.Code = INT2;
+				secondResponse.TargetCycle = mCycles + 4;
 				break;
 			}
 
 			default: {
 				ESX_CORE_LOG_ERROR("CDROM - Unsupported command");
 			}
+		}
+
+		mResponses.push(response);
+		if (secondResponse.Code != INT0) {
+			mResponses.push(secondResponse);
 		}
 	}
 

@@ -13,7 +13,7 @@ namespace esx {
 		MemoryEditorPanel();
 		~MemoryEditorPanel();
 
-		void setInstance(SharedPtr<Bus> pInstance) { mInstance = pInstance; }
+		void setInstance(const SharedPtr<Bus>& pInstance) { mInstance = pInstance; }
 
 	protected:
 		virtual void onImGuiRender() override;

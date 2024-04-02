@@ -5,6 +5,7 @@
 #include "UI/Panels/MemoryEditorPanel.h"
 #include "UI/Panels/DisassemblerPanel.h"
 #include "UI/Panels/ConsolePanel.h"
+#include "UI/Panels/KernelTables.h"
 
 #include "UI/Graphics/BatchRenderer.h"
 #include "UI/Window/FontAwesome5.h"
@@ -25,6 +26,7 @@
 #include "Core/DMA.h"
 #include "Core/GPU.h"
 #include "Core/CDROM.h"
+#include "Core/SIO.h"
 
 
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -113,6 +115,7 @@ public:
 		mMemoryEditorPanel = MakeShared<MemoryEditorPanel>();
 		mBatchRenderer = MakeShared<BatchRenderer>();
 		mViewportPanel = MakeShared<ViewportPanel>();
+		mKernelTablesPanel = MakeShared<KernelTables>();
 
 		root = MakeShared<Bus>(ESX_TEXT("Root"));
 		cpu = MakeShared<R3000>();
@@ -126,6 +129,8 @@ public:
 		dma = MakeShared<DMA>();
 		gpu = MakeShared<GPU>(mBatchRenderer);
 		cdrom = MakeShared<CDROM>();
+		sio0 = MakeShared<SIO>(0);
+		sio1 = MakeShared<SIO>(1);
 
 
 		root->connectDevice(cpu);
@@ -161,11 +166,18 @@ public:
 		root->connectDevice(cdrom);
 		cdrom->connectToBus(root);
 
+		root->connectDevice(sio0);
+		sio0->connectToBus(root);
+
+		root->connectDevice(sio1);
+		sio1->connectToBus(root);
+
 		root->sortRanges();
 
 		mCPUStatusPanel->setInstance(cpu);
 		mDisassemblerPanel->setInstance(cpu);
 		mMemoryEditorPanel->setInstance(root);
+		mKernelTablesPanel->setInstance(root);
 
 		mBatchRenderer->Begin();
 	}
@@ -236,6 +248,7 @@ public:
 		mDisassemblerPanel->render(pManager);
 		mConsolePanel->render(pManager);
 		mViewportPanel->render(pManager);
+		mKernelTablesPanel->render(pManager);
 	}
 
 private:
@@ -251,6 +264,9 @@ private:
 	SharedPtr<DMA> dma;
 	SharedPtr<GPU> gpu;
 	SharedPtr<CDROM> cdrom;
+	SharedPtr<SIO> sio0;
+	SharedPtr<SIO> sio1;
+
 
 	SharedPtr<CPUStatusPanel> mCPUStatusPanel;
 	SharedPtr<DisassemblerPanel> mDisassemblerPanel;
@@ -259,6 +275,7 @@ private:
 	SharedPtr<EmuStationXLogger> mLogger;
 	SharedPtr<BatchRenderer> mBatchRenderer;
 	SharedPtr<ViewportPanel> mViewportPanel;
+	SharedPtr<KernelTables> mKernelTablesPanel;
 	glm::mat4 mProjectionMatrix;
 
 };

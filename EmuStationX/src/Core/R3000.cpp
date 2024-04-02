@@ -6,6 +6,7 @@
 
 #include "Core/GPU.h"
 #include "Core/Timer.h"
+#include "Core/CDROM.h"
 
 namespace esx {
 
@@ -28,6 +29,8 @@ namespace esx {
 	void R3000::clock()
 	{
 		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
+		if (!mCDROM) mCDROM = getBus("Root")->getDevice<CDROM>("CDROM");
+		if (!mGPU) mGPU = getBus("Root")->getDevice<GPU>("GPU");
 
 		U32 opcode = fetch(mPC);
 
@@ -51,14 +54,12 @@ namespace esx {
 
 		mGPUClock += 11.0f / 7.0f;
 		while (mGPUClock > 1) {
-			if (!mGPU) mGPU = getBus("Root")->getDevice<GPU>("GPU");
-
 			mGPU->clock();
-
 			mGPUClock -= 1;
 		}
 
 		mTimer->systemClock();
+		mCDROM->clock();
 	}
 
 
@@ -306,6 +307,17 @@ namespace esx {
 									}
 									break;
 								}
+								case 0x02: {
+									switch (cpn) {
+										case 0x2:
+											result.Execute = &R3000::CFC2;
+											break;
+										default:
+											if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
+											break;
+									}
+									break;
+								}
 								case 0x04: {
 									switch (cpn) {
 										case 0x0:
@@ -317,6 +329,56 @@ namespace esx {
 										default:
 											if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
 											break;
+									}
+									break;
+								}
+								case 0x06: {
+									switch (cpn) {
+										case 0x2:
+											result.Execute = &R3000::CTC2;
+											break;
+										default:
+											if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
+											break;
+									}
+									break;
+								}
+								case 0x08: {
+									switch (result.RegisterTarget()) {
+										case 0x00: {
+											switch (cpn) {
+												case 0x0:
+													result.Execute = &R3000::BC0F;
+													break;
+												case 0x2:
+													result.Execute = &R3000::BC2F;
+													break;
+												default:
+													if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
+													break;
+											}
+											break;
+										}
+
+										case 0x01: {
+											switch (cpn) {
+												case 0x0:
+													result.Execute = &R3000::BC0T;
+													break;
+												case 0x2:
+													result.Execute = &R3000::BC2T;
+													break;
+												default:
+													if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
+													break;
+											}
+											break;
+										}
+
+										default: {
+											if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
+											break;
+										}
 									}
 									break;
 								}
@@ -337,6 +399,7 @@ namespace esx {
 									if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
 									break;
 								}
+
 							}
 						}
 						
@@ -1124,6 +1187,7 @@ namespace esx {
 
 	void R3000::BREAK()
 	{
+		ESX_CORE_LOG_ERROR("0x{:08X} Break", mCurrentInstruction.Address);
 		raiseException(ExceptionType::Breakpoint);
 	}
 
@@ -1185,12 +1249,40 @@ namespace esx {
 		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
 	}
 
+	void R3000::CFC2()
+	{
+		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+	}
+
 	void R3000::MTC2()
 	{
 		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
 	}
 
 	void R3000::MFC2()
+	{
+		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+	}
+
+	void R3000::CTC2()
+	{
+		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+	}
+
+	void R3000::BC0F()
+	{
+	}
+
+	void R3000::BC2F()
+	{
+		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+	}
+
+	void R3000::BC0T()
+	{
+	}
+
+	void R3000::BC2T()
 	{
 		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
 	}
@@ -1256,8 +1348,6 @@ namespace esx {
 
 	void R3000::raiseException(ExceptionType type)
 	{
-		ESX_CORE_LOG_ERROR("Exception - {}", (U32)type);
-
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 epc = getCP0Register(COP0Register::EPC);
 		U32 cause = getCP0Register(COP0Register::Cause);
@@ -1273,12 +1363,14 @@ namespace esx {
 		sr &= ~0x3F;
 		sr |= (mode << 2) & 0x3F;
 
+	
 		cause = ((U32)type) << 2;
+		epc = mCurrentPC;
+
 		if (type == ExceptionType::Interrupt) {
 			cause |= (1 << 10);
+			epc += 4;
 		}
-
-		epc = mCurrentPC;
 
 		if (mBranchSlot) {
 			cause |= 1 << 31;
@@ -1493,12 +1585,24 @@ namespace esx {
 						U8 cpn = CO_N(binaryInstruction);
 						if (CO(binaryInstruction) == 0) {
 							switch (RegisterSource().Value) {
-							case 0x00: {
-								return FormatString(ESX_TEXT("mfc{} {},${}"), cpn, registersMnemonics[(U8)RegisterTarget()], (U8)RegisterDestination());
-							}
-							case 0x04: {
-								return FormatString(ESX_TEXT("mtc{} {},${}"), cpn, registersMnemonics[(U8)RegisterTarget()], (U8)RegisterDestination());
-							}
+								case 0x00: {
+									return FormatString(ESX_TEXT("mfc{} {},${}"), cpn, registersMnemonics[(U8)RegisterTarget()], (U8)RegisterDestination());
+								}
+								case 0x02: {
+									return FormatString(ESX_TEXT("cfc{} {},${}"), cpn, registersMnemonics[(U8)RegisterTarget()], (U8)RegisterDestination());
+								}
+								case 0x04: {
+									return FormatString(ESX_TEXT("mtc{} {},${}"), cpn, registersMnemonics[(U8)RegisterTarget()], (U8)RegisterDestination());
+								}
+								case 0x06: {
+									return FormatString(ESX_TEXT("ctc{} {},${}"), cpn, registersMnemonics[(U8)RegisterTarget()], (U8)RegisterDestination());
+								}
+								case 0x08: {
+									switch (RegisterTarget()) {
+										case 0: return FormatString(ESX_TEXT("bc{}f 0x{:04x}"), cpn, Immediate());
+										case 1: return FormatString(ESX_TEXT("bc{}t 0x{:04x}"), cpn, Immediate());
+									}
+								}
 							}
 						}
 						else {

@@ -120,6 +120,7 @@ namespace esx {
 	typedef void(R3000::*ExecuteFunction)();
 	class GPU;
 	class Timer;
+	class CDROM;
 
 	struct RegisterIndex {
 		I32 Value;
@@ -300,11 +301,19 @@ namespace esx {
 		//COPx
 		void MTC0();
 		void MFC0();
+		void CFC2();
 		void MTC2();
 		void MFC2();
+		void CTC2();
+		void BC0F();
+		void BC2F();
+		void BC0T();
+		void BC2T();
 		void RFE();
 		void LWC2();
 		void SWC2();
+
+		Instruction mCurrentInstruction;
 
 	private:
 		void addPendingLoad(RegisterIndex index, U32 value);
@@ -326,7 +335,6 @@ namespace esx {
 		U32 mHI = 0;
 		U32 mLO = 0;
 		Array<U32, 64> mCP0Registers;
-		Instruction mCurrentInstruction;
 
 		BIT mBranch = ESX_FALSE;
 		BIT mBranchSlot = ESX_FALSE;
@@ -334,6 +342,7 @@ namespace esx {
 		float mGPUClock = 0;
 		SharedPtr<GPU> mGPU;
 		SharedPtr<Timer> mTimer;
+		SharedPtr<CDROM> mCDROM;
 	};
 
 }

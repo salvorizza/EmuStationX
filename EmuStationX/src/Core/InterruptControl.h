@@ -45,7 +45,6 @@ namespace esx {
 	private:
 		U16 mInterruptMask = 0;
 		U16 mInterruptStatus = 0;
-
 	};
 
 }

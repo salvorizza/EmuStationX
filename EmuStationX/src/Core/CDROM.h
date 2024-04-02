@@ -35,10 +35,36 @@ namespace esx {
 		BIT CommandTransmissionBusy = ESX_FALSE;
 	};
 
+	enum ResponseCode : U8 {
+		INT0  = 0b00000,
+		INT1  = 0b00001,
+		INT2  = 0b00010,
+		INT3  = 0b00011,
+		INT4  = 0b00100,
+		INT5  = 0b00101,
+		INT6  = 0b00110,
+		INT7  = 0b00111,
+		INT8  = 0b01000,
+		INT10 = 0b10000
+	};
+
+	struct Response {
+		Array<U8, 16> Data; 
+		U8 Size = 0x00, ReadPointer = 0x00;
+		ResponseCode Code = ResponseCode::INT0;
+		U64 TargetCycle = 0;
+
+		void Push(U8 value) { Data[Size++] = value; }
+		U8 Pop() { return Data[ReadPointer++]; }
+		BIT Empty() { return Size == ReadPointer; }
+	};
+
 	class CDROM : public BusDevice {
 	public:
 		CDROM();
 		~CDROM();
+
+		void clock();
 
 		virtual void store(const StringView& busName, U32 address, U8 value) override;
 		virtual void load(const StringView& busName, U32 address, U8& output) override;
@@ -79,6 +105,8 @@ namespace esx {
 
 		StatusFlags mStat = StatusFlagsRotating;
 
+		Queue<Response> mResponses;
+		U64 mCycles = 0;
 	};
 
 }

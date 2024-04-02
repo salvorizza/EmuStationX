@@ -319,6 +319,8 @@ namespace esx {
 				setDebugState(DebugState::Start);
 				break;
 
+			case DebugState::Breakpoint:
+				mInstance->clock();
 			default:
 				setDebugState(DebugState::Running);
 				break;

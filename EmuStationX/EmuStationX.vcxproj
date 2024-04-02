@@ -167,6 +167,7 @@
     <ClInclude Include="src\Core\PIO.h" />
     <ClInclude Include="src\Core\R3000.h" />
     <ClInclude Include="src\Core\RAM.h" />
+    <ClInclude Include="src\Core\SIO.h" />
     <ClInclude Include="src\Core\SPU.h" />
     <ClInclude Include="src\Core\Timer.h" />
     <ClInclude Include="src\UI\Application\Application.h" />
@@ -183,6 +184,7 @@
     <ClInclude Include="src\UI\Panels\CPUStatusPanel.h" />
     <ClInclude Include="src\UI\Panels\ConsolePanel.h" />
     <ClInclude Include="src\UI\Panels\DisassemblerPanel.h" />
+    <ClInclude Include="src\UI\Panels\KernelTables.h" />
     <ClInclude Include="src\UI\Panels\MemoryEditor.h" />
     <ClInclude Include="src\UI\Panels\MemoryEditorPanel.h" />
     <ClInclude Include="src\UI\Panels\Panel.h" />
@@ -205,6 +207,7 @@
     <ClCompile Include="src\Core\PIO.cpp" />
     <ClCompile Include="src\Core\R3000.cpp" />
     <ClCompile Include="src\Core\RAM.cpp" />
+    <ClCompile Include="src\Core\SIO.cpp" />
     <ClCompile Include="src\Core\SPU.cpp" />
     <ClCompile Include="src\Core\Timer.cpp" />
     <ClCompile Include="src\UI\Application\ApplicationManager.cpp" />
@@ -219,6 +222,7 @@
     <ClCompile Include="src\UI\Panels\CPUStatusPanel.cpp" />
     <ClCompile Include="src\UI\Panels\ConsolePanel.cpp" />
     <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp" />
+    <ClCompile Include="src\UI\Panels\KernelTables.cpp" />
     <ClCompile Include="src\UI\Panels\MemoryEditorPanel.cpp" />
     <ClCompile Include="src\UI\Panels\Panel.cpp" />
     <ClCompile Include="src\UI\Panels\ViewportPanel.cpp" />
