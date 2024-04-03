@@ -47,6 +47,59 @@ namespace esx {
 		}
 	}
 
+	void SIO::load(const StringView& busName, U32 address, U16& output)
+	{
+		if (mID == 1) {
+			address -= 0x10;
+		}
+
+		switch (address) {
+			case 0x1F801040:
+			case 0x1F801042: {
+				output = getDataRegister(16);
+				break;
+			}
+
+			case 0x1F801048: {
+				output = getModeRegister();
+				break;
+			}
+
+			case 0x1F80104A: {
+				output = getControlRegister();
+				break;
+			}
+
+			case 0x1F80104C: {
+				if (mID == 1) {
+					output = getMiscRegister();
+				} else {
+					output = 0;
+				}
+				break;
+			}
+
+			case 0x1F80104E: {
+				output = getBaudRegister();
+				break;
+			}
+		}
+	}
+
+	void SIO::load(const StringView& busName, U32 address, U8& output)
+	{
+		if (mID == 1) {
+			address -= 0x10;
+		}
+
+		switch (address) {
+			case 0x1F801040: {
+				output = getDataRegister(8);
+				break;
+			}
+		}
+	}
+
 	void SIO::setDataRegister(U32 value)
 	{
 		mTX.Push(value & 0xFF);

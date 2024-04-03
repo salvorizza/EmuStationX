@@ -9,7 +9,7 @@ namespace esx {
 				break;
 			}
 			default: {
-				ESX_CORE_LOG_INFO("{}​", message​);
+				//ESX_CORE_LOG_INFO("{}​", message​);
 				break;
 			}
 		}

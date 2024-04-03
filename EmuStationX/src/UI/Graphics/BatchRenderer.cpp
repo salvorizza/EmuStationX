@@ -126,7 +126,6 @@ namespace esx {
 	{
 		mDrawOffset.x = offsetX;
 		mDrawOffset.y = offsetY;
-		ESX_CORE_LOG_TRACE("Draw Offset: {},{}", mDrawOffset.x, mDrawOffset.y);
 	}
 
 	void BatchRenderer::SetDrawTopLeft(U16 x, U16 y)
@@ -148,8 +147,6 @@ namespace esx {
 		for (U64 i = 0; i < 3; i++) {
 			const PolygonVertex& vertex = vertices[i];
 
-			ESX_CORE_LOG_TRACE("[{},{}],[{},{},{}],[{},{}],[{},{}]", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v, vertex.clutUV.u, vertex.clutUV.v);
-
 			*mTriCurrentVertex = vertex;
 			mTriCurrentVertex++;
 		}
@@ -158,7 +155,6 @@ namespace esx {
 			for (U64 i = 1; i < 4; i++) {
 				const PolygonVertex& vertex = vertices[i];
 
-				ESX_CORE_LOG_TRACE("[{},{}],[{},{},{}],[{},{}],[{},{}]", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v, vertex.clutUV.u, vertex.clutUV.v);
 				*mTriCurrentVertex = vertex;
 				mTriCurrentVertex++;
 			}

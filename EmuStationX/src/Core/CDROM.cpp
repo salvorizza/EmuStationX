@@ -197,7 +197,7 @@ namespace esx {
 
 				secondResponse.Push(mStat);
 				secondResponse.Code = INT2;
-				secondResponse.TargetCycle = mCycles + 4;
+				secondResponse.TargetCycle = mCycles + 1600;
 				break;
 			}
 

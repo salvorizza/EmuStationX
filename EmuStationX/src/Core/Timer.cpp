@@ -1,6 +1,7 @@
 #include "Timer.h"
 
 #include "InterruptControl.h"
+#include "R3000.h"
 
 namespace esx {
 
@@ -191,7 +192,7 @@ namespace esx {
 			BIT newInterruptRequest = !mCounterModes[counter].InterruptRequest;
 
 			SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-			ic->requestInterrupt((InterruptType)((U8)InterruptType::Timer0 << counter), mCounterModes[counter].InterruptRequest, newInterruptRequest);
+			ic->requestInterrupt((InterruptType)((U8)InterruptType::Timer0 << counter), !mCounterModes[counter].InterruptRequest, !newInterruptRequest);
 
 			mCounterModes[counter].InterruptRequest = newInterruptRequest;
 		}

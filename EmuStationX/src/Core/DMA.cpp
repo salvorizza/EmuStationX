@@ -265,6 +265,12 @@ namespace esx {
 		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
 
 		ESX_CORE_LOG_TRACE("\nStarting Block DMA:\n\tPort: {}\n\tBase Address: {:08x}\n\tSize: {}\n\tIncrement: {}\n\tDirection: {}", (U8)port, address, transferSize, increment, (U8)channel.Direction);
+		if (channel.Direction == Direction::ToMainRAM) {
+			ESX_CORE_ASSERT(port == Port::OTC, "Port ToMainRAM {} not supported yet", (U8)port);
+		}
+		if (channel.Direction == Direction::FromMainRAM) {
+			ESX_CORE_ASSERT(port == Port::GPU, "Port FromMainRAM {} not supported yet", (U8)port);
+		}
 		for (I32 remainingSize = transferSize; remainingSize > 0; remainingSize--) {
 			U32 currentAddress = address & 0x1FFFFC;
 
@@ -283,7 +289,7 @@ namespace esx {
 							break;
 						}
 						default: {
-							ESX_CORE_ASSERT(ESX_FALSE, "Port {} not supported yet", (U8)port);
+							valueToWrite = 0xFFFFFF;
 							break;
 						}
 					}
@@ -302,7 +308,6 @@ namespace esx {
 							break;
 						}
 						default: {
-							ESX_CORE_ASSERT(ESX_FALSE, "Port {} not supported yet", (U8)port);
 							break;
 						}
 					}
