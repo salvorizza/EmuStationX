@@ -176,14 +176,25 @@ namespace esx {
 	void Timer::incrementCounter(U8 counter)
 	{
 		mCurrentValues[counter]++;
-		if ((mCounterModes[counter].IRQCounterEqualTargetEnable && mCurrentValues[counter] == mTargetValues[counter]) || 
-			(mCounterModes[counter].IRQCounterEqualMaxEnable && mCurrentValues[counter] == 0xFFFF)) {
-			SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-			ic->requestInterrupt((InterruptType)((U8)InterruptType::Timer0 << counter), mCounterModes[counter].InterruptRequest, ESX_TRUE);
-			mCounterModes[counter].InterruptRequest = ESX_TRUE;
+		BIT reachedTargetValue = mCurrentValues[counter] == mTargetValues[counter];
+		BIT reachedMaxValue = mCurrentValues[counter] == 0xFFFF;
+
+		mCounterModes[counter].ReachedTargetValue = reachedTargetValue;
+		mCounterModes[counter].ReachedMax = reachedMaxValue;
+
+		if ((mCounterModes[counter].ResetCounter == 1 && reachedTargetValue) || (mCounterModes[counter].ResetCounter == 0 && reachedMaxValue)) {
+			mCurrentValues[counter] = 0x0000;
 		}
 
+		if ((mCounterModes[counter].IRQCounterEqualTargetEnable && reachedTargetValue) || (mCounterModes[counter].IRQCounterEqualMaxEnable && reachedMaxValue)) {
+			//TODO: this is Repeat mode do pulse and toggle
+			BIT newInterruptRequest = !mCounterModes[counter].InterruptRequest;
 
+			SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+			ic->requestInterrupt((InterruptType)((U8)InterruptType::Timer0 << counter), mCounterModes[counter].InterruptRequest, newInterruptRequest);
+
+			mCounterModes[counter].InterruptRequest = newInterruptRequest;
+		}
 	}
 
 }
