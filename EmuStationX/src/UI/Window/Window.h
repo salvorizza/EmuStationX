@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <string>
 
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "InputManager.h"
 
@@ -39,9 +38,9 @@ namespace esx {
 
 		GLFWwindow* getHandle() { return mWindowHandle; }
 	private:
-		GLFWwindow* mWindowHandle;
-		bool mMaximized;
-		bool mClosed;
+		GLFWwindow* mWindowHandle = nullptr;
+		bool mMaximized = false;
+		bool mClosed = false;
 	};
 
 }

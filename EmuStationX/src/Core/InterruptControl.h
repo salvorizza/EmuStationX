@@ -33,7 +33,9 @@ namespace esx {
 		virtual void store(const StringView& busName, U32 address, U16 value) override;
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
 
-		void requestInterrupt(InterruptType type, U8 prevValue, U8 newValue);
+		void requestInterrupt(InterruptType type, BIT prevValue, BIT newValue);
+
+		BIT interruptPending();
 
 	private:
 		void setInterruptMask(U32 value);

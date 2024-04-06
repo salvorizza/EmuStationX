@@ -73,7 +73,7 @@ namespace esx {
 	};
 
 	struct Command {
-		CommandFunction Function;
+		CommandFunction Function = nullptr;
 		BaseCase BaseCase = BaseCase::RemainingParameters;
 		U64 RemainingParameters;
 		BIT Complete = ESX_FALSE;
@@ -203,30 +203,47 @@ namespace esx {
 		static void transformUV(UV& uv, U16 tx, U16 ty, U8 bpp);
 
 	private:
-		GPUStat	mGPUStat;
-		BIT mTexturedRectangleXFlip, mTexturedRectangleYFlip;
-		U8 mTextureWindowMaskX, mTextureWindowMaskY, mTextureWindowOffsetX, mTextureWindowOffsetY;
-		U16 mDrawAreaTopLeftX, mDrawAreaTopLeftY;
-		U16 mDrawAreaBottomRightX, mDrawAreaBottomRightY;
-		I16 mDrawOffsetX, mDrawOffsetY;
-		U16 mVRAMStartX, mVRAMStartY;
-		U16 mHorizontalRangeStart, mHorizontalRangeEnd;
-		U16 mVerticalRangeStart, mVerticalRangeEnd;
+		GPUStat	mGPUStat = {};
+		BIT mTexturedRectangleXFlip = ESX_FALSE;
+		BIT mTexturedRectangleYFlip = ESX_FALSE;
+		U8 mTextureWindowMaskX = 0x00;
+		U8 mTextureWindowMaskY = 0x00;
+		U8 mTextureWindowOffsetX = 0x00;
+		U8 mTextureWindowOffsetY = 0x00;
+		U16 mDrawAreaTopLeftX = 0x0000;
+		U16 mDrawAreaTopLeftY = 0x0000;
+		U16 mDrawAreaBottomRightX = 0x0000;
+		U16 mDrawAreaBottomRightY = 0x0000;
+		I16 mDrawOffsetX = 0x0000;
+		I16 mDrawOffsetY = 0x0000;
+		U16 mVRAMStartX = 0x0000;
+		U16 mVRAMStartY = 0x0000;
+		U16 mHorizontalRangeStart = 0x0000;
+		U16 mHorizontalRangeEnd = 0x0000;
+		U16 mVerticalRangeStart = 0x0000;
+		U16 mVerticalRangeEnd = 0x0000;
 
-		CommandBuffer mCommandBuffer;
-		Command mCurrentCommand;
+		CommandBuffer mCommandBuffer = {};
+		Command mCurrentCommand = {};
 
 		GP0Mode mMode = GP0Mode::Command;
 
-		SharedPtr<IRenderer> mRenderer;
+		U16 mMemoryTransferX = 0x0000;
+		U16 mMemoryTransferY = 0x0000;
+		U16 mMemoryTransferCoordsX = 0x0000;
+		U16 mMemoryTransferCoordsY = 0x0000;
+		U16 mMemoryTransferWidth = 0x0000;
+		U16 mMemoryTransferHeight = 0x0000;
 
-		U16 mMemoryTransferX, mMemoryTransferY;
-		U16 mMemoryTransferCoordsX, mMemoryTransferCoordsY;
-		U16 mMemoryTransferWidth, mMemoryTransferHeight;
+		float mClocks = 0;
+		float mDotClocks = 0;
+		U64 mCurrentScanLine = 0;
+		BIT mVBlank = ESX_FALSE;
 
-		U64 mClocks, mCurrentScanLine;
-		SharedPtr<Timer> mTimer;
-		SharedPtr<InterruptControl> mInterruptControl;
+		SharedPtr<IRenderer> mRenderer = {};
+		SharedPtr<Timer> mTimer = {};
+		SharedPtr<InterruptControl> mInterruptControl = {};
+
 	};
 
 }

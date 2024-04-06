@@ -50,7 +50,7 @@ namespace esx {
 		for (BufferElement& bufferElement : mBufferElements) {
 			bufferElement.Offset = currentStride;
 			size_t typeSize = getShaderDataTypeSize(bufferElement.Type);
-			currentStride += typeSize;
+			currentStride += (uint32_t)typeSize;
 		}
 		mStride = currentStride;
 	}

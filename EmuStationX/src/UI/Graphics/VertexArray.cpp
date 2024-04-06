@@ -57,7 +57,7 @@ namespace esx {
 	{
 		vbo->bind();
 		const BufferLayout& layout = vbo->getLayout();
-		GLuint attribIndex = mVertexBuffers.size();
+		GLuint attribIndex = (GLuint)mVertexBuffers.size();
 
 		for (const BufferElement& bufferElement : layout) {
 			glEnableVertexAttribArray(attribIndex);

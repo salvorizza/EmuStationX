@@ -25,7 +25,7 @@ namespace esx {
 		{}
 	};
 
-	typedef class Bus;
+	class Bus;
 
 	class BusDevice {
 	public:
@@ -73,7 +73,7 @@ namespace esx {
 
 	struct IntervalTreeNode {
 		Interval interval;
-		uint32_t maxEnd; // Massimo valore di fine tra l'intervallo e i suoi sotto-alberi
+		U64 maxEnd;
 		IntervalTreeNode* left;
 		IntervalTreeNode* right;
 
@@ -127,13 +127,13 @@ namespace esx {
 
 
 		IntervalTreeNode* buildIntervalTree(const Vector<Interval>& intervals);
-		const Interval& findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address);
+		const Interval findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address);
 
 	private:
 		StringView mName;
 		UnorderedMap<StringView, SharedPtr<BusDevice>> mDevices;
 		Vector<Interval> mRanges;
-		IntervalTreeNode* mIntervalTree;
+		IntervalTreeNode* mIntervalTree = nullptr;
 	};
 
 

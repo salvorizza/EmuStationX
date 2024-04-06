@@ -29,16 +29,17 @@
 #include "Core/SIO.h"
 
 
+#ifdef ESX_PLATFORM_WINDOWS
+	#include <Windows.h>
+	#undef ERROR
+#endif // ESX_PLATFORM_WINDOWS
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <imgui_internal.h>
 
 #include <iostream>
 
-#ifdef ESX_PLATFORM_WINDOWS
-	#include <Windows.h>
-	#undef ERROR
-#endif // ESX_PLATFORM_WINDOWS
 
 
 using namespace esx;

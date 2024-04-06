@@ -11,8 +11,8 @@
 namespace esx {
 
 	struct IconData {
-		GLuint textureID;
-		int32_t Width, Height;
+		U32 textureID;
+		I32 Width, Height;
 
 		IconData()
 			:	textureID(0),Width(0),Height(0)

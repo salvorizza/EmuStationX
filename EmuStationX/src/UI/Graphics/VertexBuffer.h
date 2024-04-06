@@ -21,7 +21,7 @@ namespace esx {
 	struct BufferElement {
 		std::string Name;
 		ShaderType Type;
-		uint32_t Offset;
+		uint64_t Offset;
 		bool Normalized;
 
 		BufferElement(const std::string& name, ShaderType type, bool normalized = false);

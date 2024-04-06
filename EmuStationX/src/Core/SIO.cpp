@@ -13,6 +13,17 @@ namespace esx {
 	{
 	}
 
+	void SIO::clock()
+	{
+		if (mStatRegister.BaudrateTimer >= 0) {
+			
+			mStatRegister.BaudrateTimer--;
+			if (mStatRegister.BaudrateTimer == 0) {
+				reloadBaudTimer();
+			}
+		}
+	}
+
 	void SIO::store(const StringView& busName, U32 address, U16 value)
 	{
 		if (mID == 1) {
@@ -60,6 +71,11 @@ namespace esx {
 				break;
 			}
 
+			case 0x1F801044: {
+				output = getStatRegister();
+				break;
+			}
+
 			case 0x1F801048: {
 				output = getModeRegister();
 				break;
@@ -86,6 +102,20 @@ namespace esx {
 		}
 	}
 
+	void SIO::store(const StringView& busName, U32 address, U8 value)
+	{
+		if (mID == 1) {
+			address -= 0x10;
+		}
+
+		switch (address) {
+			case 0x1F801040: {
+				setDataRegister(value);
+				break;
+			}
+		}
+	}
+
 	void SIO::load(const StringView& busName, U32 address, U8& output)
 	{
 		if (mID == 1) {
@@ -104,9 +134,11 @@ namespace esx {
 	{
 		mTX.Push(value & 0xFF);
 
-		mStatRegister.TXFifoNotFull = ESX_FALSE;
-		mStatRegister.TXIdle = ESX_FALSE;
+		//mStatRegister.TXFifoNotFull = ESX_FALSE;
+		//mStatRegister.TXIdle = ESX_FALSE;
 		//Start transfer
+
+		mStatRegister.RXFifoNotEmpty = ESX_TRUE;
 	}
 
 	U32 SIO::getDataRegister(U8 dataAccess)

@@ -19,6 +19,7 @@ namespace esx {
 	};
 
 	enum class CommandType : U8 {
+		None = 0x0,
 		GetStat = 0x1,
 		Test = 0x19,
 		GetID = 0x1A,
@@ -53,9 +54,13 @@ namespace esx {
 		U8 Size = 0x00, ReadPointer = 0x00;
 		ResponseCode Code = ResponseCode::INT0;
 		U64 TargetCycle = 0;
+		U32 Number = 0;
+		U32 NumberOfResponses = 0;
+		CommandType CommandType = CommandType::None;
 
 		void Push(U8 value) { Data[Size++] = value; }
 		U8 Pop() { return Data[ReadPointer++]; }
+		void Clear() { ReadPointer = 0; Size = 0; }
 		BIT Empty() { return Size == ReadPointer; }
 	};
 
@@ -70,7 +75,7 @@ namespace esx {
 		virtual void load(const StringView& busName, U32 address, U8& output) override;
 
 	private:
-		void command(CommandType command);
+		void command(CommandType command, U32 responseNumber = 1);
 
 		void setIndexStatusRegister(U8 value);
 		U8 getIndexStatusRegister();

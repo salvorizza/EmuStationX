@@ -7,6 +7,8 @@
 #include "Core/GPU.h"
 #include "Core/Timer.h"
 #include "Core/CDROM.h"
+#include "Core/SIO.h"
+#include "Core/InterruptControl.h"
 
 namespace esx {
 
@@ -31,6 +33,9 @@ namespace esx {
 		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
 		if (!mCDROM) mCDROM = getBus("Root")->getDevice<CDROM>("CDROM");
 		if (!mGPU) mGPU = getBus("Root")->getDevice<GPU>("GPU");
+		if (!mSIO0) mSIO0 = getBus("Root")->getDevice<SIO>("SIO0");
+		if (!mSIO1) mSIO1 = getBus("Root")->getDevice<SIO>("SIO1");
+		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 
 		U32 opcode = fetch(mPC);
 
@@ -43,7 +48,9 @@ namespace esx {
 		mNextPC += 4;
 
 		mBranchSlot = mBranch;
+		mTookBranchSlot = mTookBranch;
 		mBranch = ESX_FALSE;
+		mTookBranchSlot = ESX_FALSE;
 
 		setRegister(mPendingLoad.first, mPendingLoad.second);
 		resetPendingLoad();
@@ -52,14 +59,14 @@ namespace esx {
 
 		mRegisters = mOutRegisters;
 
-		mGPUClock += 11.0f / 7.0f;
-		while (mGPUClock > 1) {
-			mGPU->clock();
-			mGPUClock -= 1;
-		}
-
+		mGPU->clock();
 		mTimer->systemClock();
 		mCDROM->clock();
+		mSIO0->clock();
+
+		handleInterrupts();
+
+		mCycles++;
 	}
 
 
@@ -1061,6 +1068,7 @@ namespace esx {
 
 	void R3000::BEQ()
 	{
+		mBranch = ESX_TRUE;
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = getRegister(mCurrentInstruction.RegisterTarget());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
@@ -1068,12 +1076,13 @@ namespace esx {
 		if (a == b) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = ESX_TRUE;
+			mTookBranch = ESX_TRUE;
 		}
 	}
 
 	void R3000::BNE()
 	{
+		mBranch = ESX_TRUE;
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = getRegister(mCurrentInstruction.RegisterTarget());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
@@ -1081,24 +1090,26 @@ namespace esx {
 		if (a != b) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = ESX_TRUE;
+			mTookBranch = ESX_TRUE;
 		}
 	}
 
 	void R3000::BLTZ()
 	{
+		mBranch = ESX_TRUE;
 		I32 a = getRegister(mCurrentInstruction.RegisterSource());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
 
 		if (a < 0) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = ESX_TRUE;
+			mTookBranch = ESX_TRUE;
 		}
 	}
 
 	void R3000::BLTZAL()
 	{
+		mBranch = ESX_TRUE;
 		I32 a = getRegister(mCurrentInstruction.RegisterSource());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
 
@@ -1106,48 +1117,52 @@ namespace esx {
 			setRegister(GPRRegister::ra, mNextPC);
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = ESX_TRUE;
+			mTookBranch = ESX_TRUE;
 		}
 	}
 
 	void R3000::BLEZ()
 	{
+		mBranch = ESX_TRUE;
 		I32 a = getRegister(mCurrentInstruction.RegisterSource());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
 
 		if (a <= 0) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = ESX_TRUE;
+			mTookBranch = ESX_TRUE;
 		}
 	}
 
 	void R3000::BGTZ()
 	{
+		mBranch = ESX_TRUE;
 		I32 a = getRegister(mCurrentInstruction.RegisterSource());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
 
 		if (a > 0) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = ESX_TRUE;
+			mTookBranch = ESX_TRUE;
 		}
 	}
 
 	void R3000::BGEZ()
 	{
+		mBranch = ESX_TRUE;
 		I32 a = getRegister(mCurrentInstruction.RegisterSource());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
 
 		if (a >= 0) {
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = ESX_TRUE;
+			mTookBranch = ESX_TRUE;
 		}
 	}
 
 	void R3000::BGEZAL()
 	{
+		mBranch = ESX_TRUE;
 		I32 a = getRegister(mCurrentInstruction.RegisterSource());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
 
@@ -1155,7 +1170,7 @@ namespace esx {
 			setRegister(GPRRegister::ra, mNextPC);
 			mNextPC += o;
 			mNextPC -= 4;
-			mBranch = ESX_TRUE;
+			mTookBranch = ESX_TRUE;
 		}
 	}
 
@@ -1164,6 +1179,7 @@ namespace esx {
 		U32 a = (mNextPC & 0xF0000000) | (mCurrentInstruction.PseudoAddress() << 2);
 		mNextPC = a;
 		mBranch = ESX_TRUE;
+		mTookBranch = ESX_TRUE;
 	}
 
 	void R3000::JR()
@@ -1171,6 +1187,7 @@ namespace esx {
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		mNextPC = a;
 		mBranch = ESX_TRUE;
+		mTookBranch = ESX_TRUE;
 	}
 
 	void R3000::JAL()
@@ -1346,8 +1363,31 @@ namespace esx {
 		return mCP0Registers[index.Value];
 	}
 
+	void R3000::handleInterrupts()
+	{
+		U32 cause = getCP0Register(COP0Register::Cause);
+		U32 sr = getCP0Register(COP0Register::SR);
+
+		if (mInterruptControl->interruptPending()) {
+			cause |= (1 << 10);
+		} else {
+			cause &= ~(1 << 10);
+		}
+
+		setCP0Register(COP0Register::Cause, cause);
+
+		BIT IEC = sr & 0x1;
+		U8 IM = (sr >> 8) & 0xFF;
+		U8 IP = (cause >> 8) & 0xFF;
+
+		if (IEC && ((IM & IP) > 0)) {
+			raiseException(ExceptionType::Interrupt);
+		}
+	}
+
 	void R3000::raiseException(ExceptionType type)
 	{
+		ESX_CORE_LOG_ERROR("Exception {}", (U32)type);
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 epc = getCP0Register(COP0Register::EPC);
 		U32 cause = getCP0Register(COP0Register::Cause);
@@ -1357,34 +1397,36 @@ namespace esx {
 			handler = 0xBFC00180;
 		}
 
-		BIT canHandleInterrupt = (sr & 0x401) == 0x401;
-
 		U32 mode = sr & 0x3F;
 		sr &= ~0x3F;
 		sr |= (mode << 2) & 0x3F;
 
-	
 		cause = ((U32)type) << 2;
-		epc = mCurrentPC;
 
 		if (type == ExceptionType::Interrupt) {
-			cause |= (1 << 10);
-			epc += 4;
+			epc = mPC;
+			mBranchSlot = mBranch;
+			mTookBranchSlot = mTookBranch;
+		} else {
+			epc = mCurrentPC;
 		}
 
 		if (mBranchSlot) {
-			cause |= 1 << 31;
 			epc -= 4;
+			cause |= 1 << 31;
+			setCP0Register(COP0Register::JumpDest, mPC);
+
+			if (mTookBranchSlot) {
+				cause |= 1 << 30;
+			}
 		}
 
 		setCP0Register(COP0Register::Cause, cause);
 		setCP0Register(COP0Register::EPC, epc);
 		setCP0Register(COP0Register::SR, sr);
 
-		if ((type == ExceptionType::Interrupt && canHandleInterrupt) || type != ExceptionType::Interrupt) {
-			mPC = handler;
-			mNextPC = mPC + 4;
-		}
+		mPC = handler;
+		mNextPC = mPC + 4;
 	}
 
 	void R3000::acknowledge()

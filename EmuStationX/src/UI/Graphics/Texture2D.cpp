@@ -10,6 +10,7 @@ namespace esx {
 			case InternalFormat::R8: return GL_R8UI;
 			case InternalFormat::RGB8: return GL_RGB8;
 		}
+		return 0;
 	}
 
 	static GLenum fromDataFormat(DataFormat dataFormat) {
@@ -17,6 +18,7 @@ namespace esx {
 			case DataFormat::RED: return GL_RED_INTEGER;
 			case DataFormat::RGB: return GL_RGB;
 		}
+		return 0;
 	}
 
 
@@ -25,6 +27,7 @@ namespace esx {
 			case DataType::UnsignedByte: return GL_UNSIGNED_BYTE;
 			case DataType::UnsignedShort: return GL_UNSIGNED_SHORT;
 		}
+		return 0;
 	}
 
 	Texture2D::Texture2D(U32 slot)

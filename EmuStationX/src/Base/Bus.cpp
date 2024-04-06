@@ -71,7 +71,7 @@ namespace esx {
 		return root;
 	}
 
-	const Interval& Bus::findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address) {
+	const Interval Bus::findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address) {
 		if (!root) return {};
 
 		if (address >= root->interval.first.Start && address <= root->interval.first.End) {

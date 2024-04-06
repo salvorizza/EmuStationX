@@ -30,6 +30,10 @@ namespace esx {
 			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
 
 			mResponses.pop();
+
+			if (response.Number < response.NumberOfResponses) {
+				command(response.CommandType, response.Number + 1);
+			}
 		}
 		mCycles++;
 	}
@@ -126,7 +130,7 @@ namespace esx {
 
 	}
 
-	void CDROM::command(CommandType command)
+	void CDROM::command(CommandType command, U32 responseNumber)
 	{
 		if (!mResponses.empty()) {
 			return;
@@ -136,8 +140,9 @@ namespace esx {
 		response.Push(mStat);
 		response.Code = INT3;
 		response.TargetCycle = mCycles + 800;
-
-		Response secondResponse = {};
+		response.CommandType = command;
+		response.Number = responseNumber;
+		response.NumberOfResponses = responseNumber;
 
 		switch (command) {
 			case CommandType::GetStat: {
@@ -156,14 +161,11 @@ namespace esx {
 					}
 
 					case 0x20: {
-						response = {};
-
+						response.Clear();
 						response.Push(0x98);
 						response.Push(0x06);
 						response.Push(0x10);
 						response.Push(0xC3);
-						response.Code = INT3;
-						response.TargetCycle = mCycles + 800;
 						break;
 					}
 
@@ -177,27 +179,35 @@ namespace esx {
 			}
 
 			case CommandType::GetID: {
-				ESX_CORE_LOG_ERROR("CDROM - GetID");
+				ESX_CORE_LOG_ERROR("CDROM - GetID {}", response.Number);
 
-				secondResponse.Push(mStat | StatusFlagsIdError); //Stat shell open
-				secondResponse.Push(0xC0); //No disk + unlicensed
-				secondResponse.Push(0x00);
-				secondResponse.Push(0x00);
-				secondResponse.Push('S');
-				secondResponse.Push('C');
-				secondResponse.Push('E');
-				secondResponse.Push('A');
-				secondResponse.Code = INT2;
-				secondResponse.TargetCycle = mCycles + 20480;
+				response.NumberOfResponses = 2;
+				if (responseNumber == 2) {
+					response.Clear();
+					response.Push(mStat | StatusFlagsIdError); //Stat shell open
+					response.Push(0xC0); //No disk + unlicensed
+					response.Push(0x00);
+					response.Push(0x00);
+					response.Push('S');
+					response.Push('C');
+					response.Push('E');
+					response.Push('A');
+					response.Code = INT2;
+					response.TargetCycle = mCycles + 20480;
+				}
 				break;
 			}
 
 			case CommandType::ReadTOC: {
 				ESX_CORE_LOG_ERROR("CDROM - ReadTOC");
 
-				secondResponse.Push(mStat);
-				secondResponse.Code = INT2;
-				secondResponse.TargetCycle = mCycles + 1600;
+				response.NumberOfResponses = 2;
+				if (responseNumber == 2) {
+					response.Clear();
+					response.Push(mStat);
+					response.Code = INT2;
+				}
+				
 				break;
 			}
 
@@ -207,9 +217,6 @@ namespace esx {
 		}
 
 		mResponses.push(response);
-		if (secondResponse.Code != INT0) {
-			mResponses.push(secondResponse);
-		}
 	}
 
 	void CDROM::setIndexStatusRegister(U8 value)

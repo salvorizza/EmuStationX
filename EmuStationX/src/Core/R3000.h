@@ -121,6 +121,8 @@ namespace esx {
 	class GPU;
 	class Timer;
 	class CDROM;
+	class SIO;
+	class InterruptControl;
 
 	struct RegisterIndex {
 		I32 Value;
@@ -227,6 +229,7 @@ namespace esx {
 			return address & SEGS_MASKS[address >> 29];
 		}
 
+		void handleInterrupts();
 		void raiseException(ExceptionType type);
 		void acknowledge();
 
@@ -338,11 +341,17 @@ namespace esx {
 
 		BIT mBranch = ESX_FALSE;
 		BIT mBranchSlot = ESX_FALSE;
+		BIT mTookBranch = ESX_FALSE;
+		BIT mTookBranchSlot = ESX_FALSE;
 
 		float mGPUClock = 0;
 		SharedPtr<GPU> mGPU;
 		SharedPtr<Timer> mTimer;
 		SharedPtr<CDROM> mCDROM;
+		SharedPtr<SIO> mSIO0,mSIO1;
+		SharedPtr<InterruptControl> mInterruptControl;
+
+		U64 mCycles = 0;
 	};
 
 }

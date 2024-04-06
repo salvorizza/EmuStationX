@@ -241,21 +241,42 @@ namespace esx {
 		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
 		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 
-		mClocks++;
+		mClocks += 11.0f / 7.0f;
+		mDotClocks += 11.0f / 7.0f / PAL_DOT_CLOCKS.at(mGPUStat.HorizontalResolution);
 
-		if (mClocks % PAL_DOT_CLOCKS.at(mGPUStat.HorizontalResolution) == 0) {
+		if (mDotClocks >= PAL_DOT_CLOCKS.at(mGPUStat.HorizontalResolution)) {
+			mDotClocks -= PAL_DOT_CLOCKS.at(mGPUStat.HorizontalResolution);
 			mTimer->dot();
 		}
 
-		if (mClocks % PAL_CLOCKS_PER_SCANLINE == 0) {
+		if (mClocks >= PAL_CLOCKS_PER_SCANLINE) {
+			mClocks -= PAL_CLOCKS_PER_SCANLINE;
+			mCurrentScanLine++;
+
 			mTimer->hblank();
-			mClocks = 0;
 
-			mCurrentScanLine = (mCurrentScanLine + 1) % PAL_SCANLINES_PER_FRAME;
-			if (mCurrentScanLine == 0) {
-				mTimer->vblank();
+			if (mGPUStat.VerticalResolution == VerticalResolution::V240) {
+				mGPUStat.DrawOddLines = (mCurrentScanLine & 0x1) ? ESX_TRUE : ESX_FALSE;
+			}
 
-				//mInterruptControl->requestInterrupt(InterruptType::VBlank, 0, 1);
+			if (mCurrentScanLine < mVerticalRangeStart || mCurrentScanLine > mVerticalRangeEnd) {
+				mGPUStat.DrawOddLines = ESX_FALSE;
+				mVBlank = ESX_TRUE;
+			} else {
+				mVBlank = ESX_FALSE;
+			}
+
+			if (mCurrentScanLine >= PAL_SCANLINES_PER_FRAME) {
+				mCurrentScanLine = 0;
+				if (mGPUStat.VerticalInterlace == ESX_TRUE && mGPUStat.VerticalResolution == VerticalResolution::V480) {
+					mGPUStat.DrawOddLines = !mGPUStat.DrawOddLines;
+					mGPUStat.InterlaceField = !mGPUStat.DrawOddLines;
+				}
+
+				mRenderer->Flush();
+				mRenderer->Begin();
+
+				mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
 			}
 		}
 	}
@@ -350,7 +371,7 @@ namespace esx {
 
 		Vector<PolygonVertex> vertices(quad ? 4 : 3);
 
-		size_t numVertices = quad ? 4 : 3;
+		I32 numVertices = quad ? 4 : 3;
 		for(I32 i = numVertices - 1; i >= 0;i--) {
 			if (textured) {
 				U32 uvWord = mCommandBuffer.pop();
@@ -615,9 +636,6 @@ namespace esx {
 
 	void GPU::gp0SetDrawingOffsetCommand()
 	{
-		mRenderer->Flush();
-		mRenderer->Begin();
-
 		U32 instruction = mCommandBuffer.pop();
 
 		U16 drawOffsetX = (instruction >> 0) & 0x7FF;
@@ -782,7 +800,7 @@ namespace esx {
 		result |= (mGPUStat.TexturePageYBase2 & 0x1) << 15;
 		result |= ((U8)mGPUStat.HorizontalResolution & 0x1) << 16;
 		result |= (((U8)mGPUStat.HorizontalResolution >> 1) & 0x3) << 17;
-		//result |= ((U8)mGPUStat.VerticalResolution & 0x1) << 19; TODO: Emulate Bit 31 correctly endless loop
+		result |= ((U8)mGPUStat.VerticalResolution & 0x1) << 19;
 		result |= ((U8)mGPUStat.VideoMode & 0x1) << 20;
 		result |= ((U8)mGPUStat.ColorDepth & 0x1) << 21;
 		result |= (mGPUStat.VerticalInterlace & 0x1) << 22;
@@ -793,7 +811,7 @@ namespace esx {
 		result |= (mGPUStat.ReadySendVRAMToCPU & 0x1) << 27;
 		result |= (mGPUStat.ReadyToReceiveDMABlock & 0x1) << 28;
 		result |= ((U8)mGPUStat.DMADirection & 0x3) << 29;
-		result |= (mGPUStat.DrawOddLines & 0x3) << 31;
+		result |= (mGPUStat.DrawOddLines & 0x1) << 31;
 
 		return result;
 	}
@@ -878,9 +896,9 @@ namespace esx {
 				case BaseCase::PolyLine:
 					return (instruction & 0xF000F000) == 0x50005000;
 			}
-		} else {
-			return ESX_FALSE;
 		}
+
+		return ESX_FALSE;
 	}
 
 }

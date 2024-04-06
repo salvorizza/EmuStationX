@@ -104,7 +104,6 @@ namespace esx {
 		glBindTexture(GL_TEXTURE_2D, mFBO->getColorAttachment()->getRendererID());
 
 
-		mShader->uploadUniform("uOffset", mDrawOffset);
 		mShader->uploadUniform("uTopLeft", mDrawTopLeft);
 		mShader->uploadUniform("uBottomRight", mDrawBottomRight);
 
@@ -114,7 +113,7 @@ namespace esx {
 			mTriVBO->setData(mTriVerticesBase.data(), numIndices * sizeof(PolygonVertex), VertexBufferDataUsage::Dynamic);
 
 			mTriVAO->bind();
-			glDrawArrays(GL_TRIANGLES, 0, numIndices);
+			glDrawArrays(GL_TRIANGLES, 0, (GLsizei)numIndices);
 			glFinish();
 		}
 
@@ -148,6 +147,8 @@ namespace esx {
 			const PolygonVertex& vertex = vertices[i];
 
 			*mTriCurrentVertex = vertex;
+			mTriCurrentVertex->vertex.x += mDrawOffset.x;
+			mTriCurrentVertex->vertex.y += mDrawOffset.y;
 			mTriCurrentVertex++;
 		}
 
@@ -156,6 +157,8 @@ namespace esx {
 				const PolygonVertex& vertex = vertices[i];
 
 				*mTriCurrentVertex = vertex;
+				mTriCurrentVertex->vertex.x += mDrawOffset.x;
+				mTriCurrentVertex->vertex.y += mDrawOffset.y;
 				mTriCurrentVertex++;
 			}
 		}
@@ -168,16 +171,22 @@ namespace esx {
 
 		//Triangle 1,2,3
 		mTriCurrentVertex->vertex = Vertex(topLeft.x + width, topLeft.y + height);
+		mTriCurrentVertex->vertex.x += mDrawOffset.x;
+		mTriCurrentVertex->vertex.y += mDrawOffset.y;
 		mTriCurrentVertex->color = color;
 		mTriCurrentVertex->uv = UV(0,0);
 		mTriCurrentVertex++;
 
 		mTriCurrentVertex->vertex = Vertex(topLeft.x, topLeft.y + height);
+		mTriCurrentVertex->vertex.x += mDrawOffset.x;
+		mTriCurrentVertex->vertex.y += mDrawOffset.y;
 		mTriCurrentVertex->color = color;
 		mTriCurrentVertex->uv = UV(0, 0);
 		mTriCurrentVertex++;
 
 		mTriCurrentVertex->vertex = Vertex(topLeft.x + width, topLeft.y);
+		mTriCurrentVertex->vertex.x += mDrawOffset.x;
+		mTriCurrentVertex->vertex.y += mDrawOffset.y;
 		mTriCurrentVertex->color = color;
 		mTriCurrentVertex->uv = UV(0, 0);
 		mTriCurrentVertex++;
@@ -185,16 +194,22 @@ namespace esx {
 
 		//Triangle 2,3,4
 		mTriCurrentVertex->vertex = Vertex(topLeft.x, topLeft.y + height);
+		mTriCurrentVertex->vertex.x += mDrawOffset.x;
+		mTriCurrentVertex->vertex.y += mDrawOffset.y;
 		mTriCurrentVertex->color = color;
 		mTriCurrentVertex->uv = UV(0, 0);
 		mTriCurrentVertex++;
 
 		mTriCurrentVertex->vertex = Vertex(topLeft.x + width, topLeft.y);
+		mTriCurrentVertex->vertex.x += mDrawOffset.x;
+		mTriCurrentVertex->vertex.y += mDrawOffset.y;
 		mTriCurrentVertex->color = color;
 		mTriCurrentVertex->uv = UV(0, 0);
 		mTriCurrentVertex++;
 
 		mTriCurrentVertex->vertex = Vertex(topLeft.x, topLeft.y);
+		mTriCurrentVertex->vertex.x += mDrawOffset.x;
+		mTriCurrentVertex->vertex.y += mDrawOffset.y;
 		mTriCurrentVertex->color = color;
 		mTriCurrentVertex->uv = UV(0, 0);
 		mTriCurrentVertex++;

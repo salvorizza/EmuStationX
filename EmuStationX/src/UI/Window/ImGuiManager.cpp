@@ -8,6 +8,9 @@
 
 #include "stb_image.h"
 
+#undef __gl_h_
+#include <glad/glad.h>
+
 namespace esx {
 
 	bool LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_width, int* out_height)
@@ -54,7 +57,7 @@ namespace esx {
 		int image_width = 0;
 		int image_height = 0;
 		int n = 0;
-		unsigned char* image_data = (unsigned char*)stbi_load_from_memory(data, size, &image_width, &image_height, &n, 4);
+		unsigned char* image_data = (unsigned char*)stbi_load_from_memory(data, (int)size, &image_width, &image_height, &n, 4);
 		if (image_data == NULL)
 			return false;
 

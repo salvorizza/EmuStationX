@@ -8,7 +8,6 @@ layout(location = 4) in uvec2 aClutUV;
 layout(location = 5) in uint aBPP;
 layout(location = 6) in uint aSemiTransparency;
 
-uniform ivec2 uOffset;
 uniform uvec2 uTopLeft;
 uniform uvec2 uBottomRight;
 
@@ -27,7 +26,7 @@ vec2 mapPointToRange(ivec2 point, uvec2 topLeft, uvec2 bottomRight) {
 }
 
 void main() {
-    ivec2 position = aPos + uOffset;
+    ivec2 position = aPos;
 
     /*
     * float xpos = (float(position.x) / 320) - 1.0;

@@ -78,15 +78,16 @@ namespace esx {
 		}
 	}
 
-	void InterruptControl::requestInterrupt(InterruptType type, U8 prevValue, U8 newValue)
+	void InterruptControl::requestInterrupt(InterruptType type, BIT prevValue, BIT newValue)
 	{
-		if (prevValue == 0 && newValue == 1) {
+		if (prevValue == ESX_FALSE && newValue == ESX_TRUE) {
 			mInterruptStatus |= (U32)type;
-			if (mInterruptStatus & mInterruptMask) {
-				SharedPtr<R3000> cpu = getBus("Root")->getDevice<R3000>("R3000");
-				cpu->raiseException(ExceptionType::Interrupt);
-			}
 		}
+	}
+
+	BIT InterruptControl::interruptPending()
+	{
+		return (mInterruptStatus & mInterruptMask);
 	}
 
 	void InterruptControl::setInterruptMask(U32 value)

@@ -55,10 +55,10 @@ namespace esx {
 		Vertex vertex;
 		UV uv;
 		Color color;
-		U8 textured;
+		U8 textured = 0x00;
 		UV clutUV;
-		U8 bpp;
-		U8 semiTransparency;
+		U8 bpp = 0x00;
+		U8 semiTransparency = 0x00;
 	};
 
 	class IRenderer {

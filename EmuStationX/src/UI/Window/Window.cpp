@@ -1,5 +1,7 @@
 ﻿#include "UI/Window/Window.h"
 
+#include <glad/glad.h>
+
 namespace esx {
 
 	static void APIENTRY debugCallbackOpenGL(GLenum source​, GLenum type​, GLuint id​, GLenum severity​, GLsizei length​, const GLchar* message​, const void* userParam​) {
@@ -37,10 +39,10 @@ namespace esx {
 				GLFWimage& image = images[i];
 
 				int channels;
-				image.pixels = stbi_load_from_memory(result[i].Data.data(), result[i].Data.size(), &image.width, &image.height, &channels, 4);
+				image.pixels = stbi_load_from_memory(result[i].Data.data(), (int)result[i].Data.size(), &image.width, &image.height, &channels, 4);
 			}
 
-			glfwSetWindowIcon(window, images.size(), images.data());
+			glfwSetWindowIcon(window, (int)images.size(), images.data());
 		}
 
 		glfwShowWindow(window);
