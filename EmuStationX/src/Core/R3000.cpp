@@ -396,17 +396,30 @@ namespace esx {
 							}
 						}
 						else {
-							switch (COP_FUNC(instruction)) {
-								case 0x10: {
-									result.Execute = &R3000::RFE;
-									break;
-								}
-								
-								default: {
-									if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
+							switch (cpn) {
+								case 0: {
+									switch (COP_FUNC(instruction)) {
+										case 0x10: {
+											result.Execute = &R3000::RFE;
+											break;
+										}
+
+										default: {
+											if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
+											break;
+										}
+									}
 									break;
 								}
 
+								case 2: {
+									result.Execute = &R3000::COP2;
+									break;
+								}
+
+								default:
+									if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
+									break;
 							}
 						}
 						
@@ -1213,6 +1226,11 @@ namespace esx {
 		raiseException(ExceptionType::Syscall);
 	}
 
+	void R3000::COP2()
+	{
+		ESX_CORE_LOG_ERROR("GTE command {:08X}h Not implemented yet", mCurrentInstruction.Immediate25());
+	}
+
 	void R3000::MTC0()
 	{
 		U32 sr = getCP0Register(COP0Register::SR);
@@ -1268,26 +1286,35 @@ namespace esx {
 
 	void R3000::CFC2()
 	{
-		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+		ESX_CORE_LOG_ERROR("GTE Copy from cop2.{} to gpr.{} not implemented yet", mCurrentInstruction.RegisterTarget().Value, mCurrentInstruction.RegisterDestination().Value);
 	}
 
 	void R3000::MTC2()
 	{
-		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+		ESX_CORE_LOG_ERROR("GTE Move from gpr.{} to cop2.{} not implemented yet", mCurrentInstruction.RegisterTarget().Value, mCurrentInstruction.RegisterDestination().Value);
 	}
 
 	void R3000::MFC2()
 	{
-		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+		ESX_CORE_LOG_ERROR("GTE Move from cop2.{} to gpr.{} not implemented yet", mCurrentInstruction.RegisterTarget().Value, mCurrentInstruction.RegisterDestination().Value);
 	}
 
 	void R3000::CTC2()
 	{
-		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+		ESX_CORE_LOG_ERROR("GTE Copy from gpr.{} to cop2.{} not implemented yet", mCurrentInstruction.RegisterTarget().Value, mCurrentInstruction.RegisterDestination().Value);
 	}
 
 	void R3000::BC0F()
 	{
+		mBranch = ESX_TRUE;
+		U8 a = getCP0Register(COP0Register::SR) & (1 << 6);
+		I32 o = mCurrentInstruction.ImmediateSE() << 2;
+
+		if (a == 0) {
+			mNextPC += o;
+			mNextPC -= 4;
+			mTookBranch = ESX_TRUE;
+		}
 	}
 
 	void R3000::BC2F()
@@ -1297,6 +1324,15 @@ namespace esx {
 
 	void R3000::BC0T()
 	{
+		mBranch = ESX_TRUE;
+		U8 a = getCP0Register(COP0Register::SR) & (1 << 6);
+		I32 o = mCurrentInstruction.ImmediateSE() << 2;
+
+		if (a == 1) {
+			mNextPC += o;
+			mNextPC -= 4;
+			mTookBranch = ESX_TRUE;
+		}
 	}
 
 	void R3000::BC2T()
@@ -1387,7 +1423,6 @@ namespace esx {
 
 	void R3000::raiseException(ExceptionType type)
 	{
-		ESX_CORE_LOG_ERROR("Exception {}", (U32)type);
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 epc = getCP0Register(COP0Register::EPC);
 		U32 cause = getCP0Register(COP0Register::Cause);
@@ -1648,10 +1683,19 @@ namespace esx {
 							}
 						}
 						else {
-							switch (COP_FUNC(binaryInstruction)) {
-							case 0x10: {
-								return FormatString(ESX_TEXT("rfe"));
-							}
+							switch (cpn) {
+								case 0: {
+									switch (COP_FUNC(binaryInstruction)) {
+										case 0x10: {
+											return FormatString(ESX_TEXT("rfe"));
+										}
+									}
+									break;
+								}
+
+								case 2: {
+									return FormatString(ESX_TEXT("cop2 0x{:08x}"), Immediate25());
+								}
 							}
 						}
 						break;

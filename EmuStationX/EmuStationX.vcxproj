@@ -161,6 +161,7 @@
     <ClInclude Include="src\Core\CDROM.h" />
     <ClInclude Include="src\Core\DMA.h" />
     <ClInclude Include="src\Core\GPU.h" />
+    <ClInclude Include="src\Core\GTE.h" />
     <ClInclude Include="src\Core\IRenderer.h" />
     <ClInclude Include="src\Core\InterruptControl.h" />
     <ClInclude Include="src\Core\MemoryControl.h" />

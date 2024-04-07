@@ -130,6 +130,7 @@ namespace esx {
 	
 		void gp0(U32 instruction);
 		void gp1(U32 instruction);
+		U32 gpuRead();
 
 		void clock();
 
@@ -230,10 +231,14 @@ namespace esx {
 
 		U16 mMemoryTransferX = 0x0000;
 		U16 mMemoryTransferY = 0x0000;
-		U16 mMemoryTransferCoordsX = 0x0000;
-		U16 mMemoryTransferCoordsY = 0x0000;
+		U16 mMemoryTransferSourceCoordsX = 0x0000;
+		U16 mMemoryTransferSourceCoordsY = 0x0000;
+		U16 mMemoryTransferDestinationCoordsX = 0x0000;
+		U16 mMemoryTransferDestinationCoordsY = 0x0000;
 		U16 mMemoryTransferWidth = 0x0000;
 		U16 mMemoryTransferHeight = 0x0000;
+		U32 mNumWordsToTransfer = 0x00000000;
+		U32 mCurrentWordNumber = 0x00000000;
 
 		float mClocks = 0;
 		float mDotClocks = 0;

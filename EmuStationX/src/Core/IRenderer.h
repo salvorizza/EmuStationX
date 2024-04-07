@@ -71,7 +71,6 @@ namespace esx {
 		virtual void SetDrawTopLeft(U16 x, U16 y) = 0;
 		virtual void SetDrawBottomRight(U16 x, U16 y) = 0;
 		virtual void DrawPolygon(const Vector<PolygonVertex>& vertices) = 0;
-		virtual void DrawRectangle(const Vertex& topLeft, U16 width, U16 height, const Color& color) = 0;
 
 		virtual void VRAMWrite(U16 x, U16 y, U16 data) = 0;
 		virtual U16 VRAMRead(U16 x, U16 y) = 0;

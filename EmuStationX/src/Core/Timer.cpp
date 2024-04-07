@@ -36,25 +36,28 @@ namespace esx {
 		}
 	}
 
-	void Timer::load(const StringView& busName, U32 address, U32& value)
+	void Timer::load(const StringView& busName, U32 address, U16& output)
 	{
 		U8 counter = (address >> 4) & 0xF;
 		address &= 0xFFFFFF0F;
 
 		switch (address) {
 			case 0x1F801100: {
-				value = getCurrentValue(counter);
+				output = getCurrentValue(counter);
 				break;
 			}
-			case 0x1F801104: {
-				value = getCounterMode(counter);
-				break;
-			}
+
 			case 0x1F801108: {
-				value = getTargetValue(counter);
+				output = getTargetValue(counter);
+				break;
+			}
+
+			default: {
+				ESX_CORE_LOG_ERROR("Timer Address load16 {:08X}h not handled yet", address);
 				break;
 			}
 		}
+
 	}
 
 	void Timer::store(const StringView& busName, U32 address, U32 value)
@@ -73,6 +76,28 @@ namespace esx {
 			}
 			case 0x1F801108: {
 				setTargetValue(counter, value);
+				break;
+			}
+		}
+	}
+
+
+	void Timer::load(const StringView& busName, U32 address, U32& output)
+	{
+		U8 counter = (address >> 4) & 0xF;
+		address &= 0xFFFFFF0F;
+
+		switch (address) {
+			case 0x1F801100: {
+				output = getCurrentValue(counter);
+				break;
+			}
+			case 0x1F801104: {
+				output = getCounterMode(counter);
+				break;
+			}
+			case 0x1F801108: {
+				output = getTargetValue(counter);
 				break;
 			}
 		}

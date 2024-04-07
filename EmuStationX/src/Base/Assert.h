@@ -10,3 +10,6 @@
 	#define ESX_ASSERT(condition,message,...) if(!(condition)) { ESX_CORE_LOG_ERROR(message,__VA_ARGS__); }
 	#define ESX_CORE_ASSERT(condition,message,...) if(!(condition)) { ESX_CORE_LOG_ERROR(message,__VA_ARGS__); }
 #endif
+
+#define ESX_VERIFY(condition,message,...) if(!(condition)) { ESX_CORE_LOG_ERROR(message,__VA_ARGS__); }
+#define ESX_CORE_VERIFY(condition,message,...) if(!(condition)) { ESX_CORE_LOG_ERROR(message,__VA_ARGS__); }

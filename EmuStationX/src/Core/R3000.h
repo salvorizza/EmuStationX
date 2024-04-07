@@ -182,6 +182,10 @@ namespace esx {
 			return (binaryInstruction & 0x3FFFFFF);
 		}
 
+		U32 Immediate25() const {
+			return PseudoAddress();
+		}
+
 		String Mnemonic() const;
 	};
 
@@ -302,6 +306,7 @@ namespace esx {
 		void SYSCALL();
 
 		//COPx
+		void COP2();
 		void MTC0();
 		void MFC0();
 		void CFC2();

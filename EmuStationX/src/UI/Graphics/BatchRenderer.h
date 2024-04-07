@@ -30,7 +30,6 @@ namespace esx {
 		void SetDrawTopLeft(U16 x, U16 y) override;
 		void SetDrawBottomRight(U16 x, U16 y) override;
 		void DrawPolygon(const Vector<PolygonVertex>& vertices) override;
-		void DrawRectangle(const Vertex& topLeft, U16 width, U16 height, const Color& color) override;
 		void VRAMWrite(U16 x, U16 y, U16 data) override;
 		U16 VRAMRead(U16 x, U16 y) override;
 
@@ -41,7 +40,7 @@ namespace esx {
 		static const size_t TRI_SIZE = QUAD_VERTEX_SIZE * 3;
 		static const size_t MAX_TRIS = 100;
 		static const size_t TRI_BUFFER_SIZE = TRI_SIZE * MAX_TRIS;
-		static const size_t TRI_MAX_NUM_INDICES = MAX_TRIS * 3;
+		static const size_t TRI_MAX_VERTICES = MAX_TRIS * 3;
 	private:
 		SharedPtr<Shader> mShader;
 		SharedPtr<VertexArray> mTriVAO;
