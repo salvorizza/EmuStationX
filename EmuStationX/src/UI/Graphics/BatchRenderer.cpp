@@ -39,7 +39,6 @@ namespace esx {
 		mPBO16->unbind();
 		mTexture16->unbind();
 
-
 		mPBO8 = MakeShared<PixelBuffer>();
 		mPBO8->setData(nullptr, 1024 * 512 * 2, flags);
 		mPBO8->unbind();
@@ -49,7 +48,6 @@ namespace esx {
 		mPixels8 = (U8*)mPBO8->mapBufferRange();
 		mPBO8->unbind();
 		mTexture8->unbind();
-
 
 		mPBO4 = MakeShared<PixelBuffer>();
 		mPBO4->setData(nullptr, 1024 * 512 * 4, flags);
@@ -61,14 +59,23 @@ namespace esx {
 		mPBO4->unbind();
 		mTexture4->unbind();
 
-		mFBO = MakeShared<FrameBuffer>(640, 480);
+		mFBO = MakeShared<FrameBuffer>(1024, 512);
+		SharedPtr<Texture2D> colorAttachment = MakeShared<Texture2D>(3);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		colorAttachment->setData(nullptr, 1024, 512, InternalFormat::RGB8, DataType::UnsignedByte, DataFormat::RGB);
+		mFBO->setColorAttachment(colorAttachment);
+		mFBO->init();
 
+		mVRAM24.resize(1024 * 512 * 3);
 
 		mShader = Shader::LoadFromFile("commons/shaders/shader.vert","commons/shaders/shader.frag");
 
-
 		mDrawTopLeft = glm::uvec2(0, 0);
 		mDrawBottomRight = glm::uvec2(640, 240);
+
+		glEnable(GL_SCISSOR_TEST);
+
 	}
 
 	void BatchRenderer::Begin()
@@ -87,27 +94,28 @@ namespace esx {
 		if (numIndices > 0) {
 			mFBO->bind();
 			glViewport(0, 0, mFBO->width(), mFBO->height());
+			glScissor(mDrawTopLeft.x, 512 - mDrawBottomRight.y, mDrawBottomRight.x - mDrawTopLeft.x, mDrawBottomRight.y - mDrawTopLeft.y);
 
 			mTexture16->bind();
 			mTexture16->copy(mPBO16);
+			mPBO16->unbind();
 
 			mTexture8->bind();
 			mTexture8->copy(mPBO8);
+			mPBO8->unbind();
 
 			mTexture4->bind();
 			mTexture4->copy(mPBO4);
+			mPBO4->unbind();
 
 			mShader->start();
 			mTexture16->bind();
 			mTexture8->bind();
 			mTexture4->bind();
+			mFBO->getColorAttachment()->bind();
 
-			glActiveTexture(GL_TEXTURE0 + 3);
-			glBindTexture(GL_TEXTURE_2D, mFBO->getColorAttachment()->getRendererID());
-
-
-			mShader->uploadUniform("uTopLeft", mDrawTopLeft);
-			mShader->uploadUniform("uBottomRight", mDrawBottomRight);
+			/*mShader->uploadUniform("uTopLeft", mDrawTopLeft);
+			mShader->uploadUniform("uBottomRight", mDrawBottomRight);*/
 
 			mTriVBO->bind();
 			mTriVBO->setData(mTriVerticesBase.data(), numIndices * sizeof(PolygonVertex), VertexBufferDataUsage::Dynamic);
@@ -116,7 +124,19 @@ namespace esx {
 			glDrawArrays(GL_TRIANGLES, 0, (GLsizei)numIndices);
 			glFinish();
 
+			mTriVAO->unbind();
+			mTriVBO->unbind();
+			mFBO->getColorAttachment()->unbind();
+			mTexture4->unbind();
+			mTexture8->unbind();
+			mTexture16->unbind();
+			mShader->stop();
 			mFBO->unbind();
+
+			void* pixels = mVRAM24.data();
+			mFBO->getColorAttachment()->bind();
+			mFBO->getColorAttachment()->getPixels(&pixels);
+			mFBO->getColorAttachment()->unbind();
 		}
 	}
 
@@ -138,7 +158,7 @@ namespace esx {
 		mDrawBottomRight.y = y;
 	}
 
-	void BatchRenderer::DrawPolygon(const Vector<PolygonVertex>& vertices)
+	void BatchRenderer::DrawPolygon(Vector<PolygonVertex>& vertices)
 	{
 		ptrdiff_t numIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
 		if (numIndices == TRI_MAX_VERTICES) {
@@ -146,12 +166,15 @@ namespace esx {
 			Begin();
 		}
 
+		for (PolygonVertex& vertex : vertices) {
+			mTriCurrentVertex->vertex.x += mDrawOffset.x;
+			mTriCurrentVertex->vertex.y += mDrawOffset.y;
+		}
+
 		for (U64 i = 0; i < 3; i++) {
 			const PolygonVertex& vertex = vertices[i];
 
 			*mTriCurrentVertex = vertex;
-			mTriCurrentVertex->vertex.x += mDrawOffset.x;
-			mTriCurrentVertex->vertex.y += mDrawOffset.y;
 			mTriCurrentVertex++;
 		}
 
@@ -160,8 +183,6 @@ namespace esx {
 				const PolygonVertex& vertex = vertices[i];
 
 				*mTriCurrentVertex = vertex;
-				mTriCurrentVertex->vertex.x += mDrawOffset.x;
-				mTriCurrentVertex->vertex.y += mDrawOffset.y;
 				mTriCurrentVertex++;
 			}
 		}
@@ -181,12 +202,29 @@ namespace esx {
 		mPixels4[index * 4 + 1] = (U8)(data >> 4) & 0xF;
 		mPixels4[index * 4 + 2] = (U8)(data >> 8) & 0xF;
 		mPixels4[index * 4 + 3] = (U8)(data >> 12) & 0xF;
+
+
+		U8 pixels[3] = {
+			((data << 3) & 0xf8),
+			((data >> 2) & 0xf8),
+			((data >> 7) & 0xf8),
+		};
+		mFBO->getColorAttachment()->bind();
+		mFBO->getColorAttachment()->setPixel(x, 511 - y, &pixels);
+		mFBO->getColorAttachment()->unbind();
 	}
 
 	U16 BatchRenderer::VRAMRead(U16 x, U16 y)
 	{
-		U64 index = (y * 1024) + x;
-		return mPixels16[index];
+		U64 index = ((511-y) * 1024) + x;
+
+		U8 r = mVRAM24[(index * 3) + 0] >> 3;
+		U8 g = mVRAM24[(index * 3) + 1] >> 3;
+		U8 b = mVRAM24[(index * 3) + 2] >> 3;
+
+		U16 data = (b << 10) | (g << 5) | r;
+
+		return data;
 	}
 
 }

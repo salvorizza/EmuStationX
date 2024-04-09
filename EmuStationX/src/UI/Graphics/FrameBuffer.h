@@ -10,6 +10,7 @@ namespace esx {
 		FrameBuffer(int32_t width, int32_t height);
 		~FrameBuffer();
 
+		void init();
 		void bind();
 		void unbind();
 		void resize(int32_t width, int32_t height);
@@ -23,7 +24,8 @@ namespace esx {
 		uint32_t height() const { return mHeight; }
 
 		SharedPtr<Texture2D> getColorAttachment() const { return mColorAttachment; }
-		
+		void setColorAttachment(const SharedPtr<Texture2D>& texture) { mColorAttachment = texture; }
+
 	private:
 		void invalidate();
 	private:

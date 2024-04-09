@@ -12,12 +12,16 @@ namespace esx {
 			mWidth(width),
 			mHeight(height)
 	{
-		invalidate();
 	}
 
 	FrameBuffer::~FrameBuffer()
 	{
 		glDeleteFramebuffers(1, &mRendererID);
+	}
+
+	void FrameBuffer::init()
+	{
+		invalidate();
 	}
 
 	void FrameBuffer::bind()
@@ -50,11 +54,7 @@ namespace esx {
 
 		glGenFramebuffers(1, &mRendererID);
 		glBindFramebuffer(GL_FRAMEBUFFER, mRendererID);
-
-		mColorAttachment = MakeShared<Texture2D>();
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		mColorAttachment->setData(nullptr, mWidth, mHeight, InternalFormat::RGB8, DataType::UnsignedByte, DataFormat::RGB);
+		mColorAttachment->bind();
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mColorAttachment->getRendererID(), 0);
 
 		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);

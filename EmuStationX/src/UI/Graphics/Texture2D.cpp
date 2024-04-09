@@ -9,6 +9,7 @@ namespace esx {
 			case InternalFormat::R16: return GL_R16UI;
 			case InternalFormat::R8: return GL_R8UI;
 			case InternalFormat::RGB8: return GL_RGB8;
+			case InternalFormat::RGB5_A1: return GL_RGB5_A1;
 		}
 		return 0;
 	}
@@ -17,6 +18,7 @@ namespace esx {
 		switch (dataFormat) {
 			case DataFormat::RED: return GL_RED_INTEGER;
 			case DataFormat::RGB: return GL_RGB;
+			case DataFormat::RGBA: return GL_RGBA;
 		}
 		return 0;
 	}
@@ -26,6 +28,7 @@ namespace esx {
 		switch (dataType) {
 			case DataType::UnsignedByte: return GL_UNSIGNED_BYTE;
 			case DataType::UnsignedShort: return GL_UNSIGNED_SHORT;
+			case DataType::UnsignedShort555_1: return GL_UNSIGNED_SHORT_5_5_5_1;
 		}
 		return 0;
 	}
@@ -76,5 +79,25 @@ namespace esx {
 	{
 		pixelBuffer->bind();
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight, fromDataFormat(mDataFormat), fromDataType(mDataType), nullptr);
+	}
+
+	void Texture2D::updatePixels(void* pixels)
+	{
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight, fromDataFormat(mDataFormat), fromDataType(mDataType), pixels);
+	}
+
+	void Texture2D::setPixel(U32 x, U32 y, const void* pixelData)
+	{
+		glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, 1, 1, fromDataFormat(mDataFormat), fromDataType(mDataType), pixelData);
+	}
+
+	void Texture2D::getPixel(U32 x, U32 y, void** pixelData)
+	{
+		glGetTexImage(GL_TEXTURE_2D, 0, fromDataFormat(mDataFormat), fromDataType(mDataType), *pixelData);
+	}
+
+	void Texture2D::getPixels(void** pixels)
+	{
+		glGetTexImage(GL_TEXTURE_2D, 0, fromDataFormat(mDataFormat), fromDataType(mDataType), *pixels);
 	}
 }

@@ -14,9 +14,6 @@
 
 namespace esx {
 
-	
-
-
 	class BatchRenderer : public IRenderer {
 	public:
 		BatchRenderer();
@@ -29,7 +26,7 @@ namespace esx {
 		void SetDrawOffset(I16 offsetX, I16 offsetY) override;
 		void SetDrawTopLeft(U16 x, U16 y) override;
 		void SetDrawBottomRight(U16 x, U16 y) override;
-		void DrawPolygon(const Vector<PolygonVertex>& vertices) override;
+		void DrawPolygon(Vector<PolygonVertex>& vertices) override;
 		void VRAMWrite(U16 x, U16 y, U16 data) override;
 		U16 VRAMRead(U16 x, U16 y) override;
 
@@ -59,6 +56,8 @@ namespace esx {
 		U8* mPixels4 = nullptr;
 		U8* mPixels8 = nullptr;
 		U16* mPixels16 = nullptr;
+
+		Vector<U8> mVRAM24;
 
 	};
 

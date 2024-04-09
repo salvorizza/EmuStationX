@@ -10,7 +10,7 @@ flat in uint oSemiTransparency;
 layout(binding=0) uniform usampler2D uVRAM16;  
 layout(binding=1) uniform usampler2D uVRAM8;   
 layout(binding=2) uniform usampler2D uVRAM4;   
-layout(binding=3) uniform sampler2D uPreviousFrame;   
+layout(binding=3) uniform sampler2D uVRAM;   
 
 out vec4 fragColor;
 
@@ -31,7 +31,7 @@ vec4 from_15bit(uint data)
     color.b = ((data >> 7) & 0xf8) / 255.0;
 
     if(data >= 0x8000u && (data >> 15) == 1u) {
-        vec4 previousColor = texture(uPreviousFrame,gl_FragCoord.xy / textureSize(uPreviousFrame,0));
+        vec4 previousColor = texture(uVRAM,gl_FragCoord.xy / textureSize(uVRAM,0));
 
         switch(oSemiTransparency) {
             case B2PlusF2: {
@@ -63,6 +63,7 @@ vec4 from_15bit(uint data)
 
 void main() {
     vec4 color = vec4(oColor,1.0);
+
     if(oTextured == 1) {
         vec2 size4 = textureSize(uVRAM4,0);
         vec2 size8 = textureSize(uVRAM8,0);

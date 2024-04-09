@@ -8,9 +8,6 @@ layout(location = 4) in uvec2 aClutUV;
 layout(location = 5) in uint aBPP;
 layout(location = 6) in uint aSemiTransparency;
 
-uniform uvec2 uTopLeft;
-uniform uvec2 uBottomRight;
-
 out vec3 oColor;
 out vec2 oUV;
 flat out uint oTextured;
@@ -34,7 +31,7 @@ void main() {
     * gl_Position = vec4(xpos, ypos, 0.0, 1.0);
     */
 
-    vec2 mapped = mapPointToRange(position,uvec2(0,0),uvec2(640,480));
+    vec2 mapped = mapPointToRange(position,uvec2(0,0),uvec2(1024,512));
     gl_Position = vec4(mapped.x,mapped.y,0,1);
     oColor = vec3(
         float(aColor.r) / 255,

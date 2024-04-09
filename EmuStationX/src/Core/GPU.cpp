@@ -368,6 +368,29 @@ namespace esx {
 
 	void GPU::gp0QuickRectangleFillCommand()
 	{
+		U32 command = mCommandBuffer.Data[0];
+		U32 topLeft = mCommandBuffer.Data[1];
+		U32 size = mCommandBuffer.Data[2];
+
+		U16 XPos = (topLeft >> 0) & 0xFFFF;
+		U16 YPos = (topLeft >> 16) & 0xFFFF;
+
+		U16 XSiz = (size >> 0) & 0xFFFF;
+		U16 YSiz = (size >> 16) & 0xFFFF;
+
+		Color color = unpackColor(command & 0xFFFFFF);
+
+		Vector<PolygonVertex> vertices(4);
+		for (PolygonVertex& vertex : vertices) {
+			vertex.color = color;
+		}
+
+		vertices[0].vertex = Vertex(XPos + XSiz,	YPos + YSiz);
+		vertices[1].vertex = Vertex(XPos,			YPos + YSiz);
+		vertices[2].vertex = Vertex(XPos + XSiz,	YPos);
+		vertices[3].vertex = Vertex(XPos,			YPos);
+
+		mRenderer->DrawPolygon(vertices);
 	}
 
 	void GPU::gp0InterruptRequest()
@@ -640,6 +663,7 @@ namespace esx {
 		mMemoryTransferSourceCoordsY = (sourceCoord >> 16) & 0xFFFF;
 		mMemoryTransferX = 0;
 		mMemoryTransferY = 0;
+
 
 		mGPUStat.ReadySendVRAMToCPU = ESX_TRUE;
 
