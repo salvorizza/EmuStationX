@@ -10,7 +10,7 @@ flat in uint oSemiTransparency;
 layout(binding=0) uniform usampler2D uVRAM16;  
 layout(binding=1) uniform usampler2D uVRAM8;   
 layout(binding=2) uniform usampler2D uVRAM4;   
-layout(binding=3) uniform sampler2D uVRAM;   
+layout(binding=3) uniform usampler2D uVRAM;   
 
 out vec4 fragColor;
 
@@ -61,6 +61,22 @@ vec4 from_15bit(uint data)
     return color;
 }
 
+uint texel_15bit(vec2 uv16) {
+    vec2 size = textureSize(uVRAM,0);
+    uvec4 color = texture(uVRAM, uv16 / size);
+
+    uint data = ((color.b & 0xF) << 10) | ((color.g & 0xF) << 5) | (color.r & 0xF);
+    return data;
+}
+
+uint texel_4bit(vec2 uv4) {
+    vec2 size = textureSize(uVRAM,0);
+    uint data = texel_15bit(vec2(uv4.x / 4.0,511.0 - uv4.y));
+    uint bitIndex = uint(floor(uv4.x / size.x));
+    uint texel = (data >> (4 * bitIndex)) & 0xF;
+    return texel;
+}
+
 void main() {
     vec4 color = vec4(oColor,1.0);
 
@@ -75,6 +91,7 @@ void main() {
                 vec2 uvIndex = oUV / size4;
                 uvec4 index =  texture(uVRAM4,uvIndex);
                 uvColor = vec2(oClutUV.x + index.r,oClutUV.y) / size16;
+                //uvColor = vec2(oClutUV.x + texel_4bit(oUV),oClutUV.y) / size16;
                 break;
             }
 

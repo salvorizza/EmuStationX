@@ -265,22 +265,26 @@ namespace esx {
 
 	void GPU::clock()
 	{
-		static const Map<HorizontalResolution, U64> PAL_DOT_CLOCKS = {
-			{HorizontalResolution::H256, 10},
-			{HorizontalResolution::H320, 8},
-			{HorizontalResolution::H368, 7},
-			{HorizontalResolution::H512, 5},
-			{HorizontalResolution::H640, 4}
+		static const Array<U64,7> PAL_DOT_CLOCKS = {
+			10,
+			8,
+			7,
+			0,
+			5,
+			0,
+			4
 		};
+
+		U8 dotClocks = PAL_DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
 
 		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
 		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 
 		mClocks += 11.0f / 7.0f;
-		mDotClocks += 11.0f / 7.0f / PAL_DOT_CLOCKS.at(mGPUStat.HorizontalResolution);
+		mDotClocks += 11.0f / 7.0f / dotClocks;
 
-		if (mDotClocks >= PAL_DOT_CLOCKS.at(mGPUStat.HorizontalResolution)) {
-			mDotClocks -= PAL_DOT_CLOCKS.at(mGPUStat.HorizontalResolution);
+		if (mDotClocks >= dotClocks) {
+			mDotClocks -= dotClocks;
 			mTimer->dot();
 		}
 
@@ -309,6 +313,8 @@ namespace esx {
 
 				mRenderer->Flush();
 				mRenderer->Begin();
+
+				mFrameAvailable = ESX_TRUE;
 
 				mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
 			}

@@ -2,6 +2,7 @@
 
 #include <UI/Panels/Panel.h>
 #include <Core/R3000.h>
+#include <Core/GPU.h>
 
 #include <map>
 #include <vector>
@@ -14,6 +15,7 @@ namespace esx {
 		~DisassemblerPanel();
 
 		void setInstance(const SharedPtr<R3000>& pInstance) { mInstance = pInstance;}
+		void setGPU(const SharedPtr<GPU>& pGPU) { mGPU = pGPU; }
 
 		bool breakFunction(U32 address);
 
@@ -55,6 +57,7 @@ namespace esx {
 		void setDebugState(DebugState debugState) { mPrevDebugState = mDebugState; mDebugState = debugState; }
 
 		SharedPtr<R3000> mInstance;
+		SharedPtr<GPU> mGPU;
 
 		std::vector<Instruction> mInstructions;
 		std::vector<Breakpoint> mBreakpoints;

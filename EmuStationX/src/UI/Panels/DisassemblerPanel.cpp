@@ -49,14 +49,14 @@ namespace esx {
 				break;
 
 			case DebugState::Running:
-				for (int i = 0; i < 1000000; i++) {
+				do {
 					if (breakFunction(mInstance->mPC)) {
 						setDebugState(DebugState::Breakpoint);
 						break;
 					} else {
 						mInstance->clock();
 					}
-				}
+				} while (!mGPU->isNewFrameAvailable());
 				break;
 
 			case DebugState::Step:

@@ -177,6 +177,7 @@ public:
 
 		mCPUStatusPanel->setInstance(cpu);
 		mDisassemblerPanel->setInstance(cpu);
+		mDisassemblerPanel->setGPU(gpu);
 		mMemoryEditorPanel->setInstance(root);
 		mKernelTablesPanel->setInstance(root);
 

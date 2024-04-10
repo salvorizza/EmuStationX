@@ -134,6 +134,12 @@ namespace esx {
 
 		void clock();
 
+		BIT isNewFrameAvailable() { 
+			BIT tempFrame = mFrameAvailable;
+			if(mFrameAvailable) mFrameAvailable = ESX_FALSE;
+			return tempFrame;
+		}
+
 	private:
 		//Misc commands
 		Command gp0MiscCommands(U32 instruction) const;
@@ -244,6 +250,7 @@ namespace esx {
 		float mDotClocks = 0;
 		U64 mCurrentScanLine = 0;
 		BIT mVBlank = ESX_FALSE;
+		BIT mFrameAvailable = ESX_FALSE;
 
 		SharedPtr<IRenderer> mRenderer = {};
 		SharedPtr<Timer> mTimer = {};

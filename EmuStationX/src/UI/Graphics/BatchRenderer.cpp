@@ -167,8 +167,8 @@ namespace esx {
 		}
 
 		for (PolygonVertex& vertex : vertices) {
-			mTriCurrentVertex->vertex.x += mDrawOffset.x;
-			mTriCurrentVertex->vertex.y += mDrawOffset.y;
+			vertex.vertex.x += mDrawOffset.x;
+			vertex.vertex.y += mDrawOffset.y;
 		}
 
 		for (U64 i = 0; i < 3; i++) {
