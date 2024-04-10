@@ -15,23 +15,17 @@ out vec2 oClutUV;
 flat out uint oBPP;
 flat out uint oSemiTransparency;
 
-vec2 mapPointToRange(ivec2 point, uvec2 topLeft, uvec2 bottomRight) {
-    uvec2 range = bottomRight - topLeft;
-    vec2 normalizedPoint = vec2(point - topLeft) / vec2(range);
+vec2 mapPointToRange(vec2 point, vec2 topLeft, vec2 bottomRight) {
+    vec2 range = bottomRight - topLeft;
+    vec2 normalizedPoint = (point - topLeft) / (range);
     vec2 mappedPoint = vec2(normalizedPoint.x * 2.0 - 1.0, normalizedPoint.y * -2.0 + 1);
     return mappedPoint;
 }
 
 void main() {
-    ivec2 position = aPos;
+    vec2 position = vec2(aPos.x,aPos.y);
 
-    /*
-    * float xpos = (float(position.x) / 320) - 1.0;
-    * float ypos = 1.0 - (float(position.y) / 240);
-    * gl_Position = vec4(xpos, ypos, 0.0, 1.0);
-    */
-
-    vec2 mapped = mapPointToRange(position,uvec2(0,0),uvec2(1024,512));
+    vec2 mapped = mapPointToRange(position,vec2(0,0),vec2(1024,512));
     gl_Position = vec4(mapped.x,mapped.y,0,1);
     oColor = vec3(
         float(aColor.r) / 255,

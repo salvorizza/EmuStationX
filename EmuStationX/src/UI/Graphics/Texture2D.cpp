@@ -9,6 +9,7 @@ namespace esx {
 			case InternalFormat::R16: return GL_R16UI;
 			case InternalFormat::R8: return GL_R8UI;
 			case InternalFormat::RGB8: return GL_RGB8;
+			case InternalFormat::RGBA8: return GL_RGBA8;
 			case InternalFormat::RGB5_A1: return GL_RGB5_A1;
 		}
 		return 0;

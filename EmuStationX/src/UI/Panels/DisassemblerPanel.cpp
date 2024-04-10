@@ -70,7 +70,7 @@ namespace esx {
 
 
 			case DebugState::StepOver: {
-				for (int i = 0; i < 1000000; i++) {
+				do {
 					if (mInstance->mPC == mNextPC) {
 						mScrollToCurrent = true;
 						mCurrent = mInstance->mPC;
@@ -80,7 +80,7 @@ namespace esx {
 					else {
 						mInstance->clock();
 					}
-				}
+				} while (!mGPU->isNewFrameAvailable());
 				break;
 			}
 

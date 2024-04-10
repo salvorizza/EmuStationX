@@ -10,7 +10,7 @@ flat in uint oSemiTransparency;
 layout(binding=0) uniform usampler2D uVRAM16;  
 layout(binding=1) uniform usampler2D uVRAM8;   
 layout(binding=2) uniform usampler2D uVRAM4;   
-layout(binding=3) uniform usampler2D uVRAM;   
+layout(binding=3) uniform sampler2D uVRAM;   
 
 out vec4 fragColor;
 
@@ -61,24 +61,29 @@ vec4 from_15bit(uint data)
     return color;
 }
 
-uint texel_15bit(vec2 uv16) {
-    vec2 size = textureSize(uVRAM,0);
-    uvec4 color = texture(uVRAM, uv16 / size);
+int texel_15bit(ivec2 coords) {
+    vec4 color = texelFetch(uVRAM, coords, 0);
 
-    uint data = ((color.b & 0xF) << 10) | ((color.g & 0xF) << 5) | (color.r & 0xF);
+    int r = int(floor(color.r * 31.0 + 0.5));
+    int g = int(floor(color.g * 31.0 + 0.5));
+    int b = int(floor(color.b * 31.0 + 0.5));
+
+    int data = (b << 10) | (g << 5) | (r);
+
     return data;
 }
 
-uint texel_4bit(vec2 uv4) {
-    vec2 size = textureSize(uVRAM,0);
-    uint data = texel_15bit(vec2(uv4.x / 4.0,511.0 - uv4.y));
-    uint bitIndex = uint(floor(uv4.x / size.x));
-    uint texel = (data >> (4 * bitIndex)) & 0xF;
+int texel_4bit(vec2 uv4) {
+    ivec2 coords = ivec2(int(uv4.x) >> 2,511 - uv4.y);
+    int data = texel_15bit(coords);
+    int shift = (int(uv4.x) & 3) << 2;
+    int texel = (data >> shift) & 0xF;
     return texel;
 }
 
 void main() {
     vec4 color = vec4(oColor,1.0);
+   
 
     if(oTextured == 1) {
         vec2 size4 = textureSize(uVRAM4,0);
@@ -88,10 +93,10 @@ void main() {
 
         switch (oBPP) {
             case BPP_4: {
-                vec2 uvIndex = oUV / size4;
+                /*vec2 uvIndex = oUV / size4;
                 uvec4 index =  texture(uVRAM4,uvIndex);
-                uvColor = vec2(oClutUV.x + index.r,oClutUV.y) / size16;
-                //uvColor = vec2(oClutUV.x + texel_4bit(oUV),oClutUV.y) / size16;
+                uvColor = vec2(oClutUV.x + index.r,oClutUV.y) / size16;*/
+                uvColor = vec2(oClutUV.x + texel_4bit(oUV),oClutUV.y) / size16;  
                 break;
             }
 

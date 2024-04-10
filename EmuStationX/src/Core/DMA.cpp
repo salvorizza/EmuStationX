@@ -335,6 +335,7 @@ namespace esx {
 		U32 header = 0;
 		U32 packet = 0;
 
+		ESX_CORE_LOG_TRACE("DMA::startLinkedListTransfer");
 		do
 		{
 			ram->load(ESX_TEXT("Root"), nodeAddress, header);
@@ -357,6 +358,7 @@ namespace esx {
 
 			nodeAddress = nextNodeAddress;
 		} while (ESX_TRUE);
+		ESX_CORE_LOG_TRACE("DMA::startLinkedListTransfer Done");
 
 		setChannelDone(port);
 	}

@@ -169,6 +169,8 @@ namespace esx {
 		for (PolygonVertex& vertex : vertices) {
 			vertex.vertex.x += mDrawOffset.x;
 			vertex.vertex.y += mDrawOffset.y;
+
+			ESX_CORE_LOG_TRACE(" Vertex({},{}),Color({},{},{}),Textured({})", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.textured);
 		}
 
 		for (U64 i = 0; i < 3; i++) {
@@ -186,7 +188,6 @@ namespace esx {
 				mTriCurrentVertex++;
 			}
 		}
-
 	}
 
 	void BatchRenderer::VRAMWrite(U16 x, U16 y, U16 data)
@@ -205,9 +206,9 @@ namespace esx {
 
 
 		U8 pixels[3] = {
-			((data << 3) & 0xf8),
-			((data >> 2) & 0xf8),
-			((data >> 7) & 0xf8),
+			((data >> 0) & 0x1F) << 3,
+			((data >> 5) & 0x1F) << 3,
+			((data >> 10) & 0x1F) << 3
 		};
 		mFBO->getColorAttachment()->bind();
 		mFBO->getColorAttachment()->setPixel(x, 511 - y, &pixels);
@@ -216,6 +217,9 @@ namespace esx {
 
 	U16 BatchRenderer::VRAMRead(U16 x, U16 y)
 	{
+		Flush();
+		Begin();
+
 		U64 index = ((511-y) * 1024) + x;
 
 		U8 r = mVRAM24[(index * 3) + 0] >> 3;

@@ -9,6 +9,7 @@ namespace esx {
 		R16,
 		R8,
 		RGB8,
+		RGBA8,
 		RGB5_A1
 	};
 
