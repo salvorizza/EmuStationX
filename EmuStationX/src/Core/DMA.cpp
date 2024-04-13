@@ -164,7 +164,7 @@ namespace esx {
 		mInterruptRegister.ForceIRQ = (value >> 15) & 0x1;
 		mInterruptRegister.IRQEnable = (value >> 16) & 0x7F;
 		mInterruptRegister.IRQMasterEnable = (value >> 23) & 0x1;
-		mInterruptRegister.IRQFlags = (value >> 24) & 0x7F;
+		mInterruptRegister.IRQFlags &= ~((value >> 24) & 0x7F);
 	}
 
 	U32 DMA::getInterruptRegister()

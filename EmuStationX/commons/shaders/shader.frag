@@ -7,10 +7,7 @@ in vec2 oClutUV;
 flat in uint oBPP;
 flat in uint oSemiTransparency;
 
-layout(binding=0) uniform usampler2D uVRAM16;  
-layout(binding=1) uniform usampler2D uVRAM8;   
-layout(binding=2) uniform usampler2D uVRAM4;   
-layout(binding=3) uniform sampler2D uVRAM;   
+layout(binding=0) uniform sampler2D uVRAM;   
 
 out vec4 fragColor;
 
@@ -23,15 +20,14 @@ out vec4 fragColor;
 #define BMinusF 2u
 #define BPlusF4 3u
 
-vec4 from_15bit(uint data)
-{
+vec4 from_15bit(uint data) {
     vec4 color;
     color.r = ((data << 3) & 0xf8) / 255.0;
     color.g = ((data >> 2) & 0xf8) / 255.0;
     color.b = ((data >> 7) & 0xf8) / 255.0;
 
     if(data >= 0x8000u && (data >> 15) == 1u) {
-        vec4 previousColor = texture(uVRAM,gl_FragCoord.xy / textureSize(uVRAM,0));
+        vec4 previousColor = texelFetch(uVRAM,ivec2(gl_FragCoord.xy),0);
 
         switch(oSemiTransparency) {
             case B2PlusF2: {
@@ -61,22 +57,40 @@ vec4 from_15bit(uint data)
     return color;
 }
 
-int texel_15bit(ivec2 coords) {
-    vec4 color = texelFetch(uVRAM, coords, 0);
+int float_5bit(float value) {
+    return int(round(value * 31.0 + 0.5));
+}
 
-    int r = int(floor(color.r * 31.0 + 0.5));
-    int g = int(floor(color.g * 31.0 + 0.5));
-    int b = int(floor(color.b * 31.0 + 0.5));
+vec4 sample_vram(ivec2 coords) {
+    coords &= ivec2(1023,511);
+    return texelFetch(uVRAM, coords, 0);
+}
 
-    int data = (b << 10) | (g << 5) | (r);
+int sample_16bit(ivec2 coords) {
+    vec4 color = sample_vram(coords);
+
+    int r = float_5bit(color.r);
+    int g = float_5bit(color.g);
+    int b = float_5bit(color.b);
+    int a = int(ceil(color.a));
+
+    int data = (a << 15) | (b << 10) | (g << 5) | (r);
 
     return data;
 }
 
-int texel_4bit(vec2 uv4) {
-    ivec2 coords = ivec2(int(uv4.x) >> 2,511 - uv4.y);
-    int data = texel_15bit(coords);
-    int shift = (int(uv4.x) & 3) << 2;
+int texel_8bit(ivec2 coords) {
+    ivec2 vram_coords = ivec2(coords.x >> 1,511 - coords.y);
+    int data = sample_16bit(vram_coords);
+    int shift = (coords.x & 1) << 3;
+    int texel = (data >> shift) & 0xFF;
+    return texel;
+}
+
+int texel_4bit(ivec2 coords) {
+    ivec2 vram_coords = ivec2(coords.x >> 2,511 - coords.y);
+    int data = sample_16bit(vram_coords);
+    int shift = (coords.x & 3) << 2;
     int texel = (data >> shift) & 0xF;
     return texel;
 }
@@ -84,41 +98,35 @@ int texel_4bit(vec2 uv4) {
 void main() {
     vec4 color = vec4(oColor,1.0);
    
-
     if(oTextured == 1) {
-        vec2 size4 = textureSize(uVRAM4,0);
-        vec2 size8 = textureSize(uVRAM8,0);
-        vec2 size16 = textureSize(uVRAM16,0);
-        vec2 uvColor = vec2(0,0);
+        ivec2 uvColor = ivec2(0,0);
 
         switch (oBPP) {
             case BPP_4: {
-                /*vec2 uvIndex = oUV / size4;
-                uvec4 index =  texture(uVRAM4,uvIndex);
-                uvColor = vec2(oClutUV.x + index.r,oClutUV.y) / size16;*/
-                uvColor = vec2(oClutUV.x + texel_4bit(oUV),oClutUV.y) / size16;  
+                uvColor = ivec2(oClutUV.x + texel_4bit(ivec2(oUV)),511 - oClutUV.y);  
                 break;
             }
 
             case BPP_8: {
-                vec2 uvIndex = oUV / size8;
-                uvec4 index =  texture(uVRAM8,uvIndex);
-                uvColor = vec2(oClutUV.x + index.r,oClutUV.y) / size16;
+                uvColor = ivec2(oClutUV.x + texel_8bit(ivec2(oUV)),511 - oClutUV.y);  
                 break;
             }
 
             case BPP_16: {
-                uvColor = oUV / size16;
+                uvColor = ivec2(oUV.x, 511 - oUV.y);
                 break;
             }
         }
 
-        
-        uvec4 paletteColor = texture(uVRAM16, uvColor);
-        
-        if(paletteColor.r == 0u) discard;
+        color = sample_vram(uvColor);
+        if(color.rgb == vec3(0,0,0)) discard;
+        color.a = 1.0;
 
-        color = from_15bit(paletteColor.r);
+
+        
+        /*uvec4 paletteColor = texelFetch(uVRAM16, uvColor,0);
+        if(paletteColor.r == 0u) discard;
+        color = from_15bit(paletteColor.r);*/
     }
 
     fragColor = color;

@@ -1,5 +1,7 @@
 #include "SIO.h"
 
+#include "Controller.h"
+
 namespace esx {
 
 	SIO::SIO(U8 id)
@@ -7,6 +9,8 @@ namespace esx {
 			mID(id)
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801040 + mID * 0x10, BYTE(16), 0xFFFFFFFF);
+		mRX.Data.fill(0x00);
+		mTX.Data.fill(0x00);
 	}
 
 	SIO::~SIO()
@@ -16,12 +20,32 @@ namespace esx {
 	void SIO::clock()
 	{
 		if (mStatRegister.BaudrateTimer >= 0) {
-			
 			mStatRegister.BaudrateTimer--;
 			if (mStatRegister.BaudrateTimer == 0) {
+				if (mSerialClock == ESX_TRUE) {
+					fallingEdge();
+				} else {
+					risingEdge();
+				}
+
+				mSerialClock = !mSerialClock;
+				
 				reloadBaudTimer();
 			}
 		}
+	}
+
+	void SIO::fallingEdge()
+	{
+		mController->mosi(mTX.Pop());
+	}
+
+	void SIO::risingEdge()
+	{
+		U8 value = mController->miso();
+		mRX.Push(value);
+
+		mStatRegister.RXFifoNotEmpty = ESX_TRUE;
 	}
 
 	void SIO::store(const StringView& busName, U32 address, U16 value)
@@ -134,11 +158,14 @@ namespace esx {
 	{
 		mTX.Push(value & 0xFF);
 
-		//mStatRegister.TXFifoNotFull = ESX_FALSE;
-		//mStatRegister.TXIdle = ESX_FALSE;
-		//Start transfer
+		mStatRegister.TXFifoNotFull = ESX_TRUE;
+		mStatRegister.TXIdle = ESX_FALSE;
+		
+		if (canTransferStart()) {
+			startTransfer(value);
+		}
 
-		mStatRegister.RXFifoNotEmpty = ESX_TRUE;
+		ESX_CORE_LOG_TRACE("SIO-TX: {:02X}", value);
 	}
 
 	U32 SIO::getDataRegister(U8 dataAccess)
@@ -162,6 +189,8 @@ namespace esx {
 		if (mRX.Empty()) {
 			mStatRegister.RXFifoNotEmpty = ESX_FALSE;
 		}
+
+		ESX_CORE_LOG_TRACE("SIO-RX: {:08X}", result);
 
 		return result;
 	}
@@ -243,7 +272,6 @@ namespace esx {
 			mStatRegister.RXFifoOverrun = ESX_FALSE;
 			mStatRegister.RXBadStopBit = ESX_FALSE;
 			mStatRegister.InterruptRequest = ESX_FALSE;
-
 		}
 
 		if (mControlRegister.Reset) {
@@ -301,6 +329,11 @@ namespace esx {
 		}
 
 		mStatRegister.BaudrateTimer = (mBaudRegister.ReloadValue * baudFactor) / 2;
+	}
+
+	BIT SIO::canTransferStart()
+	{
+		return mControlRegister.TXEnable && mStatRegister.CTSInputLevel && mStatRegister.TXIdle;
 	}
 
 }

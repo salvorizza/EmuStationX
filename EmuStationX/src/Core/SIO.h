@@ -124,6 +124,8 @@ namespace esx {
 		U16 ReloadValue = 0;
 	};
 
+	class Controller;
+
 	class SIO : public BusDevice {
 	public:
 		SIO(U8 id);
@@ -131,11 +133,16 @@ namespace esx {
 
 		void clock();
 
+		void fallingEdge();
+		void risingEdge();
+
 		virtual void store(const StringView& busName, U32 address, U16 value) override;
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
 
 		virtual void store(const StringView& busName, U32 address, U8 value) override;
 		virtual void load(const StringView& busName, U32 address, U8& output) override;
+
+		inline void plugController(const SharedPtr<Controller>& controller) { mController = controller; }
 	private:
 		void setDataRegister(U32 value);
 		U32 getDataRegister(U8 dataAccess);
@@ -156,6 +163,8 @@ namespace esx {
 
 		void reloadBaudTimer();
 
+		BIT canTransferStart();
+
 	private:
 		U8 mID;
 
@@ -166,6 +175,10 @@ namespace esx {
 		SIOControlRegister mControlRegister;
 		MiscRegister mMiscRegister;
 		BaudRegister mBaudRegister;
+
+		BIT mSerialClock = ESX_FALSE;
+
+		SharedPtr<Controller> mController;
 	};
 
 }

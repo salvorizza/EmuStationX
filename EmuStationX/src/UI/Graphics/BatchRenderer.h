@@ -51,12 +51,6 @@ namespace esx {
 		glm::uvec2 mDrawTopLeft = glm::uvec2(0,0);
 		glm::uvec2 mDrawBottomRight = glm::uvec2(0,0);
 
-		SharedPtr<PixelBuffer> mPBO4, mPBO8, mPBO16;
-		SharedPtr<Texture2D> mTexture4, mTexture8, mTexture16;
-		U8* mPixels4 = nullptr;
-		U8* mPixels8 = nullptr;
-		U16* mPixels16 = nullptr;
-
 		Vector<U8> mVRAM24;
 
 	};
