@@ -66,6 +66,9 @@
     <ClInclude Include="src\Core\CDROM.h">
       <Filter>src\Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\Controller.h">
+      <Filter>src\Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\DMA.h">
       <Filter>src\Core</Filter>
     </ClInclude>
@@ -186,6 +189,9 @@
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\CDROM.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Controller.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\DMA.cpp">

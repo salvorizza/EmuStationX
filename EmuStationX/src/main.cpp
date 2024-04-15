@@ -27,6 +27,7 @@
 #include "Core/GPU.h"
 #include "Core/CDROM.h"
 #include "Core/SIO.h"
+#include "Core/Controller.h"
 
 
 #ifdef ESX_PLATFORM_WINDOWS
@@ -132,6 +133,7 @@ public:
 		cdrom = MakeShared<CDROM>();
 		sio0 = MakeShared<SIO>(0);
 		sio1 = MakeShared<SIO>(1);
+		controller = MakeShared<Controller>(ControllerType::DigitalPad);
 
 
 		root->connectDevice(cpu);
@@ -173,6 +175,9 @@ public:
 		root->connectDevice(sio1);
 		sio1->connectToBus(root);
 
+		sio0->plugController(controller);
+		controller->setMaster(sio0);
+
 		root->sortRanges();
 
 		mCPUStatusPanel->setInstance(cpu);
@@ -182,11 +187,25 @@ public:
 		mKernelTablesPanel->setInstance(root);
 
 		mBatchRenderer->Begin();
+
+		InputManager::Init();
 	}
 
 	virtual void onUpdate() override {
+
+		controller->setButtonState(ControllerButton::JoypadDown, InputManager::IsKeyPressed(GLFW_KEY_S));
+		controller->setButtonState(ControllerButton::JoypadUp, InputManager::IsKeyPressed(GLFW_KEY_W));
+		controller->setButtonState(ControllerButton::JoypadLeft, InputManager::IsKeyPressed(GLFW_KEY_A));
+		controller->setButtonState(ControllerButton::JoypadRight, InputManager::IsKeyPressed(GLFW_KEY_D));
+
+		controller->setButtonState(ControllerButton::Cross, InputManager::IsKeyPressed(GLFW_KEY_Z));
+		controller->setButtonState(ControllerButton::Square, InputManager::IsKeyPressed(GLFW_KEY_X));
+		controller->setButtonState(ControllerButton::Triangle, InputManager::IsKeyPressed(GLFW_KEY_C));
+		controller->setButtonState(ControllerButton::Circle, InputManager::IsKeyPressed(GLFW_KEY_V));
+
 		mDisassemblerPanel->onUpdate();
 		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
+		InputManager::Update();
 	}
 
 	virtual void onRender() override {
@@ -268,6 +287,7 @@ private:
 	SharedPtr<CDROM> cdrom;
 	SharedPtr<SIO> sio0;
 	SharedPtr<SIO> sio1;
+	SharedPtr<Controller> controller;
 
 
 	SharedPtr<CPUStatusPanel> mCPUStatusPanel;

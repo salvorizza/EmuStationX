@@ -2,6 +2,8 @@
 
 #include "Controller.h"
 
+#include "InterruptControl.h"
+
 namespace esx {
 
 	SIO::SIO(U8 id)
@@ -10,7 +12,6 @@ namespace esx {
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801040 + mID * 0x10, BYTE(16), 0xFFFFFFFF);
 		mRX.Data.fill(0x00);
-		mTX.Data.fill(0x00);
 	}
 
 	SIO::~SIO()
@@ -37,15 +38,47 @@ namespace esx {
 
 	void SIO::fallingEdge()
 	{
-		mController->mosi(mTX.Pop());
+		if (canTransferStart() && mTXShift.Size == 0) {
+			mTXShift.Set(mTX);
+			mStatRegister.TXFifoNotFull = ESX_TRUE;
+		}
+
+		if (mTXShift.Size != 0) {
+			mController->mosi(mTXShift.Pop());
+			if (mTXShift.Size == 0) {
+				mRXShift = {};
+				mStatRegister.TXIdle = ESX_TRUE;
+			}
+		}
 	}
 
 	void SIO::risingEdge()
 	{
-		U8 value = mController->miso();
-		mRX.Push(value);
+		if (canReceiveData()) {
+			U8 value = mController->miso();
+			mRXShift.Push(value);
 
-		mStatRegister.RXFifoNotEmpty = ESX_TRUE;
+			if (mRXShift.Size == 8) {
+				U8 rx = mRXShift.Data;
+				mRXShift = {};
+
+				mRX.Push(rx);
+
+				mStatRegister.RXFifoNotEmpty = ESX_TRUE;
+				if (mControlRegister.RXEnable) mControlRegister.RXEnable = ESX_FALSE;
+			}
+
+		}
+	}
+
+	void SIO::dsr()
+	{
+		mStatRegister.DSRInputLevel = ESX_TRUE;
+
+		if (mControlRegister.DSRInterruptEnable) {
+			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::ControllerAndMemoryCard, mStatRegister.InterruptRequest, ESX_TRUE);
+			mStatRegister.InterruptRequest = ESX_TRUE;
+		}
 	}
 
 	void SIO::store(const StringView& busName, U32 address, U16 value)
@@ -156,16 +189,12 @@ namespace esx {
 
 	void SIO::setDataRegister(U32 value)
 	{
-		mTX.Push(value & 0xFF);
+		mTX = (value & 0xFF);
 
-		mStatRegister.TXFifoNotFull = ESX_TRUE;
+		mStatRegister.TXFifoNotFull = ESX_FALSE;
 		mStatRegister.TXIdle = ESX_FALSE;
-		
-		if (canTransferStart()) {
-			startTransfer(value);
-		}
 
-		ESX_CORE_LOG_TRACE("SIO-TX: {:02X}", value);
+		mLatchedTXEN = mControlRegister.TXEnable;
 	}
 
 	U32 SIO::getDataRegister(U8 dataAccess)
@@ -189,8 +218,6 @@ namespace esx {
 		if (mRX.Empty()) {
 			mStatRegister.RXFifoNotEmpty = ESX_FALSE;
 		}
-
-		ESX_CORE_LOG_TRACE("SIO-RX: {:08X}", result);
 
 		return result;
 	}
@@ -333,7 +360,18 @@ namespace esx {
 
 	BIT SIO::canTransferStart()
 	{
-		return mControlRegister.TXEnable && mStatRegister.CTSInputLevel && mStatRegister.TXIdle;
+		BIT CTS = mID == 1 ? mStatRegister.CTSInputLevel : ESX_TRUE;
+		BIT TXEN = mControlRegister.TXEnable || mLatchedTXEN;
+		return TXEN && CTS && !mStatRegister.TXIdle;
+	}
+
+	BIT SIO::canReceiveData()
+	{
+		if (mControlRegister.RXEnable) {
+			return ESX_TRUE;
+		} else {
+			return mControlRegister.DTROutputLevel;
+		}
 	}
 
 }

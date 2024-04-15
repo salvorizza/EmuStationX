@@ -136,6 +136,8 @@ namespace esx {
 		void fallingEdge();
 		void risingEdge();
 
+		void dsr();
+
 		virtual void store(const StringView& busName, U32 address, U16 value) override;
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
 
@@ -164,11 +166,12 @@ namespace esx {
 		void reloadBaudTimer();
 
 		BIT canTransferStart();
+		BIT canReceiveData();
 
 	private:
 		U8 mID;
 
-		TransmissionFIFO<U8, 2> mTX;
+		U8 mTX;
 		TransmissionFIFO<U8, 8> mRX;
 		StatRegister mStatRegister;
 		ModeRegister mModeRegister;
@@ -178,7 +181,12 @@ namespace esx {
 
 		BIT mSerialClock = ESX_FALSE;
 
+		BIT mLatchedTXEN = ESX_FALSE;
+		BIT mRead = ESX_FALSE;
+
 		SharedPtr<Controller> mController;
+
+		ShiftRegister mTXShift, mRXShift;
 	};
 
 }

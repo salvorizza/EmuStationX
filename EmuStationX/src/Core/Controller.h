@@ -39,9 +39,18 @@ namespace esx {
 		Square = 1 << 15
 	};
 
+	enum CommunicationPhase {
+		IDLo,
+		IDHi,
+		Data1,
+		Data2,
+		Max
+	};
+
 	using ControllerState = U16;
 
 	class SIO;
+	struct ShiftRegister;
 
 	class Controller {
 	public:
@@ -54,6 +63,7 @@ namespace esx {
 		inline ControllerType getType() const { return mType; }
 		inline ControllerState getState() const { return mState; }
 
+		inline void setButtonState(ControllerButton button, BIT pressed) { if (pressed) pressButton(button); else releaseButton(button); }
 		inline void releaseButton(ControllerButton button) { mState |= (U16)button; }
 		inline void pressButton(ControllerButton button) { mState &= ~((U16)button); }
 
@@ -62,6 +72,10 @@ namespace esx {
 		ControllerType mType;
 		ControllerState mState;
 		SharedPtr<SIO> mMaster;
+
+		ShiftRegister mRX, mTX;
+
+		CommunicationPhase mPhase;
 	};
 
 }

@@ -123,6 +123,35 @@ namespace esx {
 		return std::vformat(view, ESX_MAKE_FORMAT_ARGS(args...));
 	}
 
+
+	struct ShiftRegister {
+		U8 Data = 0;
+		U8 Size = 0;
+
+		void Set(U8 data) {
+			Data = data;
+			Size = 8;
+		}
+
+		void Push(U8 value) {
+			if (Size == 8) return;
+
+			Data >>= 1;
+			Data |= (value << 7);
+			Size++;
+		}
+
+		U8 Pop() {
+			if (Size == 0) return (Data & 0x1);
+
+			U8 data = Data & 0x1;
+			Data >>= 1;
+			Size--;
+			return data;
+		}
+	};
+
+
 #ifdef ESX_DEBUG
 #if defined(ESX_PLATFORM_WINDOWS)
 #define ESX_DEBUGBREAK() __debugbreak()
