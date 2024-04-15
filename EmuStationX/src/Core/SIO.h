@@ -2,6 +2,7 @@
 
 #include "Base/Base.h"
 #include "Base/Bus.h"
+#include "SerialDevice.h"
 
 namespace esx {
 
@@ -124,6 +125,11 @@ namespace esx {
 		U16 ReloadValue = 0;
 	};
 
+	enum SerialPort {
+		Port1,
+		Port2
+	};
+
 	class Controller;
 
 	class SIO : public BusDevice {
@@ -144,7 +150,7 @@ namespace esx {
 		virtual void store(const StringView& busName, U32 address, U8 value) override;
 		virtual void load(const StringView& busName, U32 address, U8& output) override;
 
-		inline void plugController(const SharedPtr<Controller>& controller) { mController = controller; }
+		inline void plugDevice(SerialPort port, const SharedPtr<SerialDevice>& device) { mPorts[port][(U8)device->getDeviceType()] = device; }
 	private:
 		void setDataRegister(U32 value);
 		U32 getDataRegister(U8 dataAccess);
@@ -171,7 +177,7 @@ namespace esx {
 	private:
 		U8 mID;
 
-		U8 mTX;
+		U8 mTX = 0x00;
 		TransmissionFIFO<U8, 8> mRX;
 		StatRegister mStatRegister;
 		ModeRegister mModeRegister;
@@ -184,7 +190,7 @@ namespace esx {
 		BIT mLatchedTXEN = ESX_FALSE;
 		BIT mRead = ESX_FALSE;
 
-		SharedPtr<Controller> mController;
+		Array<Array<SharedPtr<SerialDevice>, 2>, 2> mPorts;
 
 		ShiftRegister mTXShift, mRXShift;
 	};

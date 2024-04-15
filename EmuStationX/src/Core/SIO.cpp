@@ -20,7 +20,7 @@ namespace esx {
 
 	void SIO::clock()
 	{
-		if (mStatRegister.BaudrateTimer >= 0) {
+		if (mStatRegister.BaudrateTimer > 0) {
 			mStatRegister.BaudrateTimer--;
 			if (mStatRegister.BaudrateTimer == 0) {
 				if (mSerialClock == ESX_TRUE) {
@@ -44,7 +44,17 @@ namespace esx {
 		}
 
 		if (mTXShift.Size != 0) {
-			mController->mosi(mTXShift.Pop());
+			U8 value = mTXShift.Pop();
+
+			for (auto& device : mPorts[mControlRegister.PortSelect]) {
+				if (device) {
+					device->mosi(value);
+					if (device->isSelected()) {
+						break;
+					}
+				}
+			}
+
 			if (mTXShift.Size == 0) {
 				mRXShift = {};
 				mStatRegister.TXIdle = ESX_TRUE;
@@ -55,7 +65,18 @@ namespace esx {
 	void SIO::risingEdge()
 	{
 		if (canReceiveData()) {
-			U8 value = mController->miso();
+			U8 value = 1;
+
+			for (auto& device : mPorts[mControlRegister.PortSelect]) {
+				if (device) {
+					U8 misoValue = device->miso();
+					if (device->isSelected()) {
+						value = misoValue;
+						break;
+					}
+				}
+			}
+
 			mRXShift.Push(value);
 
 			if (mRXShift.Size == 8) {
@@ -280,6 +301,8 @@ namespace esx {
 
 	void SIO::setControlRegister(U16 value)
 	{
+		BIT oldDTR = mControlRegister.DTROutputLevel;
+
 		mControlRegister.TXEnable = ((value >> 0) & 0x1);
 		mControlRegister.DTROutputLevel = ((value >> 1) & 0x1);
 		mControlRegister.RXEnable = ((value >> 2) & 0x1);
@@ -305,6 +328,16 @@ namespace esx {
 			//Reset "most registers?" to zero
 			mStatRegister = {};
 		}
+
+		if (oldDTR == ESX_FALSE && mControlRegister.DTROutputLevel == ESX_TRUE) {
+			ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
+			for (auto& device : mPorts[mControlRegister.PortSelect]) {
+				if (device) {
+					device->cs();
+				}
+			}
+		}
+		
 	}
 
 	U16 SIO::getControlRegister()

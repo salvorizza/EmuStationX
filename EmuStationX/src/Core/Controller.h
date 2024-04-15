@@ -2,6 +2,8 @@
 
 #include "Base/Base.h"
 
+#include "SerialDevice.h"
+
 namespace esx {
 
 	enum class ControllerType : U16 {
@@ -39,12 +41,10 @@ namespace esx {
 		Square = 1 << 15
 	};
 
-	enum CommunicationPhase {
-		IDLo,
-		IDHi,
-		Data1,
-		Data2,
-		Max
+	enum class CommunicationPhase {
+		Addressing,
+		Command,
+		Data
 	};
 
 	using ControllerState = U16;
@@ -52,13 +52,13 @@ namespace esx {
 	class SIO;
 	struct ShiftRegister;
 
-	class Controller {
+	class Controller : public SerialDevice {
 	public:
 		Controller(ControllerType type);
-		~Controller() = default;
+		virtual ~Controller() = default;
 
-		void mosi(U8 value);
-		U8 miso();
+		U8 receive(U8 value) override;
+		void cs() override;
 
 		inline ControllerType getType() const { return mType; }
 		inline ControllerState getState() const { return mState; }
@@ -66,16 +66,11 @@ namespace esx {
 		inline void setButtonState(ControllerButton button, BIT pressed) { if (pressed) pressButton(button); else releaseButton(button); }
 		inline void releaseButton(ControllerButton button) { mState |= (U16)button; }
 		inline void pressButton(ControllerButton button) { mState &= ~((U16)button); }
-
-		inline void setMaster(const SharedPtr<SIO>& master) { mMaster = master; }
 	private:
 		ControllerType mType;
 		ControllerState mState;
-		SharedPtr<SIO> mMaster;
-
-		ShiftRegister mRX, mTX;
-
 		CommunicationPhase mPhase;
+		Queue<U8> mCommandResponse;
 	};
 
 }

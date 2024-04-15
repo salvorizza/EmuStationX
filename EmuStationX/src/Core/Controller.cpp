@@ -7,34 +7,58 @@ namespace esx {
 
 
 	Controller::Controller(ControllerType type)
-		:	mType(type),
+		:	SerialDevice(SerialDeviceType::Controller),
+			mType(type),
 			mState(0xFFFF)
 	{
-		mPhase = CommunicationPhase::IDLo;
+		mPhase = CommunicationPhase::Addressing;
 	}
 
-	void Controller::mosi(U8 value)
+	U8 Controller::receive(U8 value)
 	{
-		mRX.Push(value);
-		if (mRX.Size == 8) {
+		U8 tx = 0;
 
-			switch (mPhase) {
-				case CommunicationPhase::IDLo: 	mTX.Set((U16)mType); break;
-				case CommunicationPhase::IDHi: 	mTX.Set(((U16)mType) >> 8); break;
-				case CommunicationPhase::Data1: mTX.Set(mState); break;
-				case CommunicationPhase::Data2: mTX.Set(mState >> 8); break;
+		switch (mPhase) {
+			case CommunicationPhase::Addressing: {
+				if (value == 0x01) {
+					mPhase = CommunicationPhase::Command;
+					mSelected = ESX_TRUE;
+					tx = (U8)mType;
+				}
+				else {
+					ESX_CORE_LOG_TRACE("Address {:02X}", value);
+				}
+				break;
 			}
 
-			mPhase = (CommunicationPhase)((mPhase + 1) % CommunicationPhase::Max);
+			case CommunicationPhase::Command: {
+				mCommandResponse.emplace((U8)(((U16)mType) >> 8));
+				mCommandResponse.emplace((U8)mState);
+				mCommandResponse.emplace((U8)(mState >> 8));
+				mPhase = CommunicationPhase::Data;
+			}
 
-			mMaster->dsr();
-			mRX = {};
+			default: {
+				if (!mCommandResponse.empty()) {
+					tx = mCommandResponse.front();
+					mCommandResponse.pop();
+				}
+			}
 		}
+
+		if (mSelected) {
+			mMaster->dsr();
+		}
+
+		return tx;
 	}
 
-	U8 Controller::miso()
+	void Controller::cs()
 	{
-		return mTX.Pop();
+		mPhase = CommunicationPhase::Addressing;
+		mTX.Set(0xFF);
+		mRX = {};
+		mSelected = ESX_FALSE;
 	}
 
 }

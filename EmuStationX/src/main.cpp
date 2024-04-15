@@ -175,7 +175,7 @@ public:
 		root->connectDevice(sio1);
 		sio1->connectToBus(root);
 
-		sio0->plugController(controller);
+		sio0->plugDevice(SerialPort::Port1, controller);
 		controller->setMaster(sio0);
 
 		root->sortRanges();
