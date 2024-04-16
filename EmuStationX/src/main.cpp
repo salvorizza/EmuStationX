@@ -28,6 +28,7 @@
 #include "Core/CDROM.h"
 #include "Core/SIO.h"
 #include "Core/Controller.h"
+#include "Core/MemoryCard.h"
 
 
 #ifdef ESX_PLATFORM_WINDOWS
@@ -134,7 +135,7 @@ public:
 		sio0 = MakeShared<SIO>(0);
 		sio1 = MakeShared<SIO>(1);
 		controller = MakeShared<Controller>(ControllerType::DigitalPad);
-
+		memoryCard = MakeShared<MemoryCard>("commons/memory_cards/0.mcr");
 
 		root->connectDevice(cpu);
 		cpu->connectToBus(root);
@@ -177,6 +178,9 @@ public:
 
 		sio0->plugDevice(SerialPort::Port1, controller);
 		controller->setMaster(sio0);
+
+		sio0->plugDevice(SerialPort::Port1, memoryCard);
+		memoryCard->setMaster(sio0);
 
 		root->sortRanges();
 
@@ -288,6 +292,7 @@ private:
 	SharedPtr<SIO> sio0;
 	SharedPtr<SIO> sio1;
 	SharedPtr<Controller> controller;
+	SharedPtr<MemoryCard> memoryCard;
 
 
 	SharedPtr<CPUStatusPanel> mCPUStatusPanel;

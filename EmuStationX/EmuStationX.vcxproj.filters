@@ -181,6 +181,7 @@
       <Filter>src\Utils</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\SerialDevice.h" />
+    <ClInclude Include="src\Core\MemoryCard.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -292,6 +293,7 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\SerialDevice.cpp" />
+    <ClCompile Include="src\Core\MemoryCard.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="commons\icons\Logo.ico">

@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <functional>
 #include <tuple>
+#include <filesystem>
 
 
 namespace esx {
