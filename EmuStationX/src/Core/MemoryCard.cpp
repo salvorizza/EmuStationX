@@ -2,6 +2,8 @@
 
 #include "UI/Utils.h"
 
+#include "SIO.h"
+
 namespace esx {
 
 
@@ -68,15 +70,145 @@ namespace esx {
 		ReadFile(path.string().c_str(), file);
 		std::memcpy(&mData, file.Data, file.Size);
 		DeleteBuffer(file);
+
+		mFlag = (1 << 3);
 	}
 
 	U8 MemoryCard::receive(U8 value)
 	{
-		return 0;
+		U8 tx = 0;
+
+		switch (mPhase) {
+			case MemoryCardCommunicationPhase::Adressing: {
+				if (value == 0x81) {
+					mPhase = MemoryCardCommunicationPhase::Command;
+					mSelected = ESX_TRUE;
+					tx = mFlag;
+				}
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::Command: {
+				mCurrentCommand = (MemoryCardCommand)value;
+
+				switch (mCurrentCommand) {
+					case MemoryCardCommand::Read: {
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveMemoryCardID1);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveMemoryCardID2);
+						mPhases.emplace(MemoryCardCommunicationPhase::SendAddressMSB);
+						mPhases.emplace(MemoryCardCommunicationPhase::SendAddressLSB);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveCommandAcknowledge1);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveCommandAcknowledge2);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveConfirmedAddressMSB);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveConfirmedAddressLSB);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveDataSector);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveChecksum);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveMemoryEndByte);
+
+						break;
+					}
+					case MemoryCardCommand::Write: {
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveMemoryCardID1);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveMemoryCardID2);
+						mPhases.emplace(MemoryCardCommunicationPhase::SendAddressMSB);
+						mPhases.emplace(MemoryCardCommunicationPhase::SendAddressLSB);
+						mPhases.emplace(MemoryCardCommunicationPhase::SendDataSector);
+						mPhases.emplace(MemoryCardCommunicationPhase::SendChecksum);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveCommandAcknowledge1);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveCommandAcknowledge2);
+						mPhases.emplace(MemoryCardCommunicationPhase::ReceiveMemoryEndByte);
+
+						break;
+					}
+					case MemoryCardCommand::GetID: {
+						ESX_CORE_LOG_ERROR("MemoryCardCommand::GetID not implemented yet");
+						break;
+					}
+				}
+				tx = 0x5A;
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::ReceiveMemoryCardID1: {
+				tx = 0x5D;
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::ReceiveMemoryCardID2: {
+				tx = 0x00;
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::SendAddressMSB: {
+				mReceivedAddress |= value << 8;
+				mChecksum ^= value;
+				tx = 0x00;
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::SendAddressLSB: {
+				mReceivedAddress |= value;
+				mAddressPointer = 0x00;
+				mChecksum ^= value;
+				tx = 0x5C;
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::ReceiveCommandAcknowledge1: {
+				tx = 0x5D;
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::ReceiveCommandAcknowledge2: {
+				tx = mReceivedAddress >> 8;
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::ReceiveConfirmedAddressMSB: {
+				tx = mReceivedAddress & 0xFF;
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::ReceiveDataSector: {
+				if (mAddressPointer < 128) {
+					tx = ((U8*)&mData)[(mReceivedAddress * 128) + mAddressPointer];
+					mAddressPointer++;
+					mChecksum ^= tx;
+				} else {
+					tx = mChecksum;
+				}
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::ReceiveChecksum: {
+				tx = 0x47;
+				break;
+			}
+
+		}
+
+		if (!mPhases.empty()) {
+			if ((mPhase == MemoryCardCommunicationPhase::ReceiveDataSector && mAddressPointer > 128) || mPhase != MemoryCardCommunicationPhase::ReceiveDataSector) {
+				mPhase = mPhases.front();
+				mPhases.pop();
+			}
+		}
+
+		if (mSelected) {
+			mMaster->dsr();
+		}
+
+		return tx;
 	}
 
 	void MemoryCard::cs()
-	{}
+	{
+		mPhase = MemoryCardCommunicationPhase::Adressing;
+		mTX.Set(0xFF);
+		mRX = {};
+		mSelected = ESX_FALSE;
+		mPhases = {};
+	}
 
 	void MemoryCard::Save()
 	{

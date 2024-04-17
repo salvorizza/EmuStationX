@@ -25,9 +25,6 @@ namespace esx {
 					mSelected = ESX_TRUE;
 					tx = (U8)mType;
 				}
-				else {
-					ESX_CORE_LOG_TRACE("Address {:02X}", value);
-				}
 				break;
 			}
 

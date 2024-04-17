@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Base/Base.h"
+#include "Utils/LoggingSystem.h"
 #include "SerialDevice.h"
 
 namespace esx {
@@ -88,6 +89,31 @@ namespace esx {
 		Array<File, 14> Files;
 	};
 
+	enum class MemoryCardCommunicationPhase {
+		Adressing,
+		Command,
+		ReceiveMemoryCardID1,
+		ReceiveMemoryCardID2,
+		SendAddressMSB,
+		SendAddressLSB,
+		ReceiveCommandAcknowledge1,
+		ReceiveCommandAcknowledge2,
+		ReceiveConfirmedAddressMSB,
+		ReceiveConfirmedAddressLSB,
+		ReceiveDataSector,
+		SendDataSector,
+		ReceiveChecksum,
+		SendChecksum,
+		ReceiveMemoryEndByte
+	};
+
+	enum class MemoryCardCommand : U8 {
+		None,
+		Read = 'R',
+		Write = 'W',
+		GetID = 'S'
+	};
+
 	class MemoryCard : public SerialDevice {
 	public:
 		MemoryCard();
@@ -103,6 +129,14 @@ namespace esx {
 		U8 calculateChecksum(U8* frame, U64 frameSize);
 	private:
 		MemoryCardData mData = {};
+		U8 mFlag = 0x00;
+		U16 mReceivedAddress = 0x0000;
+		U8 mAddressPointer = 0x00;
+		U8 mChecksum = 0x00;
+
+		MemoryCardCommand mCurrentCommand = MemoryCardCommand::None;
+		MemoryCardCommunicationPhase mPhase = MemoryCardCommunicationPhase::Adressing;
+		Queue<MemoryCardCommunicationPhase> mPhases;
 	};
 
 }
