@@ -76,7 +76,7 @@ namespace esx {
 
 	U8 MemoryCard::receive(U8 value)
 	{
-		U8 tx = 0;
+		U8 tx = 0xFF;
 
 		switch (mPhase) {
 			case MemoryCardCommunicationPhase::Adressing: {
@@ -140,7 +140,7 @@ namespace esx {
 			}
 
 			case MemoryCardCommunicationPhase::SendAddressMSB: {
-				mReceivedAddress |= value << 8;
+				mReceivedAddress = value << 8;
 				mChecksum ^= value;
 				tx = 0x00;
 				break;
@@ -150,7 +150,11 @@ namespace esx {
 				mReceivedAddress |= value;
 				mAddressPointer = 0x00;
 				mChecksum ^= value;
-				tx = 0x5C;
+				if (mCurrentCommand == MemoryCardCommand::Read) {
+					tx = 0x5C;
+				} else if (mCurrentCommand == MemoryCardCommand::Write) {
+					tx = mLastRX;
+				}
 				break;
 			}
 
@@ -160,7 +164,13 @@ namespace esx {
 			}
 
 			case MemoryCardCommunicationPhase::ReceiveCommandAcknowledge2: {
-				tx = mReceivedAddress >> 8;
+				if (mCurrentCommand == MemoryCardCommand::Read) {
+					tx = mReceivedAddress >> 8;
+				}
+				else if (mCurrentCommand == MemoryCardCommand::Write) {
+					mFlag &= ~(1 << 3);
+					tx = (mChecksum == mReceivedChecksum) ? 0x47 : 0x4E;
+				}
 				break;
 			}
 
@@ -169,14 +179,31 @@ namespace esx {
 				break;
 			}
 
+			case MemoryCardCommunicationPhase::ReceiveConfirmedAddressLSB: {
+				tx = ((U8*)&mData)[(mReceivedAddress * 128) + mAddressPointer];
+				mChecksum ^= tx;
+				mAddressPointer++;
+				break;
+			}
+
 			case MemoryCardCommunicationPhase::ReceiveDataSector: {
 				if (mAddressPointer < 128) {
 					tx = ((U8*)&mData)[(mReceivedAddress * 128) + mAddressPointer];
-					mAddressPointer++;
 					mChecksum ^= tx;
 				} else {
 					tx = mChecksum;
 				}
+				mAddressPointer++;
+				break;
+			}
+
+			case MemoryCardCommunicationPhase::SendDataSector: {
+				if (mAddressPointer < 128) {
+					((U8*)&mData)[(mReceivedAddress * 128) + mAddressPointer] = value;
+					mChecksum ^= value;
+				}
+				mAddressPointer++;
+				tx = mLastRX;
 				break;
 			}
 
@@ -185,10 +212,17 @@ namespace esx {
 				break;
 			}
 
+			case MemoryCardCommunicationPhase::SendChecksum: {
+				mReceivedChecksum = value;
+				tx = 0x5C;
+				break;
+			}
+
 		}
 
 		if (!mPhases.empty()) {
-			if ((mPhase == MemoryCardCommunicationPhase::ReceiveDataSector && mAddressPointer > 128) || mPhase != MemoryCardCommunicationPhase::ReceiveDataSector) {
+			if (((mPhase == MemoryCardCommunicationPhase::ReceiveDataSector && mAddressPointer > 128) || (mPhase == MemoryCardCommunicationPhase::SendDataSector && mAddressPointer >= 128))
+				|| (mPhase != MemoryCardCommunicationPhase::ReceiveDataSector && mPhase != MemoryCardCommunicationPhase::SendDataSector)) {
 				mPhase = mPhases.front();
 				mPhases.pop();
 			}
@@ -197,6 +231,8 @@ namespace esx {
 		if (mSelected) {
 			mMaster->dsr();
 		}
+
+		mLastRX = value;
 
 		return tx;
 	}

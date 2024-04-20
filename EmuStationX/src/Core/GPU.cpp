@@ -396,7 +396,7 @@ namespace esx {
 		vertices[2].vertex = Vertex(XPos + XSiz,	YPos);
 		vertices[3].vertex = Vertex(XPos,			YPos);
 
-		ESX_CORE_LOG_TRACE("GPU::gp0QuickRectangleFillCommand");
+		//ESX_CORE_LOG_TRACE("GPU::gp0QuickRectangleFillCommand");
 		mRenderer->DrawPolygon(vertices);
 	}
 
@@ -482,7 +482,7 @@ namespace esx {
 			}
 		}
 
-		ESX_CORE_LOG_TRACE("GPU::gp0DrawPolygonPrimitiveCommand");
+		//ESX_CORE_LOG_TRACE("GPU::gp0DrawPolygonPrimitiveCommand");
 		mRenderer->DrawPolygon(vertices);
 	}
 
@@ -593,7 +593,7 @@ namespace esx {
 		}
 
 
-		ESX_CORE_LOG_TRACE("GPU::gp0DrawRectanglePrimitiveCommand");
+		//ESX_CORE_LOG_TRACE("GPU::gp0DrawRectanglePrimitiveCommand");
 		mRenderer->DrawPolygon(vertices);
 	}
 

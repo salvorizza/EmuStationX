@@ -1464,13 +1464,6 @@ namespace esx {
 		mNextPC = mPC + 4;
 	}
 
-	void R3000::acknowledge()
-	{
-		U32 sr = getCP0Register(COP0Register::SR);
-		sr &= ~(1 << 10);
-		setCP0Register(COP0Register::SR, sr);
-	}
-
 	String Instruction::Mnemonic() const
 	{
 		constexpr static std::array<StringView,32> registersMnemonics = {

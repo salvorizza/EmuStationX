@@ -3,6 +3,7 @@
 #include "Controller.h"
 
 #include "InterruptControl.h"
+#include "R3000.h"
 
 namespace esx {
 
@@ -41,6 +42,7 @@ namespace esx {
 		if (canTransferStart() && mTXShift.Size == 0) {
 			mTXShift.Set(mTX);
 			mStatRegister.TXFifoNotFull = ESX_TRUE;
+			//ESX_CORE_LOG_TRACE("TX {:02X}h", mTX);
 		}
 
 		if (mTXShift.Size != 0) {
@@ -85,6 +87,8 @@ namespace esx {
 
 				mRX.Push(rx);
 
+				//ESX_CORE_LOG_TRACE("RX {:02X}h", rx);
+
 				mStatRegister.RXFifoNotEmpty = ESX_TRUE;
 				if (mControlRegister.RXEnable) mControlRegister.RXEnable = ESX_FALSE;
 			}
@@ -94,11 +98,14 @@ namespace esx {
 
 	void SIO::dsr()
 	{
-		mStatRegister.DSRInputLevel = ESX_TRUE;
+		//mStatRegister.DSRInputLevel = ESX_TRUE;
 
 		if (mControlRegister.DSRInterruptEnable) {
 			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::ControllerAndMemoryCard, mStatRegister.InterruptRequest, ESX_TRUE);
 			mStatRegister.InterruptRequest = ESX_TRUE;
+		}
+		else {
+			ESX_CORE_LOG_ERROR("DSR Not enabled but reuqested interrupt");
 		}
 	}
 
@@ -211,6 +218,13 @@ namespace esx {
 	void SIO::setDataRegister(U32 value)
 	{
 		mTX = (value & 0xFF);
+
+		if (mTXShift.Size != 0) {
+			ESX_CORE_LOG_ERROR("TX not finished yet");
+		}
+
+		if (mStatRegister.TXFifoNotFull == ESX_FALSE) mTXShift.Set(value);
+
 
 		mStatRegister.TXFifoNotFull = ESX_FALSE;
 		mStatRegister.TXIdle = ESX_FALSE;
@@ -326,7 +340,22 @@ namespace esx {
 
 		if (mControlRegister.Reset) {
 			//Reset "most registers?" to zero
-			mStatRegister = {};
+			mStatRegister.RXFifoNotEmpty = ESX_FALSE;
+			mStatRegister.TXFifoNotFull = ESX_TRUE;
+			mStatRegister.TXIdle = ESX_TRUE;
+
+			mModeRegister = {};
+			mControlRegister = {};
+			mBaudRegister = {};
+
+			mTX = 0xFF;
+			mRX.Clear();
+
+			mControlRegister.Reset = ESX_FALSE;
+		}
+
+		if (mControlRegister.RXEnable == ESX_FALSE && mID == 1) {
+			mRX.Clear();
 		}
 
 		if (oldDTR == ESX_FALSE && mControlRegister.DTROutputLevel == ESX_TRUE) {
@@ -395,7 +424,7 @@ namespace esx {
 	{
 		BIT CTS = mID == 1 ? mStatRegister.CTSInputLevel : ESX_TRUE;
 		BIT TXEN = mControlRegister.TXEnable || mLatchedTXEN;
-		return TXEN && CTS && !mStatRegister.TXIdle;
+		return TXEN && CTS && (!mStatRegister.TXIdle);
 	}
 
 	BIT SIO::canReceiveData()

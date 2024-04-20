@@ -133,6 +133,8 @@ namespace esx {
 		U16 mReceivedAddress = 0x0000;
 		U8 mAddressPointer = 0x00;
 		U8 mChecksum = 0x00;
+		U8 mReceivedChecksum = 0x00;
+		U8 mLastRX = 0x00;
 
 		MemoryCardCommand mCurrentCommand = MemoryCardCommand::None;
 		MemoryCardCommunicationPhase mPhase = MemoryCardCommunicationPhase::Adressing;

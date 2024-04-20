@@ -235,7 +235,6 @@ namespace esx {
 
 		void handleInterrupts();
 		void raiseException(ExceptionType type);
-		void acknowledge();
 
 		//Arithmetic
 		void ADD();

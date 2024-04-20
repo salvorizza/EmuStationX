@@ -120,6 +120,7 @@ void main() {
 
         color = sample_vram(uvColor);
         if(color.rgb == vec3(0,0,0)) discard;
+        color = (color * vec4(oColor,1.0)) / (128.0 / 255.0);
         color.a = 1.0;
 
 

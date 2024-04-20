@@ -105,10 +105,6 @@ namespace esx {
 	{
 		value &= 0x7FF;
 		mInterruptStatus &= value;
-		if ((mInterruptStatus & mInterruptMask) == 0) {
-			SharedPtr<R3000> cpu = getBus("Root")->getDevice<R3000>("R3000");
-			cpu->acknowledge();
-		}
 	}
 
 	U32 InterruptControl::getInterruptStatus()

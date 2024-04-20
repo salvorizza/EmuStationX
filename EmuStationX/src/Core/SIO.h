@@ -8,24 +8,29 @@ namespace esx {
 
 	template<typename T, size_t S>
 	struct TransmissionFIFO {
-		Array<T, S> Data;
+		Array<T, S> Data = { 0xFF };
 		U8 WriteP = 0;
 		U8 ReadP = 0;
 
-		void Push(T value) {
-			Data[WriteP++] = value;
-			WriteP = (WriteP + 1) % S;
+		void Push(T& value) {
+			Data[WriteP] = value;
+			if(WriteP != (ReadP - 1)) WriteP = (WriteP + 1) % S;
 		}
 
 		T Pop() {
 			ESX_ASSERT(ReadP != WriteP, "Empty");
-			T& data = Data[ReadP++];
+			T& data = Data[ReadP];
 			ReadP = (ReadP + 1) % S;
 			return data;
 		}
 
 		bool Empty() {
 			return ReadP == WriteP;
+		}
+
+		void Clear() {
+			Data = { 0xFF };
+			ReadP = WriteP;
 		}
 
 		size_t Size() {
@@ -177,7 +182,7 @@ namespace esx {
 	private:
 		U8 mID;
 
-		U8 mTX = 0x00;
+		U8 mTX = 0xFF;
 		TransmissionFIFO<U8, 8> mRX;
 		StatRegister mStatRegister;
 		ModeRegister mModeRegister;

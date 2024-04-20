@@ -119,7 +119,7 @@ namespace esx {
 			vertex.vertex.x += mDrawOffset.x;
 			vertex.vertex.y += mDrawOffset.y;
 
-			ESX_CORE_LOG_TRACE(" Vertex({},{}),Color({},{},{}),Textured({})", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.textured);
+			//ESX_CORE_LOG_TRACE(" Vertex({},{}),Color({},{},{}),Textured({})", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.textured);
 		}
 
 		for (U64 i = 0; i < 3; i++) {
