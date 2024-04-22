@@ -69,7 +69,7 @@ namespace esx {
 		CDROM();
 		~CDROM();
 
-		void clock();
+		void clock(U64 clocks);
 
 		virtual void store(const StringView& busName, U32 address, U8 value) override;
 		virtual void load(const StringView& busName, U32 address, U8& output) override;
@@ -111,7 +111,6 @@ namespace esx {
 		StatusFlags mStat = StatusFlagsRotating;
 
 		Queue<Response> mResponses;
-		U64 mCycles = 0;
 	};
 
 }

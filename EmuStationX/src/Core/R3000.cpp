@@ -61,9 +61,10 @@ namespace esx {
 
 		mGPU->clock();
 		mTimer->systemClock();
-		mCDROM->clock();
+		mCDROM->clock(mCycles);
 		mSIO0->clock();
 
+		mInterruptControl->clock(mCycles);
 		handleInterrupts();
 
 		mCycles++;

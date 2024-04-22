@@ -16,9 +16,9 @@ namespace esx {
 	{
 	}
 
-	void CDROM::clock()
+	void CDROM::clock(U64 clocks)
 	{
-		if (!mResponses.empty() && mResponses.front().TargetCycle == mCycles) {
+		if (!mResponses.empty() && mResponses.front().TargetCycle == clocks) {
 			auto& response = mResponses.front();
 			
 			mResponseSize = 0;
@@ -35,7 +35,6 @@ namespace esx {
 				command(response.CommandType, response.Number + 1);
 			}
 		}
-		mCycles++;
 	}
 
 	void CDROM::store(const StringView& busName, U32 address, U8 value)
@@ -136,10 +135,12 @@ namespace esx {
 			return;
 		}
 
+		U64 clocks = getBus("Root")->getDevice<R3000>("R3000")->getClocks();
+
 		Response response = {};
 		response.Push(mStat);
 		response.Code = INT3;
-		response.TargetCycle = mCycles + 800;
+		response.TargetCycle = clocks + 800;
 		response.CommandType = command;
 		response.Number = responseNumber;
 		response.NumberOfResponses = responseNumber;
@@ -193,7 +194,7 @@ namespace esx {
 					response.Push('E');
 					response.Push('A');
 					response.Code = INT2;
-					response.TargetCycle = mCycles + 20480;
+					response.TargetCycle = clocks + 20480;
 				}
 				break;
 			}

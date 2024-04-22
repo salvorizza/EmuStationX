@@ -104,7 +104,8 @@ namespace esx {
 		SendDataSector,
 		ReceiveChecksum,
 		SendChecksum,
-		ReceiveMemoryEndByte
+		ReceiveMemoryEndByte,
+		NotSelected
 	};
 
 	enum class MemoryCardCommand : U8 {

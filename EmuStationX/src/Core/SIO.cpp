@@ -39,13 +39,12 @@ namespace esx {
 
 	void SIO::fallingEdge()
 	{
-		if (canTransferStart() && mTXShift.Size == 0) {
-			mTXShift.Set(mTX);
-			mStatRegister.TXFifoNotFull = ESX_TRUE;
-			//ESX_CORE_LOG_TRACE("TX {:02X}h", mTX);
-		}
-
 		if (mTXShift.Size != 0) {
+			if (mStatRegister.TXFifoNotFull == ESX_FALSE) {
+				mStatRegister.TXFifoNotFull = ESX_TRUE;
+				//ESX_CORE_LOG_TRACE("TX {:02X}h", mTX);
+			}
+
 			U8 value = mTXShift.Pop();
 
 			for (auto& device : mPorts[mControlRegister.PortSelect]) {
@@ -96,16 +95,13 @@ namespace esx {
 		}
 	}
 
-	void SIO::dsr()
+	void SIO::dsr(U64 delay)
 	{
 		//mStatRegister.DSRInputLevel = ESX_TRUE;
 
-		if (mControlRegister.DSRInterruptEnable) {
-			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::ControllerAndMemoryCard, mStatRegister.InterruptRequest, ESX_TRUE);
+		if (mControlRegister.DSRInterruptEnable && mControlRegister.TXEnable) {
+			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::ControllerAndMemoryCard, mStatRegister.InterruptRequest, ESX_TRUE, delay);
 			mStatRegister.InterruptRequest = ESX_TRUE;
-		}
-		else {
-			ESX_CORE_LOG_ERROR("DSR Not enabled but reuqested interrupt");
 		}
 	}
 
@@ -219,15 +215,12 @@ namespace esx {
 	{
 		mTX = (value & 0xFF);
 
-		if (mTXShift.Size != 0) {
-			ESX_CORE_LOG_ERROR("TX not finished yet");
-		}
-
 		if (mStatRegister.TXFifoNotFull == ESX_FALSE) mTXShift.Set(value);
-
-
-		mStatRegister.TXFifoNotFull = ESX_FALSE;
-		mStatRegister.TXIdle = ESX_FALSE;
+		if (canTransferStart()) {
+			mTXShift.Set(mTX);
+			mStatRegister.TXFifoNotFull = ESX_FALSE;
+			mStatRegister.TXIdle = ESX_FALSE;
+		}
 
 		mLatchedTXEN = mControlRegister.TXEnable;
 	}
@@ -315,7 +308,8 @@ namespace esx {
 
 	void SIO::setControlRegister(U16 value)
 	{
-		BIT oldDTR = mControlRegister.DTROutputLevel;
+		SIOControlRegister prevControlRegister = mControlRegister;
+		BIT wasReady = canTransferStart();
 
 		mControlRegister.TXEnable = ((value >> 0) & 0x1);
 		mControlRegister.DTROutputLevel = ((value >> 1) & 0x1);
@@ -331,6 +325,25 @@ namespace esx {
 		mControlRegister.DSRInterruptEnable = ((value >> 12) & 0x1);
 		mControlRegister.PortSelect = ((value >> 13) & 0x1);
 
+		BIT selected = !prevControlRegister.DTROutputLevel && mControlRegister.DTROutputLevel;
+		BIT deselected = prevControlRegister.DTROutputLevel && !mControlRegister.DTROutputLevel;
+		BIT portSwitch = prevControlRegister.PortSelect && !mControlRegister.PortSelect;
+
+		if (deselected || portSwitch) {
+			ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
+
+			for (auto& device : mPorts[SerialPort::Port1]) {
+				if (device) {
+					device->cs();
+				}
+			}
+			for (auto& device : mPorts[SerialPort::Port2]) {
+				if (device) {
+					device->cs();
+				}
+			}
+		}
+
 		if (mControlRegister.Acknowledge) {
 			mStatRegister.RXParityError = ESX_FALSE;
 			mStatRegister.RXFifoOverrun = ESX_FALSE;
@@ -339,17 +352,28 @@ namespace esx {
 		}
 
 		if (mControlRegister.Reset) {
-			//Reset "most registers?" to zero
+			mRX.Clear();
 			mStatRegister.RXFifoNotEmpty = ESX_FALSE;
+
+			for (auto& device : mPorts[SerialPort::Port1]) {
+				if (device) {
+					device->cs();
+				}
+			}
+			for (auto& device : mPorts[SerialPort::Port2]) {
+				if (device) {
+					device->cs();
+				}
+			}
+
 			mStatRegister.TXFifoNotFull = ESX_TRUE;
 			mStatRegister.TXIdle = ESX_TRUE;
 
-			mModeRegister = {};
-			mControlRegister = {};
-			mBaudRegister = {};
+			//mModeRegister = {};
+			//mControlRegister = {};
+			//mBaudRegister = {};
 
-			mTX = 0xFF;
-			mRX.Clear();
+			//mTX = 0xFF;
 
 			mControlRegister.Reset = ESX_FALSE;
 		}
@@ -358,15 +382,11 @@ namespace esx {
 			mRX.Clear();
 		}
 
-		if (oldDTR == ESX_FALSE && mControlRegister.DTROutputLevel == ESX_TRUE) {
-			ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
-			for (auto& device : mPorts[mControlRegister.PortSelect]) {
-				if (device) {
-					device->cs();
-				}
-			}
+		if (wasReady == ESX_FALSE && canTransferStart()) {
+			mTXShift.Set(mTX);
+			mStatRegister.TXFifoNotFull = ESX_FALSE;
+			mStatRegister.TXIdle = ESX_FALSE;
 		}
-		
 	}
 
 	U16 SIO::getControlRegister()
@@ -424,7 +444,7 @@ namespace esx {
 	{
 		BIT CTS = mID == 1 ? mStatRegister.CTSInputLevel : ESX_TRUE;
 		BIT TXEN = mControlRegister.TXEnable || mLatchedTXEN;
-		return TXEN && CTS && (!mStatRegister.TXIdle);
+		return TXEN && CTS && mStatRegister.TXIdle;
 	}
 
 	BIT SIO::canReceiveData()

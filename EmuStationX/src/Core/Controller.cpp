@@ -16,7 +16,7 @@ namespace esx {
 
 	U8 Controller::receive(U8 value)
 	{
-		U8 tx = 0;
+		U8 tx = 0xFF;
 
 		switch (mPhase) {
 			case CommunicationPhase::Addressing: {
@@ -24,6 +24,9 @@ namespace esx {
 					mPhase = CommunicationPhase::Command;
 					mSelected = ESX_TRUE;
 					tx = (U8)mType;
+				}
+				else {
+					mPhase = CommunicationPhase::NotSelected;
 				}
 				break;
 			}

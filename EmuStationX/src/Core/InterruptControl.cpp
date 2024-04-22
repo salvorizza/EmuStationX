@@ -18,6 +18,16 @@ namespace esx {
 	{
 	}
 
+	void InterruptControl::clock(U64 clocks)
+	{
+		for (const auto& [targetClocks, interruptType] : mDelayedInterrupts) {
+			if (clocks >= targetClocks) {
+				mInterruptStatus |= (U32)interruptType;
+			}
+		}
+		std::erase_if(mDelayedInterrupts, [&](const Pair<U64, InterruptType>& pair) { return clocks >= pair.first; });
+	}
+
 	void InterruptControl::store(const StringView& busName, U32 address, U32 value)
 	{
 		switch (address) {
@@ -78,10 +88,12 @@ namespace esx {
 		}
 	}
 
-	void InterruptControl::requestInterrupt(InterruptType type, BIT prevValue, BIT newValue)
+	void InterruptControl::requestInterrupt(InterruptType type, BIT prevValue, BIT newValue, U64 delay)
 	{
+
 		if (prevValue == ESX_FALSE && newValue == ESX_TRUE) {
-			mInterruptStatus |= (U32)type;
+			U64 clocks = getBus("Root")->getDevice<R3000>("R3000")->getClocks();
+			mDelayedInterrupts.emplace_back(clocks + delay, type);
 		}
 	}
 

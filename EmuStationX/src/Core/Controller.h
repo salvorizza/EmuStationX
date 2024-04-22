@@ -44,7 +44,8 @@ namespace esx {
 	enum class CommunicationPhase {
 		Addressing,
 		Command,
-		Data
+		Data,
+		NotSelected
 	};
 
 	using ControllerState = U16;

@@ -27,13 +27,15 @@ namespace esx {
 		InterruptControl();
 		~InterruptControl();
 
+		void clock(U64 clocks);
+
 		virtual void store(const StringView& busName, U32 address, U32 value) override;
 		virtual void load(const StringView& busName, U32 address, U32& output) override;
 
 		virtual void store(const StringView& busName, U32 address, U16 value) override;
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
 
-		void requestInterrupt(InterruptType type, BIT prevValue, BIT newValue);
+		void requestInterrupt(InterruptType type, BIT prevValue, BIT newValue, U64 delay = 0);
 
 		BIT interruptPending();
 
@@ -47,6 +49,7 @@ namespace esx {
 	private:
 		U16 mInterruptMask = 0;
 		U16 mInterruptStatus = 0;
+		Vector<Pair<U64, InterruptType>> mDelayedInterrupts;
 	};
 
 }

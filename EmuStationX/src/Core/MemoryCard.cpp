@@ -84,6 +84,8 @@ namespace esx {
 					mPhase = MemoryCardCommunicationPhase::Command;
 					mSelected = ESX_TRUE;
 					tx = mFlag;
+				} else {
+					mPhase = MemoryCardCommunicationPhase::NotSelected;
 				}
 				break;
 			}
@@ -244,6 +246,7 @@ namespace esx {
 		mRX = {};
 		mSelected = ESX_FALSE;
 		mPhases = {};
+		mChecksum = 0;
 	}
 
 	void MemoryCard::Save()

@@ -236,6 +236,8 @@ namespace esx {
 		void handleInterrupts();
 		void raiseException(ExceptionType type);
 
+		inline U64 getClocks() const { return mCycles; }
+
 		//Arithmetic
 		void ADD();
 		void ADDU();
