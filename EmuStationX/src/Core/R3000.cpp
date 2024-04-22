@@ -73,7 +73,21 @@ namespace esx {
 
 	U32 R3000::fetch(U32 address)
 	{
-		return load<U32>(address);
+		U32 index = (address >> 2) & 0x3;
+		U32 cacheLineNumber = (address >> 4) & 0xFF;
+		U32 tag = address >> 12;
+
+		auto& cacheLine = mICache.CacheLines[cacheLineNumber];
+		if (cacheLine.Tag == tag) {
+			auto& instruction = cacheLine.Instructions[index];
+			if (instruction.Valid) {
+				return instruction.Word;
+			} else {
+				return cacheMiss(address, cacheLineNumber, tag, index);
+			}
+		} else {
+			return cacheMiss(address, cacheLineNumber, tag, index);
+		}
 	}
 
 	void R3000::decode(Instruction& result, U32 instruction, U32 address, BIT suppressException)
@@ -1398,6 +1412,26 @@ namespace esx {
 	U32 R3000::getCP0Register(RegisterIndex index)
 	{
 		return mCP0Registers[index.Value];
+	}
+
+	U32 R3000::cacheMiss(U32 address, U32 cacheLineNumber, U32 tag, U32 startIndex)
+	{
+		auto& cacheLine = mICache.CacheLines[cacheLineNumber];
+		cacheLine.Tag = tag;
+
+		for (U32 index = 0; index < 4; index++) {
+			auto& instruction = cacheLine.Instructions[index];
+
+			if (index >= startIndex) {
+				U32 word = load<U32>(address + (index - startIndex) * 4);
+				instruction.Word = word;
+				instruction.Valid = ESX_TRUE;
+			} else {
+				instruction.Valid = ESX_FALSE;
+			}
+		}
+
+		return cacheLine.Instructions[startIndex].Word;
 	}
 
 	void R3000::handleInterrupts()

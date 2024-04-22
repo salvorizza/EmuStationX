@@ -127,7 +127,7 @@ namespace esx {
 
 
 		IntervalTreeNode* buildIntervalTree(const Vector<Interval>& intervals);
-		const Interval findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address);
+		const Interval& findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address);
 
 	private:
 		StringView mName;

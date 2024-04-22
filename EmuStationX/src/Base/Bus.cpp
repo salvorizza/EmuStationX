@@ -56,7 +56,7 @@ namespace esx {
 		Vector<Interval> sortedIntervals = intervals;
 		std::sort(sortedIntervals.begin(), sortedIntervals.end(), [](const Interval& a, const Interval& b) {
 			return a.first.Start < b.first.Start;
-			});
+		});
 
 		IntervalTreeNode* root = new IntervalTreeNode(sortedIntervals[intervals.size() / 2]);
 
@@ -71,7 +71,7 @@ namespace esx {
 		return root;
 	}
 
-	const Interval Bus::findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address) {
+	const Interval& Bus::findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address) {
 		if (!root) return {};
 
 		if (address >= root->interval.first.Start && address <= root->interval.first.End) {

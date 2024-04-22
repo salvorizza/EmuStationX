@@ -192,6 +192,19 @@ namespace esx {
 	class CPUStatusPanel;
 	class DisassemblerPanel;
 
+	struct InstructionCache {
+		U32 Word = 0;
+		BIT Valid = ESX_FALSE;
+	};
+
+	struct CacheLine {
+		U32 Tag = 0;
+		Array<InstructionCache, 4> Instructions = {};
+	};
+
+	struct iCache {
+		Array<CacheLine, 256> CacheLines = {};
+	};
 	
 	class R3000 : public BusDevice {
 	public:
@@ -333,6 +346,8 @@ namespace esx {
 
 		void setCP0Register(RegisterIndex index, U32 value);
 		U32 getCP0Register(RegisterIndex index);
+
+		U32 cacheMiss(U32 address, U32 cacheLineNumber, U32 tag, U32 startIndex);
 	private:
 		SharedPtr<Bus> mRootBus;
 		Array<U32, 32> mRegisters;
@@ -344,6 +359,7 @@ namespace esx {
 		U32 mHI = 0;
 		U32 mLO = 0;
 		Array<U32, 64> mCP0Registers;
+		iCache mICache = {};
 
 		BIT mBranch = ESX_FALSE;
 		BIT mBranchSlot = ESX_FALSE;
