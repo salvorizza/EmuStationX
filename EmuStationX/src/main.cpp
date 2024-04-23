@@ -10,6 +10,7 @@
 #include "UI/Graphics/BatchRenderer.h"
 #include "UI/Window/FontAwesome5.h"
 #include "UI/Utils.h"
+#include "UI/Application/LoopTimer.h"
 
 #include "Utils/LoggingSystem.h"
 
@@ -193,9 +194,11 @@ public:
 		mBatchRenderer->Begin();
 
 		InputManager::Init();
+		loopTimer.init();
 	}
 
 	virtual void onUpdate() override {
+		float deltaTime = loopTimer.getDeltaTimeInSeconds();
 
 		controller->setButtonState(ControllerButton::JoypadDown, InputManager::IsKeyPressed(GLFW_KEY_S));
 		controller->setButtonState(ControllerButton::JoypadUp, InputManager::IsKeyPressed(GLFW_KEY_W));
@@ -210,6 +213,7 @@ public:
 		mDisassemblerPanel->onUpdate();
 		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
 		InputManager::Update();
+		loopTimer.update();
 	}
 
 	virtual void onRender() override {
@@ -259,6 +263,8 @@ public:
 				ImGui::EndMenu();
 			}
 
+			ImGui::Text("FPS: %d", (int)(1 / loopTimer.getDeltaTimeInSeconds()));
+
 			ImGui::EndMenuBar();
 		}
 
@@ -293,6 +299,7 @@ private:
 	SharedPtr<SIO> sio1;
 	SharedPtr<Controller> controller;
 	SharedPtr<MemoryCard> memoryCard;
+	LoopTimer loopTimer;
 
 
 	SharedPtr<CPUStatusPanel> mCPUStatusPanel;

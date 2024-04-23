@@ -10,6 +10,7 @@
 #include "Base/Base.h"
 #include "Base/Bus.h"
 
+#include "DMA.h"
 
 namespace esx {
 
@@ -142,8 +143,8 @@ namespace esx {
 		U32 binaryInstruction = 0;
 		ExecuteFunction Execute = nullptr;
 
-		U8 Opcode() const {
-			return ((binaryInstruction >> 26) & 0x3F);
+		inline U8 Opcode() const {
+			return binaryInstruction >> 26;
 		}
 
 		RegisterIndex RegisterSource() const {
@@ -225,7 +226,16 @@ namespace esx {
 				return 0;
 			}
 
+			if (mDMA->isRunning()) {
+				mStall = ESX_TRUE;
+			}
+
 			if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
+			if (!mDMA) mDMA = getBus("Root")->getDevice<DMA>("DMA");
+
+			if (mDMA->isRunning()) {
+				mStall = ESX_TRUE;
+			}
 
 			return mRootBus->load<T>(toPhysicalAddress(address));
 		}
@@ -238,6 +248,11 @@ namespace esx {
 			}
 
 			if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
+			if (!mDMA) mDMA = getBus("Root")->getDevice<DMA>("DMA");
+
+			if (mDMA->isRunning()) {
+				mStall = ESX_TRUE;
+			}
 
 			mRootBus->store<T>(toPhysicalAddress(address), value);
 		}
@@ -246,7 +261,7 @@ namespace esx {
 			return address & SEGS_MASKS[address >> 29];
 		}
 
-		static inline U32 isCacheActive(U32 address) {
+		static inline BIT isCacheActive(U32 address) {
 			return ((address >> 29) & 1) == 0;
 		}
 
@@ -364,6 +379,7 @@ namespace esx {
 		U32 mLO = 0;
 		Array<U32, 64> mCP0Registers;
 		iCache mICache = {};
+		BIT mStall = ESX_FALSE;
 
 		BIT mBranch = ESX_FALSE;
 		BIT mBranchSlot = ESX_FALSE;
@@ -376,6 +392,7 @@ namespace esx {
 		SharedPtr<CDROM> mCDROM;
 		SharedPtr<SIO> mSIO0,mSIO1;
 		SharedPtr<InterruptControl> mInterruptControl;
+		SharedPtr<DMA> mDMA;
 
 		U64 mCycles = 0;
 	};

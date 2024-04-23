@@ -265,7 +265,7 @@ namespace esx {
 
 	void GPU::clock()
 	{
-		static const Array<U64,7> PAL_DOT_CLOCKS = {
+		static constexpr Array<U8,7> PAL_DOT_CLOCKS = {
 			10,
 			8,
 			7,
@@ -276,12 +276,13 @@ namespace esx {
 		};
 
 		U8 dotClocks = PAL_DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
+		constexpr float gpuOneClock = 11.0f / 7.0f;
 
 		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
 		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 
-		mClocks += 11.0f / 7.0f;
-		mDotClocks += 11.0f / 7.0f / dotClocks;
+		mClocks += gpuOneClock;
+		mDotClocks += gpuOneClock / dotClocks;
 
 		if (mDotClocks >= dotClocks) {
 			mDotClocks -= dotClocks;

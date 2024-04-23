@@ -4,22 +4,22 @@
 
 namespace esx {
 
-	class Timer {
+	class LoopTimer {
 	public:
-		Timer()
+		LoopTimer()
 			:	mDeltaTime()
 		{
 
 		}
 
-		~Timer() = default;
+		~LoopTimer() = default;
 
 		void init() {
 			mLastLoopTime = now();
 		}
 
 		void update() {
-			auto& currentTime = now();
+			auto currentTime = now();
 			mDeltaTime = currentTime - mLastLoopTime; 
 			mLastLoopTime = currentTime;
 		}

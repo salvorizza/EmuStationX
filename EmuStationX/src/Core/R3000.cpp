@@ -9,6 +9,7 @@
 #include "Core/CDROM.h"
 #include "Core/SIO.h"
 #include "Core/InterruptControl.h"
+#include "Core/DMA.h"
 
 namespace esx {
 
@@ -36,33 +37,47 @@ namespace esx {
 		if (!mSIO0) mSIO0 = getBus("Root")->getDevice<SIO>("SIO0");
 		if (!mSIO1) mSIO1 = getBus("Root")->getDevice<SIO>("SIO1");
 		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+		if (!mDMA) mDMA = getBus("Root")->getDevice<DMA>("DMA");
 
-		U32 opcode = fetch(mPC);
+		if (!mStall) {
+			U32 opcode = fetch(mPC);
 
-		decode(mCurrentInstruction,opcode, mPC);
+			decode(mCurrentInstruction, opcode, mPC);
 
-		//ESX_CORE_ASSERT(mCurrentInstruction.Execute, "No Operation");
+			//ESX_CORE_ASSERT(mCurrentInstruction.Execute, "No Operation");
 
-		mCurrentPC = mPC;
-		mPC = mNextPC;
-		mNextPC += 4;
+			mCurrentPC = mPC;
+			mPC = mNextPC;
+			mNextPC += 4;
 
-		mBranchSlot = mBranch;
-		mTookBranchSlot = mTookBranch;
-		mBranch = ESX_FALSE;
-		mTookBranchSlot = ESX_FALSE;
+			mBranchSlot = mBranch;
+			mTookBranchSlot = mTookBranch;
+			mBranch = ESX_FALSE;
+			mTookBranchSlot = ESX_FALSE;
 
-		setRegister(mPendingLoad.first, mPendingLoad.second);
-		resetPendingLoad();
+			setRegister(mPendingLoad.first, mPendingLoad.second);
+			resetPendingLoad();
 
-		(this->*mCurrentInstruction.Execute)();
+			(this->*mCurrentInstruction.Execute)();
 
-		mRegisters = mOutRegisters;
+			if(mStall) {
+				mNextPC = mPC;
+				mPC = mCurrentPC;
+				resetPendingLoad();
+			} else {
+				mRegisters = mOutRegisters;
+			}
+
+		}
 
 		mGPU->clock();
 		mTimer->systemClock();
 		mCDROM->clock(mCycles);
 		mSIO0->clock();
+		mDMA->clock(mCycles);
+		if (!mDMA->isRunning() && mStall) {
+			mStall = ESX_FALSE;
+		}
 
 		mInterruptControl->clock(mCycles);
 		handleInterrupts();
@@ -74,6 +89,11 @@ namespace esx {
 	U32 R3000::fetch(U32 address)
 	{
 		if (isCacheActive(address)) {
+			if (ADDRESS_UNALIGNED(address, U32)) {
+				raiseException(ExceptionType::AddressErrorLoad);
+				return 0;
+			}
+
 			U32 index = (address >> 2) & 0x3;
 			U32 cacheLineNumber = (address >> 4) & 0xFF;
 			U32 tag = address >> 12;
@@ -92,7 +112,8 @@ namespace esx {
 				return cacheMiss(address, cacheLineNumber, tag, index);
 			}
 		} else {
-			return load<U32>(address);
+			if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
+			return mRootBus->load<U32>(toPhysicalAddress(address));
 		}
 	}
 
@@ -1422,6 +1443,8 @@ namespace esx {
 
 	U32 R3000::cacheMiss(U32 address, U32 cacheLineNumber, U32 tag, U32 startIndex)
 	{
+		if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
+
 		auto& cacheLine = mICache.CacheLines[cacheLineNumber];
 		cacheLine.Tag = tag;
 
@@ -1429,7 +1452,7 @@ namespace esx {
 			auto& instruction = cacheLine.Instructions[index];
 
 			if (index >= startIndex) {
-				U32 word = load<U32>(address + (index - startIndex) * 4);
+				U32 word = mRootBus->load<U32>(toPhysicalAddress(address + (index - startIndex) * 4));
 				instruction.Word = word;
 				instruction.Valid = ESX_TRUE;
 			} else {

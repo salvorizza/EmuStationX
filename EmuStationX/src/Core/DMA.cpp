@@ -1,5 +1,7 @@
 #include "DMA.h"
 
+#include "InterruptControl.h"
+
 namespace esx {
 
 	DMA::DMA()
@@ -13,6 +15,26 @@ namespace esx {
 
 	DMA::~DMA()
 	{
+	}
+
+	void DMA::clock(U64 clocks)
+	{
+		for (U8 port = 0; port < (U8)Port::Max; port++) {
+			Channel& channel = mChannels[port];
+
+			if (channel.Enable) {
+				switch (channel.SyncMode)
+				{
+					case SyncMode::LinkedList:
+						clockLinkedListTransfer((Port)port, channel);
+						break;
+
+					default:
+						clockBlockTransfer((Port)port, channel);
+						break;
+				}
+			}
+		}
 	}
 
 	void DMA::store(const StringView& busName, U32 address, U32 value)
@@ -155,7 +177,17 @@ namespace esx {
 	void DMA::setChannelDone(Port port)
 	{
 		mChannels[(U8)port].Enable = ESX_FALSE;
-		mChannels[(U8)port].Trigger = ESX_FALSE;
+
+		U8 flag = 1 << (U8)port;
+
+		if (mInterruptRegister.IRQEnable & flag) {
+			BIT oldIRQ = mInterruptRegister.IRQMasterFlag();
+			mInterruptRegister.IRQFlags |= flag;
+			BIT newIRQ = mInterruptRegister.IRQMasterFlag();
+
+			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::DMA, oldIRQ, newIRQ);
+		}
+		mRunningDMAs--;
 	}
 
 	void DMA::setInterruptRegister(U32 value)
@@ -227,7 +259,12 @@ namespace esx {
 
 	void DMA::startTransfer(Port port)
 	{
-		const Channel& channel = mChannels[(U8)port];
+		Channel& channel = mChannels[(U8)port];
+
+		channel.Enable = ESX_TRUE;
+		channel.Trigger = ESX_FALSE;
+
+		mRunningDMAs++;
 
 		switch (channel.SyncMode) {
 			case SyncMode::LinkedList: {
@@ -243,12 +280,8 @@ namespace esx {
 
 	}
 
-	void DMA::startBlockTransfer(Port port, const Channel& channel)
+	void DMA::startBlockTransfer(Port port, Channel& channel)
 	{
-		U32 address = channel.BaseAddress;
-
-		I32 increment = (channel.Step == Step::Forward) ? 4 : -4;
-
 		U32 transferSize = 0;
 		switch (channel.SyncMode)
 		{
@@ -260,107 +293,119 @@ namespace esx {
 				break;
 		}
 
+		channel.TransferStatus.BlockCurrentAddress = channel.BaseAddress;
+		channel.TransferStatus.BlockRemainingSize = transferSize;
+	}
+
+	void DMA::clockBlockTransfer(Port port, Channel& channel)
+	{
+		I32 increment = (channel.Step == Step::Forward) ? 4 : -4;
 		SharedPtr<Bus> bus = getBus(ESX_TEXT("Root"));
 		SharedPtr<RAM> ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
 		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
 
-		for (I32 remainingSize = transferSize; remainingSize > 0; remainingSize--) {
-			U32 currentAddress = address & 0x1FFFFC;
+		U32 currentAddress = channel.TransferStatus.BlockCurrentAddress & 0x1FFFFC;
 
-			switch (channel.Direction) {
-				case Direction::ToMainRAM: {
-					U32 valueToWrite = 0;
+		switch (channel.Direction) {
+			case Direction::ToMainRAM: {
+				U32 valueToWrite = 0;
 
-					switch (port) {
-						case Port::OTC: {
-							if (remainingSize == 1) {
-								valueToWrite = 0xFFFFFF;
-							}
-							else {
-								valueToWrite = (address - 4) & 0x1FFFFF;
-							}
-							break;
+				switch (port) {
+					case Port::OTC: {
+						if (channel.TransferStatus.BlockRemainingSize == 1) {
+							valueToWrite = 0xFFFFFF;
 						}
-
-						case Port::GPU: {
-							valueToWrite = gpu->gpuRead();
-							break;
+						else {
+							valueToWrite = (channel.TransferStatus.BlockCurrentAddress - 4) & 0x1FFFFF;
 						}
-
-						default: {
-							ESX_CORE_LOG_ERROR("Port ToMainRAM {} not supported yet", (U8)port);
-							break;
-						}
+						break;
 					}
 
-
-					ram->store(ESX_TEXT("Root"), currentAddress, valueToWrite);
-					break;
-				}
-				case Direction::FromMainRAM: {
-					U32 value = 0;
-					ram->load(ESX_TEXT("Root"), currentAddress, value);
-
-					switch (port) {
-						case Port::GPU: {
-							gpu->gp0(value);
-							break;
-						}
-						default: {
-							ESX_CORE_LOG_ERROR("Port FromMainRAM {} not supported yet", (U8)port);
-							break;
-						}
+					case Port::GPU: {
+						valueToWrite = gpu->gpuRead();
+						break;
 					}
 
-					break;
+					default: {
+						ESX_CORE_LOG_ERROR("Port ToMainRAM {} not supported yet", (U8)port);
+						break;
+					}
 				}
+
+
+				ram->store(ESX_TEXT("Root"), currentAddress, valueToWrite);
+				break;
 			}
+			case Direction::FromMainRAM: {
+				U32 value = 0;
+				ram->load(ESX_TEXT("Root"), currentAddress, value);
 
-			address += increment;
+				switch (port) {
+					case Port::GPU: {
+						gpu->gp0(value);
+						break;
+					}
+					default: {
+						ESX_CORE_LOG_ERROR("Port FromMainRAM {} not supported yet", (U8)port);
+						break;
+					}
+				}
+
+				break;
+			}
 		}
 
-		setChannelDone(port);
+		channel.TransferStatus.BlockCurrentAddress += increment;
+		channel.TransferStatus.BlockRemainingSize--;
+
+		if (channel.TransferStatus.BlockRemainingSize == 0) {
+			setChannelDone(port);
+		}
 	}
 
-	void DMA::startLinkedListTransfer(Port port, const Channel& channel)
+
+	void DMA::startLinkedListTransfer(Port port, Channel& channel)
 	{
 		ESX_CORE_ASSERT(port == Port::GPU, "DMA Port {} not supported yet", (U8)port);
 		ESX_CORE_ASSERT(channel.Direction == Direction::FromMainRAM, "ToMainRAM Direction not supported yet");
+		
+		channel.TransferStatus.LinkedListCurrentNodeAddress = channel.BaseAddress & 0x1FFFFC;
+		channel.TransferStatus.LinkedListCurrentNodeHeader = 0;
+		channel.TransferStatus.LinkedListNextNodeAddress = 0;
+		channel.TransferStatus.LinkedListRemainingSize = 0;
+		channel.TransferStatus.LinkedListPacketAddress = 0;
+	}
 
+	void DMA::clockLinkedListTransfer(Port port, Channel& channel)
+	{
 		SharedPtr<Bus> bus = getBus(ESX_TEXT("Root"));
 		SharedPtr<RAM> ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
 		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
+		TransferStatus& transferStatus = channel.TransferStatus;
 
-		U32 nodeAddress = channel.BaseAddress & 0x1FFFFC;
-		U32 header = 0;
-		U32 packet = 0;
+		if (transferStatus.LinkedListRemainingSize == 0) {
+			ram->load(ESX_TEXT("Root"), transferStatus.LinkedListCurrentNodeAddress, transferStatus.LinkedListCurrentNodeHeader);
+			transferStatus.LinkedListNextNodeAddress = transferStatus.LinkedListCurrentNodeHeader & 0x1FFFFC;
+			transferStatus.LinkedListRemainingSize = transferStatus.LinkedListCurrentNodeHeader >> 24;
+			transferStatus.LinkedListPacketAddress = (transferStatus.LinkedListCurrentNodeAddress + 4) & 0x1FFFFC;
+		}
 
-		//ESX_CORE_LOG_TRACE("DMA::startLinkedListTransfer");
-		do
-		{
-			ram->load(ESX_TEXT("Root"), nodeAddress, header);
+		if (transferStatus.LinkedListRemainingSize > 0) {
+			U32 packet = 0;
+			ram->load(ESX_TEXT("Root"), transferStatus.LinkedListPacketAddress, packet);
+			gpu->gp0(packet);
 
-			U32 nextNodeAddress = header & 0x1FFFFC;
-			I32 extraWords = header >> 24;
+			transferStatus.LinkedListRemainingSize--;
+			transferStatus.LinkedListPacketAddress = (transferStatus.LinkedListPacketAddress + 4) & 0x1FFFFC;
+		}
 
-			U32 packetAddress = (nodeAddress + 4) & 0x1FFFFC;
-			for (I32 remainingSize = extraWords; remainingSize > 0; remainingSize--) {
-				ram->load(ESX_TEXT("Root"), packetAddress, packet);
-
-				gpu->gp0(packet);
-
-				packetAddress = (packetAddress + 4) & 0x1FFFFC;
+		if (transferStatus.LinkedListRemainingSize == 0) {
+			if ((transferStatus.LinkedListCurrentNodeHeader & 0x800000) != 0) {
+				setChannelDone(port);
+			} else {
+				transferStatus.LinkedListCurrentNodeAddress = transferStatus.LinkedListNextNodeAddress;
 			}
-
-			if ((header & 0x800000) != 0) {
-				break;
-			}
-
-			nodeAddress = nextNodeAddress;
-		} while (ESX_TRUE);
-		//ESX_CORE_LOG_TRACE("DMA::startLinkedListTransfer Done");
-
-		setChannelDone(port);
+		}
 	}
 
 

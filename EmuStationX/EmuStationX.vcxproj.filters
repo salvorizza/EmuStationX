@@ -84,6 +84,9 @@
     <ClInclude Include="src\Core\InterruptControl.h">
       <Filter>src\Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\MemoryCard.h">
+      <Filter>src\Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\MemoryControl.h">
       <Filter>src\Core</Filter>
     </ClInclude>
@@ -102,6 +105,9 @@
     <ClInclude Include="src\Core\SPU.h">
       <Filter>src\Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\SerialDevice.h">
+      <Filter>src\Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\Timer.h">
       <Filter>src\Core</Filter>
     </ClInclude>
@@ -111,7 +117,7 @@
     <ClInclude Include="src\UI\Application\ApplicationManager.h">
       <Filter>src\UI\Application</Filter>
     </ClInclude>
-    <ClInclude Include="src\UI\Application\Timer.h">
+    <ClInclude Include="src\UI\Application\LoopTimer.h">
       <Filter>src\UI\Application</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Graphics\BatchRenderer.h">
@@ -180,8 +186,6 @@
     <ClInclude Include="src\Utils\LoggingSystem.h">
       <Filter>src\Utils</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\SerialDevice.h" />
-    <ClInclude Include="src\Core\MemoryCard.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -205,6 +209,9 @@
     <ClCompile Include="src\Core\InterruptControl.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
+    <ClCompile Include="src\Core\MemoryCard.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
     <ClCompile Include="src\Core\MemoryControl.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
@@ -221,6 +228,9 @@
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\SPU.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\SerialDevice.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\Timer.cpp">
@@ -292,8 +302,6 @@
     <ClCompile Include="src\main.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\SerialDevice.cpp" />
-    <ClCompile Include="src\Core\MemoryCard.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="commons\icons\Logo.ico">

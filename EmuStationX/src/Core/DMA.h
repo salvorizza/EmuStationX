@@ -15,7 +15,8 @@ namespace esx {
 		CDROM,
 		SPU,
 		PIO,
-		OTC
+		OTC,
+		Max
 	};
 
 	enum class Direction : U8 {
@@ -35,6 +36,18 @@ namespace esx {
 		Reserved = 3
 	};
 
+
+	struct TransferStatus {
+		U32 BlockRemainingSize;
+		U32 BlockCurrentAddress;
+
+		U32 LinkedListCurrentNodeAddress;
+		U32 LinkedListCurrentNodeHeader;
+		U32 LinkedListNextNodeAddress;
+		U32 LinkedListRemainingSize;
+		U32 LinkedListPacketAddress;
+	};
+
 	struct Channel {
 		BIT Enable = ESX_FALSE;
 		Direction Direction = Direction::ToMainRAM;
@@ -50,7 +63,10 @@ namespace esx {
 
 		U16 BlockSize = 0;
 		U16 BlockCount = 0;
+
+		TransferStatus TransferStatus;
 	};
+
 
 	struct ControlRegister {
 		U8 MDECinPriority = 0;
@@ -87,9 +103,13 @@ namespace esx {
 	public:
 		DMA();
 		~DMA();
+
+		void clock(U64 clocks);
 		
 		virtual void store(const StringView& busName, U32 address, U32 value) override;
 		virtual void load(const StringView& busName, U32 address, U32& output) override;
+
+		inline BIT isRunning() const { return mRunningDMAs != 0; }
 
 	private:
 		void setChannelControl(Port port, U32 channelControl);
@@ -112,13 +132,17 @@ namespace esx {
 
 		void startTransfer(Port port);
 
-		void startBlockTransfer(Port port, const Channel& channel);
-		void startLinkedListTransfer(Port port, const Channel& channel);
+		void startBlockTransfer(Port port, Channel& channel);
+		void clockBlockTransfer(Port port, Channel& channel);
+
+		void startLinkedListTransfer(Port port, Channel& channel);
+		void clockLinkedListTransfer(Port port, Channel& channel);
 
 	private:
 		ControlRegister mControlRegister;
 		InterruptRegister mInterruptRegister;
 		std::array<Channel, 7> mChannels;
+		U8 mRunningDMAs = 0;
 	};
 
 }
