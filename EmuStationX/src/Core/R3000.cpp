@@ -41,7 +41,7 @@ namespace esx {
 
 		decode(mCurrentInstruction,opcode, mPC);
 
-		ESX_CORE_ASSERT(mCurrentInstruction.Execute, "No Operation");
+		//ESX_CORE_ASSERT(mCurrentInstruction.Execute, "No Operation");
 
 		mCurrentPC = mPC;
 		mPC = mNextPC;
@@ -73,20 +73,26 @@ namespace esx {
 
 	U32 R3000::fetch(U32 address)
 	{
-		U32 index = (address >> 2) & 0x3;
-		U32 cacheLineNumber = (address >> 4) & 0xFF;
-		U32 tag = address >> 12;
+		if (isCacheActive(address)) {
+			U32 index = (address >> 2) & 0x3;
+			U32 cacheLineNumber = (address >> 4) & 0xFF;
+			U32 tag = address >> 12;
 
-		auto& cacheLine = mICache.CacheLines[cacheLineNumber];
-		if (cacheLine.Tag == tag) {
-			auto& instruction = cacheLine.Instructions[index];
-			if (instruction.Valid) {
-				return instruction.Word;
-			} else {
+			auto& cacheLine = mICache.CacheLines[cacheLineNumber];
+			if (cacheLine.Tag == tag) {
+				auto& instruction = cacheLine.Instructions[index];
+				if (instruction.Valid) {
+					return instruction.Word;
+				}
+				else {
+					return cacheMiss(address, cacheLineNumber, tag, index);
+				}
+			}
+			else {
 				return cacheMiss(address, cacheLineNumber, tag, index);
 			}
 		} else {
-			return cacheMiss(address, cacheLineNumber, tag, index);
+			return load<U32>(address);
 		}
 	}
 

@@ -246,6 +246,10 @@ namespace esx {
 			return address & SEGS_MASKS[address >> 29];
 		}
 
+		static inline U32 isCacheActive(U32 address) {
+			return ((address >> 29) & 1) == 0;
+		}
+
 		void handleInterrupts();
 		void raiseException(ExceptionType type);
 

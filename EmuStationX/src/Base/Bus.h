@@ -91,7 +91,9 @@ namespace esx {
 
 		template<typename T>
 		void store(U32 address, T value) {
-			auto& [busRange, device] = findRangeInIntervalTree(mIntervalTree, address);
+			IntervalTreeNode* node = findRangeInIntervalTree(mIntervalTree, address);
+
+			auto& [busRange, device] = node->interval;
 			if (device) {
 				device->store(mName, address & busRange.Mask, value);
 			}
@@ -104,7 +106,9 @@ namespace esx {
 		T load(U32 address) {
 			T result = 0;
 
-			auto& [busRange, device] = findRangeInIntervalTree(mIntervalTree, address);
+			IntervalTreeNode* node = findRangeInIntervalTree(mIntervalTree, address);
+
+			auto& [busRange, device] = node->interval;
 			if (device) {
 				device->load(mName, address & busRange.Mask, result);
 			} else {
@@ -127,7 +131,7 @@ namespace esx {
 
 
 		IntervalTreeNode* buildIntervalTree(const Vector<Interval>& intervals);
-		const Interval& findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address);
+		IntervalTreeNode* findRangeInIntervalTree(IntervalTreeNode* root, uint32_t address);
 
 	private:
 		StringView mName;
