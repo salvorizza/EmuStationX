@@ -117,439 +117,50 @@ namespace esx {
 		}
 	}
 
+	static const Array<ExecuteFunction, 64> primaryOpCodeDecode = {
+		&R3000::NA, &R3000::NA, &R3000::J, &R3000::JAL, &R3000::BEQ, &R3000::BNE, &R3000::BLEZ, &R3000::BGTZ,
+		&R3000::ADDI, &R3000::ADDIU, &R3000::SLTI, &R3000::SLTIU, &R3000::ANDI, &R3000::ORI, &R3000::XORI, &R3000::LUI,
+		&R3000::COP0, &R3000::COP1, &R3000::COP2, &R3000::COP3, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA,
+		&R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA,
+		&R3000::LB, &R3000::LH, &R3000::LWL, &R3000::LW, &R3000::LBU, &R3000::LHU, &R3000::LWR, &R3000::NA,
+		&R3000::SB, &R3000::SH, &R3000::SWL, &R3000::SW, &R3000::NA, &R3000::NA, &R3000::SWR, &R3000::NA,
+		&R3000::LWC0, &R3000::LWC1, &R3000::LWC2, &R3000::LWC3, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA,
+		&R3000::SWC0, &R3000::SWC1, &R3000::SWC2, &R3000::SWC3, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA
+	};
+
+	static const Array<ExecuteFunction, 64> secondaryOpCodeDecode = {
+		&R3000::SLL, &R3000::NA, &R3000::SRL, &R3000::SRA, &R3000::SLLV, &R3000::NA, &R3000::SRLV, &R3000::SRAV,
+		&R3000::JR, &R3000::JALR, &R3000::NA, &R3000::NA, &R3000::SYSCALL, &R3000::BREAK, &R3000::NA, &R3000::NA,
+		&R3000::MFHI, &R3000::MTHI, &R3000::MFLO, &R3000::MTLO, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA,
+		&R3000::MULT, &R3000::MULTU, &R3000::DIV, &R3000::DIVU, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA,
+		&R3000::ADD, &R3000::ADDU, &R3000::SUB, &R3000::SUBU, &R3000::AND, &R3000::OR, &R3000::XOR, &R3000::NOR,
+		&R3000::NA, &R3000::NA, &R3000::SLT, &R3000::SLTU, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA,
+		&R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA,
+		&R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA
+	};
+
+	static const Array<ExecuteFunction, 4> branchOpCodeDecode = {
+		&R3000::BLTZ,
+		&R3000::BGEZ,
+		&R3000::BLTZAL,
+		&R3000::BGEZAL
+	};
+
 	void R3000::decode(Instruction& result, U32 instruction, U32 address, BIT suppressException)
 	{
 		result.Address = address;
 		result.binaryInstruction = instruction;
 		result.Execute = nullptr;
 
-		switch (result.Opcode()) {
-			//R Type
-			case 0x00: {
-				switch (result.Function()) {
-					case 0x00: {
-						result.Execute = &R3000::SLL;
-						break;
-					}
-					case 0x02: {
-						result.Execute = &R3000::SRL;
-						break;
-					}
-					case 0x03: {
-						result.Execute = &R3000::SRA;
-						break;
-					}
-					case 0x04: {
-						result.Execute = &R3000::SLLV;
-						break;
-					}
-					case 0x06: {
-						result.Execute = &R3000::SRLV;
-						break;
-					}
-					case 0x07: {
-						result.Execute = &R3000::SRAV;
-						break;
-					}
-					case 0x08: {
-						result.Execute = &R3000::JR;
-						break;
-					}
-					case 0x09: {
-						result.Execute = &R3000::JALR;
-						break;
-					}
-					case 0x0C: {
-						result.Execute = &R3000::SYSCALL;
-						break;
-					}
-					case 0x0D: {
-						result.Execute = &R3000::BREAK;
-						break;
-					}
-					case 0x10: {
-						result.Execute = &R3000::MFHI;
-						break;
-					}
-					case 0x11: {
-						result.Execute = &R3000::MTHI;
-						break;
-					}
-					case 0x12: {
-						result.Execute = &R3000::MFLO;
-						break;
-					}
-					case 0x13: {
-						result.Execute = &R3000::MTLO;
-						break;
-					}
-					case 0x18: {
-						result.Execute = &R3000::MULT;
-						break;
-					}
-					case 0x19: {
-						result.Execute = &R3000::MULTU;
-						break;
-					}
-					case 0x1A: {
-						result.Execute = &R3000::DIV;
-						break;
-					}
-					case 0x1B:{
-						result.Execute = &R3000::DIVU;
-						break;
-					}
-					case 0x20: {
-						result.Execute = &R3000::ADD;
-						break;
-					}
-					case 0x21: {
-						result.Execute = &R3000::ADDU;
-						break;
-					}
-					case 0x22: {
-						result.Execute = &R3000::SUB;
-						break;
-					}
-					case 0x23: {
-						result.Execute = &R3000::SUBU;
-						break;
-					}
-					case 0x24: {
-						result.Execute = &R3000::AND;
-						break;
-					}
-					case 0x25: {
-						result.Execute = &R3000::OR;
-						break;
-					}
-					case 0x26: {
-						result.Execute = &R3000::XOR;
-						break;
-					}
-					case 0x27: {
-						result.Execute = &R3000::NOR;
-						break;
-					}
-					case 0x2A: {
-						result.Execute = &R3000::SLT;
-						break;
-					}
-					case 0x2B: {
-						result.Execute = &R3000::SLTU;
-						break;
-					}
-					default: {
-						if(!suppressException) raiseException(ExceptionType::ReservedInstruction);
-						break;
-					}
-				}
+		U32 primaryOpCode = result.Opcode();
+		U32 secondaryOpCode = result.Function();
 
-				break;
-			}
-
-			//J Type
-			case 0x02: {
-				result.Execute = &R3000::J;
-				break;
-			}
-			case 0x03: {
-				result.Execute = &R3000::JAL;
-				break;
-			}
-
-			default: {
-				switch (result.Opcode()) {
-					case 0x01: {
-						switch (result.RegisterTarget().Value) {
-							case 0x00: {
-								result.Execute = &R3000::BLTZ;
-								break;
-							}
-							case 0x01: {
-								result.Execute = &R3000::BGEZ;
-								break;
-							}
-							case 0x10: {
-								result.Execute = &R3000::BLTZAL;
-								break;
-							}
-							case 0x11: {
-								result.Execute = &R3000::BGEZAL;
-								break;
-							}
-
-							default: {
-								if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
-								break;
-							}
-						}
-						
-						break;
-					}
-					case 0x04: {
-						result.Execute = &R3000::BEQ;
-						break;
-					}
-					case 0x05: {
-						result.Execute = &R3000::BNE;
-						break;
-					}
-					case 0x06: {
-						result.Execute = &R3000::BLEZ;
-						break;
-					}
-					case 0x07: {
-						result.Execute = &R3000::BGTZ;
-						break;
-					}
-					case 0x08: {
-						result.Execute = &R3000::ADDI;
-						break;
-					}
-					case 0x09: {
-						result.Execute = &R3000::ADDIU;
-						break;
-					}
-					case 0x0A: {
-						result.Execute = &R3000::SLTI;
-						break;
-					}
-					case 0x0B: {
-						result.Execute = &R3000::SLTIU;
-						break;
-					}
-					case 0x0C: {
-						result.Execute = &R3000::ANDI;
-						break;
-					}
-					case 0x0D: {
-						result.Execute = &R3000::ORI;
-						break;
-					}
-					case 0x0E: {
-						result.Execute = &R3000::XORI;
-						break;
-					}
-					case 0x0F: {
-						result.Execute = &R3000::LUI;
-						break;
-					}
-					case 0x10:
-					case 0x11:
-					case 0x12:
-					case 0x13: {
-						U8 cpn = CO_N(instruction);
-						if (CO(instruction) == 0) {
-							switch (result.RegisterSource().Value) {
-								case 0x00: {
-									switch (cpn) {
-										case 0x0:
-											result.Execute = &R3000::MFC0;
-											break;
-										case 0x2:
-											result.Execute = &R3000::MFC2;
-											break;
-										default:
-											if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
-											break;
-									}
-									break;
-								}
-								case 0x02: {
-									switch (cpn) {
-										case 0x2:
-											result.Execute = &R3000::CFC2;
-											break;
-										default:
-											if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
-											break;
-									}
-									break;
-								}
-								case 0x04: {
-									switch (cpn) {
-										case 0x0:
-											result.Execute = &R3000::MTC0;
-											break;
-										case 0x2:
-											result.Execute = &R3000::MTC2;
-											break;
-										default:
-											if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
-											break;
-									}
-									break;
-								}
-								case 0x06: {
-									switch (cpn) {
-										case 0x2:
-											result.Execute = &R3000::CTC2;
-											break;
-										default:
-											if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
-											break;
-									}
-									break;
-								}
-								case 0x08: {
-									switch (result.RegisterTarget()) {
-										case 0x00: {
-											switch (cpn) {
-												case 0x0:
-													result.Execute = &R3000::BC0F;
-													break;
-												case 0x2:
-													result.Execute = &R3000::BC2F;
-													break;
-												default:
-													if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
-													break;
-											}
-											break;
-										}
-
-										case 0x01: {
-											switch (cpn) {
-												case 0x0:
-													result.Execute = &R3000::BC0T;
-													break;
-												case 0x2:
-													result.Execute = &R3000::BC2T;
-													break;
-												default:
-													if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
-													break;
-											}
-											break;
-										}
-
-										default: {
-											if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
-											break;
-										}
-									}
-									break;
-								}
-								default: {
-									if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
-									break;
-								}
-							}
-						}
-						else {
-							switch (cpn) {
-								case 0: {
-									switch (COP_FUNC(instruction)) {
-										case 0x10: {
-											result.Execute = &R3000::RFE;
-											break;
-										}
-
-										default: {
-											if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
-											break;
-										}
-									}
-									break;
-								}
-
-								case 2: {
-									result.Execute = &R3000::COP2;
-									break;
-								}
-
-								default:
-									if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
-									break;
-							}
-						}
-						
-						break;
-					}
-					case 0x20: {
-						result.Execute = &R3000::LB;
-						break;
-					}
-					case 0x21: {
-						result.Execute = &R3000::LH;
-						break;
-					}
-					case 0x22: {
-						result.Execute = &R3000::LWL;
-						break;
-					}
-					case 0x23: {
-						result.Execute = &R3000::LW;
-						break;
-					}
-					case 0x24: {
-						result.Execute = &R3000::LBU;
-						break;
-					}
-					case 0x25: {
-						result.Execute = &R3000::LHU;
-						break;
-					}
-					case 0x26: {
-						result.Execute = &R3000::LWR;
-						break;
-					}
-					case 0x28: {
-						result.Execute = &R3000::SB;
-						break;
-					}
-					case 0x29: {
-						result.Execute = &R3000::SH;
-						break;
-					}
-					case 0x2A: {
-						result.Execute = &R3000::SWL;
-						break;
-					}
-					case 0x2B: {
-						result.Execute = &R3000::SW;
-						break;
-					}
-					case 0x2E: {
-						result.Execute = &R3000::SWR;
-						break;
-					}
-
-					case 0x30:
-					case 0x31: 
-					case 0x32:
-					case 0x33: {
-						if (CO_N(instruction) != 0x02) {
-							if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
-							break;
-						}
-
-						result.Execute = &R3000::LWC2;
-						break;
-					}
-					
-
-					case 0x38:
-					case 0x39:
-					case 0x3A:
-					case 0x3B: {
-						if (CO_N(instruction) != 0x02) {
-							if (!suppressException) raiseException(ExceptionType::CoprocessorUnusable);
-							break;
-						}
-
-						result.Execute = &R3000::SWC2;
-						break;
-					}
-
-					default: {
-						if (!suppressException) raiseException(ExceptionType::ReservedInstruction);
-						break;
-					}
-				}
-			}
-
+		if (primaryOpCode == 0x00) {
+			result.Execute = secondaryOpCodeDecode[secondaryOpCode];
+		} else if (primaryOpCode == 0x01) {
+			result.Execute = branchOpCodeDecode[result.RegisterTarget().Value];
+		} else {
+			result.Execute = primaryOpCodeDecode[primaryOpCode];
 		}
 	}
 
@@ -1268,9 +879,96 @@ namespace esx {
 		raiseException(ExceptionType::Syscall);
 	}
 
+	void R3000::COP0()
+	{
+		if (CO(mCurrentInstruction.binaryInstruction) == 0) {
+			switch (mCurrentInstruction.RegisterSource().Value) {
+				case 0x00: {
+					MFC0();
+					break;
+				}
+				case 0x04: {
+					MTC0();
+					break;
+				}
+				case 0x08: {
+					if (mCurrentInstruction.RegisterTarget().Value == 1) {
+						BC0T();
+					} else if (mCurrentInstruction.RegisterTarget().Value == 0) {
+						BC0F();
+					}
+					break;
+				}
+				default: {
+					raiseException(ExceptionType::CoprocessorUnusable);
+					break;
+				}
+			}
+		}
+		else {
+			switch (COP_FUNC(mCurrentInstruction.binaryInstruction)) {
+				case 0x10: {
+					RFE();
+					break;
+				}
+
+				default: {
+					raiseException(ExceptionType::ReservedInstruction);
+					break;
+				}
+			}
+		}
+	}
+
+	void R3000::COP1()
+	{
+		raiseException(ExceptionType::CoprocessorUnusable);
+	}
+
 	void R3000::COP2()
 	{
+		if (CO(mCurrentInstruction.binaryInstruction) == 0) {
+			switch (mCurrentInstruction.RegisterSource().Value) {
+				case 0x00: {
+					MFC2();
+					break;
+				}
+				case 0x02: {
+					CFC2();
+					break;
+				}
+				case 0x04: {
+					MTC2();
+					break;
+				}
+				case 0x06: {
+					CTC2();
+					break;
+				}
+				case 0x08: {
+					if (mCurrentInstruction.RegisterTarget().Value == 1) {
+						BC2T();
+					}
+					else if (mCurrentInstruction.RegisterTarget().Value == 0) {
+						BC2F();
+					}
+					break;
+				}
+				default: {
+					raiseException(ExceptionType::CoprocessorUnusable);
+					break;
+				}
+			}
+		}
+		else {
+			ESX_CORE_LOG_ERROR("GTE command {:08X}h Not implemented yet", mCurrentInstruction.Immediate25());
+		}
 		ESX_CORE_LOG_ERROR("GTE command {:08X}h Not implemented yet", mCurrentInstruction.Immediate25());
+	}
+
+	void R3000::COP3()
+	{
+		raiseException(ExceptionType::CoprocessorUnusable);
 	}
 
 	void R3000::MTC0()
@@ -1398,14 +1096,49 @@ namespace esx {
 		setCP0Register(COP0Register::SR, sr);
 	}
 
+	void R3000::LWC0()
+	{
+		raiseException(ExceptionType::CoprocessorUnusable);
+	}
+
+	void R3000::LWC1()
+	{
+		raiseException(ExceptionType::CoprocessorUnusable);
+	}
+
 	void R3000::LWC2()
 	{
 		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
 	}
 
+	void R3000::LWC3()
+	{
+		raiseException(ExceptionType::CoprocessorUnusable);
+	}
+
+	void R3000::SWC0()
+	{
+		raiseException(ExceptionType::CoprocessorUnusable);
+	}
+
+	void R3000::SWC1()
+	{
+		raiseException(ExceptionType::CoprocessorUnusable);
+	}
+
 	void R3000::SWC2()
 	{
 		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+	}
+
+	void R3000::SWC3()
+	{
+		raiseException(ExceptionType::CoprocessorUnusable);
+	}
+
+	void R3000::NA()
+	{
+		raiseException(ExceptionType::ReservedInstruction);
 	}
 
 	void R3000::addPendingLoad(RegisterIndex index, U32 value)

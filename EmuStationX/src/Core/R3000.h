@@ -339,7 +339,10 @@ namespace esx {
 		void SYSCALL();
 
 		//COPx
+		void COP0();
+		void COP1();
 		void COP2();
+		void COP3();
 		void MTC0();
 		void MFC0();
 		void CFC2();
@@ -351,8 +354,16 @@ namespace esx {
 		void BC0T();
 		void BC2T();
 		void RFE();
+		void LWC0();
+		void LWC1();
 		void LWC2();
+		void LWC3();
+		void SWC0();
+		void SWC1();
 		void SWC2();
+		void SWC3();
+
+		void NA();
 
 		Instruction mCurrentInstruction;
 
