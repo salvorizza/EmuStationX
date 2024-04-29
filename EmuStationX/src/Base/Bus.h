@@ -32,6 +32,8 @@ namespace esx {
 		BusDevice(const StringView& name) : mName(name) {}
 		virtual ~BusDevice() = default;
 
+		virtual void clock(U64 clocks) {};
+
 		virtual void writeLine(const StringView& busName, const StringView& lineName, BIT value) {}
 
 		virtual void store(const StringView& busName, U32 address, U32 value) { ESX_CORE_LOG_ERROR("Device {} does not implement store32", mName); }
@@ -46,7 +48,7 @@ namespace esx {
 		const StringView& getName() const { return mName; }
 
 		void connectToBus(const SharedPtr<Bus>& pBus);
-		SharedPtr<Bus> getBus(const StringView& busName);
+		SharedPtr<Bus>& getBus(const StringView& busName);
 
 	protected:
 		void addRange(const StringView& busName, U64 start, U64 sizeInBytes, U64 mask);
@@ -123,6 +125,10 @@ namespace esx {
 		template<typename T>
 		SharedPtr<T> getDevice(const StringView& name) {
 			return std::dynamic_pointer_cast<T>(mDevices.at(name));
+		}
+
+		SharedPtr<BusDevice>& getDevice(const StringView& name) {
+			return mDevices.at(name);
 		}
 
 		const StringView& getName() const { return mName; }

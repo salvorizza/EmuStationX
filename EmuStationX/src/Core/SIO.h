@@ -142,7 +142,7 @@ namespace esx {
 		SIO(U8 id);
 		~SIO();
 
-		void clock();
+		virtual void clock(U64 clocks) override;
 
 		void fallingEdge();
 		void risingEdge();

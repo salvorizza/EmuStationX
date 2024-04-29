@@ -79,7 +79,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;vendor\optick\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <MinimalRebuild>false</MinimalRebuild>
@@ -90,7 +90,7 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;vendor\optick\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -103,7 +103,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;vendor\optick\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -116,7 +116,7 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;vendor\optick\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -130,7 +130,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;vendor\optick\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -143,7 +143,7 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;vendor\optick\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -243,6 +243,9 @@
   <ItemGroup>
     <None Include="commons\icons\Logo.ico" />
     <None Include="vendor\glfw\examples\glfw.ico" />
+    <None Include="vendor\optick\gui\Optick\Resources\Bug.ico" />
+    <None Include="vendor\optick\gui\Optick\Resources\icon.ico" />
+    <None Include="vendor\optick\gui\Optick\TimeLine\Icons\Stop-icon.ico" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resources.rc" />
@@ -262,6 +265,9 @@
     </ProjectReference>
     <ProjectReference Include="vendor\stb\STB.vcxproj">
       <Project>{0E1F880B-7A28-887C-03A4-9E7C6FAC937C}</Project>
+    </ProjectReference>
+    <ProjectReference Include="vendor\optick\OptickCore.vcxproj">
+      <Project>{D8127FFA-C4CA-C047-2DD2-99A319A95B38}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

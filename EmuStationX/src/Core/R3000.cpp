@@ -11,6 +11,8 @@
 #include "Core/InterruptControl.h"
 #include "Core/DMA.h"
 
+#include "optick.h"
+
 namespace esx {
 
 	R3000::R3000()
@@ -60,22 +62,22 @@ namespace esx {
 
 			(this->*mCurrentInstruction.Execute)();
 
-			if(mStall) {
+			/*if (mStall) {
 				mNextPC = mPC;
 				mPC = mCurrentPC;
 				resetPendingLoad();
 			} else {
 				mRegisters = mOutRegisters;
-			}
+			}*/
 
 		}
 
-		mGPU->clock();
-		mTimer->systemClock();
+		mGPU->clock(mCycles);
+		mTimer->clock(mCycles);
 		mCDROM->clock(mCycles);
-		mSIO0->clock();
+		mSIO0->clock(mCycles);
 		mDMA->clock(mCycles);
-		if (!mDMA->isRunning() && mStall) {
+		if (!mDMA->isRunning()) {
 			mStall = ESX_FALSE;
 		}
 
@@ -963,7 +965,6 @@ namespace esx {
 		else {
 			ESX_CORE_LOG_ERROR("GTE command {:08X}h Not implemented yet", mCurrentInstruction.Immediate25());
 		}
-		ESX_CORE_LOG_ERROR("GTE command {:08X}h Not implemented yet", mCurrentInstruction.Immediate25());
 	}
 
 	void R3000::COP3()

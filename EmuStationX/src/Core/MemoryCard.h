@@ -117,12 +117,13 @@ namespace esx {
 
 	class MemoryCard : public SerialDevice {
 	public:
-		MemoryCard();
-		MemoryCard(const std::filesystem::path& path);
+		MemoryCard(U8 slot = 0);
 		virtual ~MemoryCard() = default;
 
 		U8 receive(U8 value) override;
 		void cs() override;
+
+		void LoadFromFile(const std::filesystem::path& path);
 
 		void Save();
 
@@ -136,6 +137,7 @@ namespace esx {
 		U8 mChecksum = 0x00;
 		U8 mReceivedChecksum = 0x00;
 		U8 mLastRX = 0x00;
+		U8 mSlot = 0x00;
 
 		MemoryCardCommand mCurrentCommand = MemoryCardCommand::None;
 		MemoryCardCommunicationPhase mPhase = MemoryCardCommunicationPhase::Adressing;

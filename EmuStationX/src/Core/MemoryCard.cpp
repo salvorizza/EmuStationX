@@ -4,12 +4,15 @@
 
 #include "SIO.h"
 
+#include "optick.h"
+
 namespace esx {
 
 
 
-	MemoryCard::MemoryCard()
-		: SerialDevice(SerialDeviceType::MemoryCard)
+	MemoryCard::MemoryCard(U8 slot)
+		:	SerialDevice(SerialDeviceType::MemoryCard),
+			mSlot(slot)
 	{
 		std::memcpy(mData.Directory.Header.MemoryCardID, "MC", 2);
 		mData.Directory.Header.Unused = { 0x00 };
@@ -60,11 +63,12 @@ namespace esx {
 				dataFrame.Data = { 0x00 };
 			}
 		}
+
+		mFlag = (1 << 3);
 	}
 
 
-	MemoryCard::MemoryCard(const std::filesystem::path& path)
-		: SerialDevice(SerialDeviceType::MemoryCard)
+	void MemoryCard::LoadFromFile(const std::filesystem::path& path)
 	{
 		DataBuffer file{};
 		ReadFile(path.string().c_str(), file);
@@ -252,7 +256,7 @@ namespace esx {
 	void MemoryCard::Save()
 	{
 		DataBuffer buffer((U8*)&mData, sizeof(MemoryCardData));
-		WriteFile("commons/memory_cards/test.mcr", buffer);
+		WriteFile((String("commons/memory_cards/") + std::to_string(mSlot) + ".mcr").c_str(), buffer);
 	}
 
 	U8 MemoryCard::calculateChecksum(U8* frame, U64 size)

@@ -13,3 +13,6 @@
 [submodule "EmuStationX/vendor/imgui-console"]
 	path = EmuStationX/vendor/imgui-console
 	url = https://github.com/salvorizza/imgui-console
+[submodule "EmuStationX/vendor/optick"]
+	path = EmuStationX/vendor/optick
+	url = https://github.com/salvorizza/optick

@@ -43,6 +43,8 @@
 
 #include <iostream>
 
+#include "optick.h"
+
 
 
 using namespace esx;
@@ -136,7 +138,11 @@ public:
 		sio0 = MakeShared<SIO>(0);
 		sio1 = MakeShared<SIO>(1);
 		controller = MakeShared<Controller>(ControllerType::DigitalPad);
-		memoryCard = MakeShared<MemoryCard>("commons/memory_cards/0.mcr");
+		memoryCard = MakeShared<MemoryCard>(0);
+		memoryCard2 = MakeShared<MemoryCard>(1);
+
+		memoryCard->LoadFromFile("commons/memory_cards/0.mcr");
+		memoryCard2->LoadFromFile("commons/memory_cards/1.mcr");
 
 		root->connectDevice(cpu);
 		cpu->connectToBus(root);
@@ -183,6 +189,11 @@ public:
 		sio0->plugDevice(SerialPort::Port1, memoryCard);
 		memoryCard->setMaster(sio0);
 
+
+		sio0->plugDevice(SerialPort::Port2, memoryCard2);
+		memoryCard2->setMaster(sio0);
+
+
 		root->sortRanges();
 
 		mCPUStatusPanel->setInstance(cpu);
@@ -198,6 +209,8 @@ public:
 	}
 
 	virtual void onUpdate() override {
+		OPTICK_FRAME("MainThread");
+
 		float deltaTime = loopTimer.getDeltaTimeInSeconds();
 
 		controller->setButtonState(ControllerButton::JoypadDown, InputManager::IsKeyPressed(GLFW_KEY_S));
@@ -259,6 +272,8 @@ public:
 				ImGui::MenuItem("Play");
 				ImGui::MenuItem("Stop");
 				ImGui::MenuItem("Pause");
+				if (ImGui::MenuItem("Save Memory Card 1")) memoryCard->Save();
+				if (ImGui::MenuItem("Save Memory Card 2")) memoryCard2->Save();
 
 				ImGui::EndMenu();
 			}
@@ -298,7 +313,7 @@ private:
 	SharedPtr<SIO> sio0;
 	SharedPtr<SIO> sio1;
 	SharedPtr<Controller> controller;
-	SharedPtr<MemoryCard> memoryCard;
+	SharedPtr<MemoryCard> memoryCard, memoryCard2;
 	LoopTimer loopTimer;
 
 

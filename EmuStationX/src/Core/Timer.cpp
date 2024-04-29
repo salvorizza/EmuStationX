@@ -3,12 +3,15 @@
 #include "InterruptControl.h"
 #include "R3000.h"
 
+#include "optick.h"
+
 namespace esx {
 
 	Timer::Timer()
 		: BusDevice(ESX_TEXT("Timer"))
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801100, BYTE(0x30), 0xFFFFFFFF);
+		mPause.fill(ESX_FALSE);
 	}
 
 	Timer::~Timer()
@@ -103,22 +106,20 @@ namespace esx {
 		}
 	}
 
-	void Timer::systemClock()
+	void Timer::clock(U64 clocks)
 	{
-		mSystemClockDiv8 = (mSystemClockDiv8 + 1) % 8;
-
-		if (mCounterModes[0].ClockSource == 0 || mCounterModes[0].ClockSource == 2) {
+		if ((mCounterModes[0].ClockSource & 1) == 0) {
 			incrementCounter(0);
 		}
 
-		if (mCounterModes[1].ClockSource == 0 || mCounterModes[1].ClockSource == 2) {
+		if ((mCounterModes[1].ClockSource & 1) == 0) {
 			incrementCounter(1);
 		}
 
-		if (mCounterModes[2].ClockSource == 0 || mCounterModes[2].ClockSource == 1) {
+		if (mCounterModes[2].ClockSource < 2) {
 			incrementCounter(2);
 		} else {
-			if (mSystemClockDiv8 == 0) {
+			if ((clocks % 8) == 0) {
 				incrementCounter(2);
 			}
 		}
@@ -126,18 +127,34 @@ namespace esx {
 
 	void Timer::hblank()
 	{
-		if (mCounterModes[1].ClockSource == 1 || mCounterModes[1].ClockSource == 3) {
+		if (mCounterModes[0].SyncEnable) {
+			if (mCounterModes[0].SyncMode == 1) {
+				mCurrentValues[0] = 0x0000;
+			} else if (mCounterModes[0].SyncMode == 3) {
+				mCounterModes[0].SyncEnable = ESX_FALSE;
+			}
+		}
+
+		if ((mCounterModes[1].ClockSource & 1) == 1) {
 			incrementCounter(1);
 		}
 	}
 
 	void Timer::vblank()
 	{
+		if (mCounterModes[1].SyncEnable) {
+			if (mCounterModes[1].SyncMode == 1) {
+				mCurrentValues[1] = 0x0000;
+			}
+			else if (mCounterModes[1].SyncMode == 3) {
+				mCounterModes[1].SyncEnable = ESX_FALSE;
+			}
+		}
 	}
 
 	void Timer::dot()
 	{
-		if (mCounterModes[0].ClockSource == 1 || mCounterModes[0].ClockSource == 3) {
+		if ((mCounterModes[0].ClockSource & 1) == 1) {
 			incrementCounter(0);
 		}
 	}
@@ -165,6 +182,9 @@ namespace esx {
 
 		mCounterModes[counter].InterruptRequest = ESX_FALSE;
 		mCurrentValues[counter] = 0x0000;
+
+		if (counter == 0 && mCounterModes[counter].SyncEnable && mCounterModes[counter].SyncMode == 3) mPause[counter] = ESX_TRUE;
+		if (counter == 1 && mCounterModes[counter].SyncEnable && mCounterModes[counter].SyncMode == 3) mPause[counter] = ESX_TRUE;
 	}
 
 	U32 Timer::getCounterMode(U8 counter)
@@ -201,25 +221,31 @@ namespace esx {
 
 	void Timer::incrementCounter(U8 counter)
 	{
+		if (mPause[counter]) return;
+
+		CounterModeRegister& modeRegister = mCounterModes[counter];
+
+		if (counter == 2 && modeRegister.SyncEnable && (modeRegister.SyncMode & 1) == 0) return;
+
 		mCurrentValues[counter]++;
 		BIT reachedTargetValue = mCurrentValues[counter] == mTargetValues[counter];
 		BIT reachedMaxValue = mCurrentValues[counter] == 0xFFFF;
 
-		mCounterModes[counter].ReachedTargetValue = reachedTargetValue;
-		mCounterModes[counter].ReachedMax = reachedMaxValue;
+		modeRegister.ReachedTargetValue = reachedTargetValue;
+		modeRegister.ReachedMax = reachedMaxValue;
 
-		if ((mCounterModes[counter].ResetCounter == 1 && reachedTargetValue) || (mCounterModes[counter].ResetCounter == 0 && reachedMaxValue)) {
+		if ((modeRegister.ResetCounter && reachedTargetValue) || (!modeRegister.ResetCounter && reachedMaxValue)) {
 			mCurrentValues[counter] = 0x0000;
 		}
 
-		if ((mCounterModes[counter].IRQCounterEqualTargetEnable && reachedTargetValue) || (mCounterModes[counter].IRQCounterEqualMaxEnable && reachedMaxValue)) {
+		if ((modeRegister.IRQCounterEqualTargetEnable && reachedTargetValue) || (modeRegister.IRQCounterEqualMaxEnable && reachedMaxValue)) {
 			//TODO: this is Repeat mode do pulse and toggle
-			BIT newInterruptRequest = !mCounterModes[counter].InterruptRequest;
+			BIT newInterruptRequest = !modeRegister.InterruptRequest;
 
 			SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-			ic->requestInterrupt((InterruptType)((U8)InterruptType::Timer0 << counter), !mCounterModes[counter].InterruptRequest, !newInterruptRequest);
+			ic->requestInterrupt((InterruptType)((U8)InterruptType::Timer0 << counter), !modeRegister.InterruptRequest, !newInterruptRequest);
 
-			mCounterModes[counter].InterruptRequest = newInterruptRequest;
+			modeRegister.InterruptRequest = newInterruptRequest;
 		}
 	}
 

@@ -132,7 +132,7 @@ namespace esx {
 		void gp1(U32 instruction);
 		U32 gpuRead();
 
-		void clock();
+		virtual void clock(U64 clocks) override;
 
 		BIT isNewFrameAvailable() { 
 			BIT tempFrame = mFrameAvailable;
@@ -246,8 +246,9 @@ namespace esx {
 		U32 mNumWordsToTransfer = 0x00000000;
 		U32 mCurrentWordNumber = 0x00000000;
 
-		float mClocks = 0;
-		float mDotClocks = 0;
+		U64 mFrames = 0;
+		U64 mDotClocks = 0;
+		U64 mNumDots = 0;
 		U64 mCurrentScanLine = 0;
 		BIT mVBlank = ESX_FALSE;
 		BIT mFrameAvailable = ESX_FALSE;

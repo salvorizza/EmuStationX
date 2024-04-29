@@ -5,6 +5,8 @@
 #include "Timer.h"
 #include "InterruptControl.h"
 
+#include "optick.h"
+
 namespace esx {
 
 	GPU::GPU(const SharedPtr<IRenderer>& renderer)
@@ -273,24 +275,22 @@ namespace esx {
 			4
 	};
 
-	void GPU::clock()
+	void GPU::clock(U64 clocks)
 	{
 		U8 dotClocks = PAL_DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
-		constexpr float gpuOneClock = 11.0f / 7.0f;
 
 		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
 		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 
-		mClocks += gpuOneClock;
-		mDotClocks += gpuOneClock / dotClocks;
+		U64 gpuClocks = (clocks * 11) / 7;
+		gpuClocks -= (mFrames * PAL_SCANLINES_PER_FRAME * PAL_CLOCKS_PER_SCANLINE);
 
-		if (mDotClocks >= dotClocks) {
-			mDotClocks -= dotClocks;
+		if (gpuClocks > ((mNumDots + 1) * dotClocks)) {
+			mNumDots++;
 			mTimer->dot();
 		}
 
-		if (mClocks >= PAL_CLOCKS_PER_SCANLINE) {
-			mClocks -= PAL_CLOCKS_PER_SCANLINE;
+		if (gpuClocks > ((mCurrentScanLine + 1) * PAL_CLOCKS_PER_SCANLINE)) {
 			mCurrentScanLine++;
 
 			mTimer->hblank();
@@ -318,6 +318,8 @@ namespace esx {
 				mFrameAvailable = ESX_TRUE;
 
 				mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
+				mTimer->vblank();
+				mFrames++;
 			}
 		}
 	}

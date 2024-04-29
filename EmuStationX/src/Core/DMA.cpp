@@ -9,6 +9,10 @@ namespace esx {
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801080, BYTE(0x75), 0xFFFFFFFF);
 
+		for (U8 port = 0; port < (U8)Port::Max; port++) {
+			mChannels[port].Port = (Port)port;
+		}
+
 		setControlRegister(0x07654321);
 		setInterruptRegister(0);
 	}
@@ -19,20 +23,21 @@ namespace esx {
 
 	void DMA::clock(U64 clocks)
 	{
-		for (U8 port = 0; port < (U8)Port::Max; port++) {
-			Channel& channel = mChannels[port];
+		for (Port& port : mPriorityPorts) {
+			Channel& channel = mChannels[(U8)port];
 
-			if (channel.Enable) {
+			if (channel.MasterEnable && channel.Enable) {
 				switch (channel.SyncMode)
 				{
 					case SyncMode::LinkedList:
-						clockLinkedListTransfer((Port)port, channel);
+						clockLinkedListTransfer(channel);
 						break;
 
 					default:
-						clockBlockTransfer((Port)port, channel);
+						clockBlockTransfer(channel);
 						break;
 				}
+				break;
 			}
 		}
 	}
@@ -49,25 +54,25 @@ namespace esx {
 				break;
 			}
 			default: {
-				Port channel = (Port)(((address >> 4) & 0xF) - 0x8);
+				Port port = (Port)(((address >> 4) & 0xF) - 0x8);
 
 				switch (address & 0xF) {
 					case 0x0: {
-						setChannelBaseAddress(channel, value);
+						setChannelBaseAddress(port, value);
 						break;
 					}
 					case 0x4: {
-						setChannelBlockControl(channel, value);
+						setChannelBlockControl(port, value);
 						break;
 					}
 					case 0x8: {
-						setChannelControl(channel, value);
+						setChannelControl(port, value);
 						break;
 					}
 				}
 
-				if (isChannelActive(channel)) {
-					startTransfer(channel);
+				if (isChannelActive(port)) {
+					startTransfer(port);
 				}
 			}
 		}
@@ -166,19 +171,21 @@ namespace esx {
 
 	BIT DMA::isChannelActive(Port port)
 	{
+		Channel& channel = mChannels[(U8)port];
+
 		BIT trigger = ESX_TRUE;
-		if (mChannels[(U8)port].SyncMode == SyncMode::Manual) {
-			trigger = mChannels[(U8)port].Trigger;
+		if (channel.SyncMode == SyncMode::Manual) {
+			trigger = channel.Trigger;
 		}
 
-		return (mChannels[(U8)port].Enable && trigger) ? ESX_TRUE : ESX_FALSE;
+		return (channel.MasterEnable && channel.Enable && trigger) ? ESX_TRUE : ESX_FALSE;
 	}
 
-	void DMA::setChannelDone(Port port)
+	void DMA::setChannelDone(Channel& channel)
 	{
-		mChannels[(U8)port].Enable = ESX_FALSE;
+		channel.Enable = ESX_FALSE;
 
-		U8 flag = 1 << (U8)port;
+		U8 flag = 1 << (U8)channel.Port;
 
 		if (mInterruptRegister.IRQEnable & flag) {
 			BIT oldIRQ = mInterruptRegister.IRQMasterFlag();
@@ -215,42 +222,55 @@ namespace esx {
 
 	void DMA::setControlRegister(U32 value)
 	{
-		mControlRegister.MDECinPriority = (value >> 0) & 0x3;
-		mControlRegister.MDECinMasterEnable = (value >> 3) & 0x1;
-		mControlRegister.MDECoutPriority = (value >> 4) & 0x3;
-		mControlRegister.MDECoutMasterEnable = (value >> 7) & 0x1;
-		mControlRegister.GPUPriority = (value >> 8) & 0x3;
-		mControlRegister.GPUMasterEnable = (value >> 11) & 0x1;
-		mControlRegister.CDROMPriority = (value >> 12) & 0x3;
-		mControlRegister.CDROMMasterEnable = (value >> 15) & 0x1;
-		mControlRegister.SPUPriority = (value >> 16) & 0x3;
-		mControlRegister.SPUMasterEnable = (value >> 19) & 0x1;
-		mControlRegister.PIOPriority = (value >> 20) & 0x3;
-		mControlRegister.PIOMasterEnable = (value >> 23) & 0x1;
-		mControlRegister.OTCPriority = (value >> 24) & 0x3;
-		mControlRegister.OTCMasterEnable = (value >> 27) & 0x1;
+		mChannels[(U8)Port::MDECin].Priority = (value >> 0) & 0x3;
+		mChannels[(U8)Port::MDECin].MasterEnable = (value >> 3) & 0x1;
+		mChannels[(U8)Port::MDECout].Priority = (value >> 4) & 0x3;
+		mChannels[(U8)Port::MDECout].MasterEnable = (value >> 7) & 0x1;
+		mChannels[(U8)Port::GPU].Priority = (value >> 8) & 0x3;
+		mChannels[(U8)Port::GPU].MasterEnable = (value >> 11) & 0x1;
+		mChannels[(U8)Port::CDROM].Priority = (value >> 12) & 0x3;
+		mChannels[(U8)Port::CDROM].MasterEnable = (value >> 15) & 0x1;
+		mChannels[(U8)Port::SPU].Priority = (value >> 16) & 0x3;
+		mChannels[(U8)Port::SPU].MasterEnable = (value >> 19) & 0x1;
+		mChannels[(U8)Port::PIO].Priority = (value >> 20) & 0x3;
+		mChannels[(U8)Port::PIO].MasterEnable = (value >> 23) & 0x1;
+		mChannels[(U8)Port::OTC].Priority = (value >> 24) & 0x3;
+		mChannels[(U8)Port::OTC].MasterEnable = (value >> 27) & 0x1;
 		mControlRegister.Dummy1 = (value >> 28) & 0x3;
 		mControlRegister.Dummy2 = (value >> 31) & 0x1;
+
+		mPriorityPorts = {
+			Port::MDECin,
+			Port::MDECout,
+			Port::GPU,
+			Port::CDROM,
+			Port::SPU,
+			Port::PIO,
+			Port::OTC
+		};
+
+		std::sort(mPriorityPorts.begin(), mPriorityPorts.end(), [&](Port& a, Port& b) { return mChannels[(U8)a].Priority < mChannels[(U8)b].Priority; });
+		std::erase_if(mPriorityPorts, [&](Port& a) { return !mChannels[(U8)a].MasterEnable; });
 	}
 
 	U32 DMA::getControlRegister()
 	{
 		U32 result = 0;
 
-		result |= mControlRegister.MDECinPriority << 0;
-		result |= mControlRegister.MDECinMasterEnable << 3;
-		result |= mControlRegister.MDECoutPriority << 4;
-		result |= mControlRegister.MDECoutMasterEnable << 7;
-		result |= mControlRegister.GPUPriority << 8;
-		result |= mControlRegister.GPUMasterEnable << 11;
-		result |= mControlRegister.CDROMPriority << 12;
-		result |= mControlRegister.CDROMMasterEnable << 15;
-		result |= mControlRegister.SPUPriority << 16;
-		result |= mControlRegister.SPUMasterEnable << 19;
-		result |= mControlRegister.PIOPriority << 20;
-		result |= mControlRegister.PIOMasterEnable << 23;
-		result |= mControlRegister.OTCPriority << 24;
-		result |= mControlRegister.OTCMasterEnable << 27;
+		result |= mChannels[(U8)Port::MDECin].Priority << 0;
+		result |= mChannels[(U8)Port::MDECin].MasterEnable << 3;
+		result |= mChannels[(U8)Port::MDECout].Priority << 4;
+		result |= mChannels[(U8)Port::MDECout].MasterEnable << 7;
+		result |= mChannels[(U8)Port::GPU].Priority << 8;
+		result |= mChannels[(U8)Port::GPU].MasterEnable << 11;
+		result |= mChannels[(U8)Port::CDROM].Priority << 12;
+		result |= mChannels[(U8)Port::CDROM].MasterEnable << 15;
+		result |= mChannels[(U8)Port::SPU].Priority << 16;
+		result |= mChannels[(U8)Port::SPU].MasterEnable << 19;
+		result |= mChannels[(U8)Port::PIO].Priority << 20;
+		result |= mChannels[(U8)Port::PIO].MasterEnable << 23;
+		result |= mChannels[(U8)Port::OTC].Priority << 24;
+		result |= mChannels[(U8)Port::OTC].MasterEnable << 27;
 		result |= mControlRegister.Dummy1 << 28;
 		result |= mControlRegister.Dummy2 << 31;
 
@@ -261,26 +281,25 @@ namespace esx {
 	{
 		Channel& channel = mChannels[(U8)port];
 
-		channel.Enable = ESX_TRUE;
 		channel.Trigger = ESX_FALSE;
 
 		mRunningDMAs++;
 
 		switch (channel.SyncMode) {
 			case SyncMode::LinkedList: {
-				startLinkedListTransfer(port, channel);
+				startLinkedListTransfer(channel);
 				break;
 			}
 
 			default: {
-				startBlockTransfer(port, channel);
+				startBlockTransfer(channel);
 				break;
 			}
 		}
 
 	}
 
-	void DMA::startBlockTransfer(Port port, Channel& channel)
+	void DMA::startBlockTransfer(Channel& channel)
 	{
 		U32 transferSize = 0;
 		switch (channel.SyncMode)
@@ -297,7 +316,7 @@ namespace esx {
 		channel.TransferStatus.BlockRemainingSize = transferSize;
 	}
 
-	void DMA::clockBlockTransfer(Port port, Channel& channel)
+	void DMA::clockBlockTransfer(Channel& channel)
 	{
 		I32 increment = (channel.Step == Step::Forward) ? 4 : -4;
 		SharedPtr<Bus> bus = getBus(ESX_TEXT("Root"));
@@ -310,7 +329,7 @@ namespace esx {
 			case Direction::ToMainRAM: {
 				U32 valueToWrite = 0;
 
-				switch (port) {
+				switch (channel.Port) {
 					case Port::OTC: {
 						if (channel.TransferStatus.BlockRemainingSize == 1) {
 							valueToWrite = 0xFFFFFF;
@@ -327,7 +346,7 @@ namespace esx {
 					}
 
 					default: {
-						ESX_CORE_LOG_ERROR("Port ToMainRAM {} not supported yet", (U8)port);
+						ESX_CORE_LOG_ERROR("Port ToMainRAM {} not supported yet", (U8)channel.Port);
 						break;
 					}
 				}
@@ -340,13 +359,13 @@ namespace esx {
 				U32 value = 0;
 				ram->load(ESX_TEXT("Root"), currentAddress, value);
 
-				switch (port) {
+				switch (channel.Port) {
 					case Port::GPU: {
 						gpu->gp0(value);
 						break;
 					}
 					default: {
-						ESX_CORE_LOG_ERROR("Port FromMainRAM {} not supported yet", (U8)port);
+						ESX_CORE_LOG_ERROR("Port FromMainRAM {} not supported yet", (U8)channel.Port);
 						break;
 					}
 				}
@@ -359,14 +378,14 @@ namespace esx {
 		channel.TransferStatus.BlockRemainingSize--;
 
 		if (channel.TransferStatus.BlockRemainingSize == 0) {
-			setChannelDone(port);
+			setChannelDone(channel);
 		}
 	}
 
 
-	void DMA::startLinkedListTransfer(Port port, Channel& channel)
+	void DMA::startLinkedListTransfer(Channel& channel)
 	{
-		ESX_CORE_ASSERT(port == Port::GPU, "DMA Port {} not supported yet", (U8)port);
+		ESX_CORE_ASSERT(channel.Port == Port::GPU, "DMA Port {} not supported yet", (U8)channel.Port);
 		ESX_CORE_ASSERT(channel.Direction == Direction::FromMainRAM, "ToMainRAM Direction not supported yet");
 		
 		channel.TransferStatus.LinkedListCurrentNodeAddress = channel.BaseAddress & 0x1FFFFC;
@@ -376,7 +395,7 @@ namespace esx {
 		channel.TransferStatus.LinkedListPacketAddress = 0;
 	}
 
-	void DMA::clockLinkedListTransfer(Port port, Channel& channel)
+	void DMA::clockLinkedListTransfer(Channel& channel)
 	{
 		SharedPtr<Bus> bus = getBus(ESX_TEXT("Root"));
 		SharedPtr<RAM> ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
@@ -401,7 +420,7 @@ namespace esx {
 
 		if (transferStatus.LinkedListRemainingSize == 0) {
 			if ((transferStatus.LinkedListCurrentNodeHeader & 0x800000) != 0) {
-				setChannelDone(port);
+				setChannelDone(channel);
 			} else {
 				transferStatus.LinkedListCurrentNodeAddress = transferStatus.LinkedListNextNodeAddress;
 			}

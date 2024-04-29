@@ -33,7 +33,7 @@ namespace esx {
 		virtual void store(const StringView& busName, U32 address, U32 value);
 		virtual void load(const StringView& busName, U32 address, U32& output);
 
-		void systemClock();
+		virtual void clock(U64 clocks) override;
 		void hblank();
 		void vblank();
 		void dot();
@@ -55,8 +55,7 @@ namespace esx {
 		Array<U16, 3> mCurrentValues;
 		Array<CounterModeRegister, 3> mCounterModes;
 		Array<U16, 3> mTargetValues;
-
-		U64 mSystemClockDiv8;
+		Array<BIT, 3> mPause;
 	};
 
 }

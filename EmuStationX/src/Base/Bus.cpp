@@ -40,7 +40,7 @@ namespace esx {
 		mBusses[pBus->getName()] = pBus;
 	}
 
-	SharedPtr<Bus> BusDevice::getBus(const StringView& busName)
+	SharedPtr<Bus>& BusDevice::getBus(const StringView& busName)
 	{
 		return mBusses[busName];
 	}

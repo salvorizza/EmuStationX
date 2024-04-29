@@ -24,6 +24,7 @@ group "Dependencies"
 	include "EmuStationX/vendor/imgui"
 	include "EmuStationX/vendor/stb"
 	include "EmuStationX/vendor/imgui-console"
+		include "EmuStationX/vendor/optick"
 group ""
 
 include "EmuStationX"

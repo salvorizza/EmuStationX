@@ -19,7 +19,7 @@ namespace esx {
 	{
 	}
 
-	void SIO::clock()
+	void SIO::clock(U64 clocks)
 	{
 		if (mStatRegister.BaudrateTimer > 0) {
 			mStatRegister.BaudrateTimer--;

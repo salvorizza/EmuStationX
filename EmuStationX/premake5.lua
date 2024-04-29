@@ -28,7 +28,8 @@ project "EmuStationX"
 		"%{IncludeDir.Glad}",
 		"%{IncludeDir.glm}",
 		"%{IncludeDir.stb}",
-		"%{IncludeDir.ImGuiConsole}"
+		"%{IncludeDir.ImGuiConsole}",
+		"%{IncludeDir.Optick}"
 	}
 
 	links
@@ -38,6 +39,7 @@ project "EmuStationX"
 		"ImGui",
 		"ImGuiConsole",
 		"STB",
+		"OptickCore",
 		"opengl32.lib"
 	}
 	

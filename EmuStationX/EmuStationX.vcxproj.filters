@@ -19,6 +19,24 @@
     <Filter Include="Resources\vendor\glfw\examples">
       <UniqueIdentifier>{6AA81921-56CE-E387-3F14-69532BD90854}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resources\vendor\optick">
+      <UniqueIdentifier>{365C27D9-A293-6F70-AB9D-D39317549669}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources\vendor\optick\gui">
+      <UniqueIdentifier>{AA126299-1620-907F-9F06-8C6A0B135C36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources\vendor\optick\gui\Optick">
+      <UniqueIdentifier>{C300365E-AF3C-39C8-184F-51BF04AAE1E2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources\vendor\optick\gui\Optick\Resources">
+      <UniqueIdentifier>{ED35F592-D948-F5EB-8232-D2D86E249239}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources\vendor\optick\gui\Optick\TimeLine">
+      <UniqueIdentifier>{C981A94F-35E7-3CD6-BEBF-DEAE2A243245}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources\vendor\optick\gui\Optick\TimeLine\Icons">
+      <UniqueIdentifier>{349783A6-A05D-E0C2-E9B8-6E2555BE4E27}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{2DAB880B-99B4-887C-2230-9F7C8E38947C}</UniqueIdentifier>
     </Filter>
@@ -309,6 +327,15 @@
     </None>
     <None Include="vendor\glfw\examples\glfw.ico">
       <Filter>Resources\vendor\glfw\examples</Filter>
+    </None>
+    <None Include="vendor\optick\gui\Optick\Resources\Bug.ico">
+      <Filter>Resources\vendor\optick\gui\Optick\Resources</Filter>
+    </None>
+    <None Include="vendor\optick\gui\Optick\Resources\icon.ico">
+      <Filter>Resources\vendor\optick\gui\Optick\Resources</Filter>
+    </None>
+    <None Include="vendor\optick\gui\Optick\TimeLine\Icons\Stop-icon.ico">
+      <Filter>Resources\vendor\optick\gui\Optick\TimeLine\Icons</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

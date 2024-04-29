@@ -27,7 +27,7 @@ namespace esx {
 		InterruptControl();
 		~InterruptControl();
 
-		void clock(U64 clocks);
+		virtual void clock(U64 clocks) override;
 
 		virtual void store(const StringView& busName, U32 address, U32 value) override;
 		virtual void load(const StringView& busName, U32 address, U32& output) override;

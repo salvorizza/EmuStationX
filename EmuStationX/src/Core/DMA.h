@@ -49,6 +49,8 @@ namespace esx {
 	};
 
 	struct Channel {
+		Port Port = Port::Max;
+
 		BIT Enable = ESX_FALSE;
 		Direction Direction = Direction::ToMainRAM;
 		Step Step = Step::Forward;
@@ -58,6 +60,9 @@ namespace esx {
 		U8 ChoppingCPUWindowSize = 0;
 		BIT Trigger = ESX_FALSE;
 		U8 Dummy = 0;
+
+		U8 Priority = 0;
+		BIT MasterEnable = ESX_FALSE;
 
 		U32 BaseAddress = 0;
 
@@ -69,20 +74,6 @@ namespace esx {
 
 
 	struct ControlRegister {
-		U8 MDECinPriority = 0;
-		BIT MDECinMasterEnable = ESX_FALSE;
-		U8 MDECoutPriority = 0;
-		BIT MDECoutMasterEnable = ESX_FALSE;
-		U8 GPUPriority = 0;
-		BIT GPUMasterEnable = ESX_FALSE;
-		U8 CDROMPriority = 0;
-		BIT CDROMMasterEnable = ESX_FALSE;
-		U8 SPUPriority = 0;
-		BIT SPUMasterEnable = ESX_FALSE;
-		U8 PIOPriority = 0;
-		BIT PIOMasterEnable = ESX_FALSE;
-		U8 OTCPriority = 0;
-		BIT OTCMasterEnable = ESX_FALSE;
 		U8 Dummy1 = 0;
 		U8 Dummy2 = 0;
 	};
@@ -104,7 +95,7 @@ namespace esx {
 		DMA();
 		~DMA();
 
-		void clock(U64 clocks);
+		virtual void clock(U64 clocks) override;
 		
 		virtual void store(const StringView& busName, U32 address, U32 value) override;
 		virtual void load(const StringView& busName, U32 address, U32& output) override;
@@ -122,7 +113,7 @@ namespace esx {
 		U32 getChannelBlockControl(Port port);
 
 		BIT isChannelActive(Port port);
-		void setChannelDone(Port port);
+		void setChannelDone(Channel& channel);
 
 		void setInterruptRegister(U32 value);
 		U32 getInterruptRegister();
@@ -132,16 +123,25 @@ namespace esx {
 
 		void startTransfer(Port port);
 
-		void startBlockTransfer(Port port, Channel& channel);
-		void clockBlockTransfer(Port port, Channel& channel);
+		void startBlockTransfer(Channel& channel);
+		void clockBlockTransfer(Channel& channel);
 
-		void startLinkedListTransfer(Port port, Channel& channel);
-		void clockLinkedListTransfer(Port port, Channel& channel);
+		void startLinkedListTransfer(Channel& channel);
+		void clockLinkedListTransfer(Channel& channel);
 
 	private:
 		ControlRegister mControlRegister;
 		InterruptRegister mInterruptRegister;
-		std::array<Channel, 7> mChannels;
+		Array<Channel, 7> mChannels;
+		Vector<Port> mPriorityPorts = {
+			Port::MDECin,
+			Port::MDECout,
+			Port::GPU,
+			Port::CDROM,
+			Port::SPU,
+			Port::PIO,
+			Port::OTC
+		};
 		U8 mRunningDMAs = 0;
 	};
 
