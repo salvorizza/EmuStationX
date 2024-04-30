@@ -1,11 +1,13 @@
 #include "SPU.h"
 
+#include "InterruptControl.h"
+
 namespace esx {
 	static U16 getVolume(const Volume& volume)
 	{
 		U16 value = 0;
 
-		value |= (volume.Volume << 0);
+		value |= (volume.Level << 0);
 		value |= ((U8)volume.VolumeMode << 15);
 
 		return value;
@@ -15,7 +17,7 @@ namespace esx {
 	{
 		#define SIGNEXT16(x) (((x) & 0x4000) ? ((x) | 0x8000) : (x))
 
-		volume.Volume = SIGNEXT16(value & 0x7FFF);
+		volume.Level = SIGNEXT16(value & 0x7FFF);
 		volume.VolumeMode = (VolumeMode)((value >> 15) & 0x1);
 
 		volume.SweepStep = (value >> 0) & 0x3;
@@ -46,10 +48,76 @@ namespace esx {
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801C00, BYTE(640), 0xFFFFFFFF);
 		mRAM.resize(KIBI(512));
+
+		for (U32 i = 0; i < 24; i++) {
+			mVoices[i].Number = i;
+		}
 	}
 
 	SPU::~SPU()
 	{
+	}
+
+	void SPU::clock(U64 clocks)
+	{
+		if (clocks % 768 == 0 && mSPUControl.Enable) {
+			mSPUStatus.CDAudioEnable = mSPUControl.CDAudioEnable;
+			mSPUStatus.ExternalAudioEnable = mSPUControl.ExternalAudioEnable;
+			mSPUStatus.CDAudioReverb = mSPUControl.CDAudioReverb;
+			mSPUStatus.ExternalAudioReverb = mSPUControl.ExternalAudioReverb;
+			mSPUStatus.TransferMode = mSPUControl.TransferMode;
+
+			if (mSPUStatus.TransferMode == TransferMode::ManualWrite && !mFIFO.empty()) {
+				U16 value = mFIFO.front();
+				mRAM[mCurrentTransferAddress++] = (U8)(value & 0xFF);
+				mRAM[mCurrentTransferAddress++] = (U8)((value >> 8) & 0xFF);
+				mFIFO.pop();
+				mSPUStatus.DataTransferBusyFlag = !mFIFO.empty();
+			}
+
+			for (Voice& voice : mVoices) {
+				if ((voice.ADPCMCurrentAddress >> 3) == mSoundRAMIRQAddress) {
+					getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, ESX_FALSE, ESX_TRUE);
+				}
+
+				U8 currentBlockADPCMHeaderShiftFilter = mRAM[voice.ADPCMCurrentAddress & ~0xF];
+				U8 currentBlockADPCMHeaderFlag = mRAM[(voice.ADPCMCurrentAddress & ~0xF) + 1];
+				U8 currentBlockADPCMByte = mRAM[voice.ADPCMCurrentAddress++];
+
+				if (currentBlockADPCMHeaderFlag & 0b100) {
+					voice.ADPCMRepeatAddress = voice.ADPCMCurrentAddress;
+				}
+
+				if ((voice.ADPCMCurrentAddress & 0xF) > 0x1) {
+					U8 firstSample = currentBlockADPCMByte & 0xF;
+					U8 secondSample = (currentBlockADPCMByte >> 4) & 0xF;
+
+				}
+
+				if (voice.Number == 0) {
+					ESX_CORE_LOG_TRACE("{:02X}h", currentBlockADPCMHeaderFlag);
+				}
+
+				if ((voice.ADPCMCurrentAddress & 0xF) == 0xF) {
+					switch (currentBlockADPCMHeaderFlag & 0x3) {
+						case 1: {
+							voice.ADPCMCurrentAddress = voice.ADPCMRepeatAddress;
+							voice.ReachedLoopEnd = ESX_TRUE;
+							//Release
+							//ADSR Envelope = 0x0000 Volume?
+							break;
+						}
+
+						case 3: {
+							voice.ADPCMCurrentAddress = voice.ADPCMRepeatAddress;
+							voice.ReachedLoopEnd = ESX_TRUE;
+							break;
+						}
+					}
+				}
+			}
+
+		}
 	}
 
 	void SPU::store(const StringView& busName, U32 address, U16 value)
@@ -414,6 +482,17 @@ namespace esx {
 		}
 	}
 
+	void SPU::startVoice(U8 voice)
+	{
+		mVoices[voice].ReachedLoopEnd = ESX_FALSE;
+		mVoices[voice].ADSRCurrentVolume = 0x0000;
+		mVoices[voice].ADPCMRepeatAddress = mVoices[voice].ADPCMStartAddress;
+		mVoices[voice].ADPCMCurrentAddress = mVoices[voice].ADPCMStartAddress * 8;
+		//Starts the ADSR Envelope, 
+		//and automatically initializes ADSR Volume to zero, 
+		//and copies Voice Start Address to Voice Repeat Address.
+	}
+
 	U16 SPU::getVoiceVolumeLeft(U8 voice)
 	{
 		return getVolume(mVoices[voice].VolumeLeft);
@@ -581,10 +660,7 @@ namespace esx {
 	{
 		for (U32 i = 0; i < 16; i++) {
 			if (value & (1 << i)) {
-				mVoices[i].ReachedLoopEnd = ESX_FALSE;
-				//Starts the ADSR Envelope, 
-				//and automatically initializes ADSR Volume to zero, 
-				//and copies Voice Start Address to Voice Repeat Address.
+				startVoice(i);
 			}
 		}
 	}
@@ -593,10 +669,7 @@ namespace esx {
 	{
 		for (U32 i = 0; i < 8; i++) {
 			if (value & (1 << i)) {
-				mVoices[16 + i].ReachedLoopEnd = ESX_FALSE;
-				//Starts the ADSR Envelope, 
-				//and automatically initializes ADSR Volume to zero, 
-				//and copies Voice Start Address to Voice Repeat Address.
+				startVoice(16 + i);
 			}
 		}
 	}
@@ -810,13 +883,13 @@ namespace esx {
 	{
 		U16 value = 0;
 
-		value |= (mSPUControl.CDAudioEnable << 0);
-		value |= (mSPUControl.ExternalAudioEnable << 1);
-		value |= (mSPUControl.CDAudioReverb << 2);
-		value |= (mSPUControl.ExternalAudioReverb << 3);
+		value |= (mSPUStatus.CDAudioEnable << 0);
+		value |= (mSPUStatus.ExternalAudioEnable << 1);
+		value |= (mSPUStatus.CDAudioReverb << 2);
+		value |= (mSPUStatus.ExternalAudioReverb << 3);
 		value |= ((U8)mSPUControl.TransferMode << 4);
 		value |= (mSPUStatus.IRQ9Flag << 6);
-		value |= (((U8)mSPUControl.TransferMode >> 1) << 7);
+		value |= (((U8)mSPUStatus.TransferMode >> 1) << 7);
 		value |= (mSPUStatus.DataTransferDMAWriteRequest << 8);
 		value |= (mSPUStatus.DataTransferDMAReadRequest << 9);
 		value |= (mSPUStatus.DataTransferBusyFlag << 10);
@@ -833,7 +906,7 @@ namespace esx {
 	void SPU::setDataTransferAdress(U16 value)
 	{
 		mDataTransferAddress = value;
-		mCurrentTransferAddress = value;
+		mCurrentTransferAddress = value * 8;
 	}
 
 	U16 SPU::getDataTransferControl()
@@ -852,7 +925,7 @@ namespace esx {
 
 	void SPU::setDataTransferFifo(U16 value)
 	{
-		//TODO: fill Fifo using Transfer Control
+		mFIFO.emplace(value);
 	}
 
 	U32 SPU::getCurrentMainVolume()

@@ -211,8 +211,6 @@ public:
 	virtual void onUpdate() override {
 		OPTICK_FRAME("MainThread");
 
-		float deltaTime = loopTimer.getDeltaTimeInSeconds();
-
 		controller->setButtonState(ControllerButton::JoypadDown, InputManager::IsKeyPressed(GLFW_KEY_S));
 		controller->setButtonState(ControllerButton::JoypadUp, InputManager::IsKeyPressed(GLFW_KEY_W));
 		controller->setButtonState(ControllerButton::JoypadLeft, InputManager::IsKeyPressed(GLFW_KEY_A));

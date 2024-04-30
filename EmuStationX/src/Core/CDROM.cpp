@@ -152,9 +152,14 @@ namespace esx {
 				break;
 			}
 
+			case CommandType::Setmode: {
+				U8 parameter = popParameter();
+				ESX_CORE_LOG_ERROR("CDROM - Setmode {:02X}h", parameter);
+			}
+
 			case CommandType::Test: {
 				U8 parameter = popParameter();
-				ESX_CORE_LOG_ERROR("CDROM - Test 0x{:02X}h", parameter);
+				ESX_CORE_LOG_ERROR("CDROM - Test {:02X}h", parameter);
 
 				switch (parameter) {
 					case 0x00: {
@@ -171,7 +176,7 @@ namespace esx {
 					}
 
 					default: {
-						ESX_CORE_LOG_ERROR("CDROM - Test 0x{:02X}h not handled yet", parameter);
+						ESX_CORE_LOG_ERROR("CDROM - Test {:02X}h not handled yet", parameter);
 						break;
 					}
 				}
@@ -213,7 +218,8 @@ namespace esx {
 			}
 
 			default: {
-				ESX_CORE_LOG_ERROR("CDROM - Unsupported command");
+				ESX_CORE_LOG_ERROR("CDROM - Unsupported command {:02X}h", (U8)command);
+				break;
 			}
 		}
 

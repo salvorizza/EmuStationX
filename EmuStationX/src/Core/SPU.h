@@ -80,80 +80,88 @@ namespace esx {
 	};
 
 	struct Volume {
-		VolumeMode VolumeMode;
-		I16 Volume;
+		VolumeMode VolumeMode = VolumeMode::Volume;
+		I16 Level = 0x0000;
 
-		Mode SweepMode;
-		SPUDirection SweepDirection;
-		SweepPhase SweepPhase;
-		U8 SweepShift;
-		U8 SweepStep;
+		Mode SweepMode = Mode::Linear;
+		SPUDirection SweepDirection = SPUDirection::Increase;
+		SweepPhase SweepPhase = SweepPhase::Positive;
+		U8 SweepShift = 0x00;
+		U8 SweepStep = 0x00;
 	};
 
 	struct ADSR {
-		Mode AttackMode;
+		Mode AttackMode = Mode::Linear;
 		SPUDirection AttackDirection = SPUDirection::Increase; //Fixed
-		U8 AttackShift;
-		U8 AttackStep;
+		U8 AttackShift = 0x00;
+		U8 AttackStep = 0x00;
 		Mode DecayMode = Mode::Exponential; //Fixed
 		SPUDirection DecayDirection = SPUDirection::Decrease;//Fixed
-		U8 DecayShift;
+		U8 DecayShift = 0x00;
 		U8 DecayStep = 0; //Fixed
-		U8 SustainLevel;
-		Mode SustainMode;
+		U8 SustainLevel = 0x00;
+		Mode SustainMode = Mode::Linear;
 		SPUDirection SustainDirection;
-		U8 SustainShift;
-		U8 SustainStep;
-		Mode ReleaseMode;
+		U8 SustainShift = 0x00;
+		U8 SustainStep = 0x00;
+		Mode ReleaseMode = Mode::Linear;
 		SPUDirection ReleaseDirection = SPUDirection::Decrease;//Fixed
-		U8 ReleaseShift;
+		U8 ReleaseShift = 0x00;
 		U8 ReleaseStep = 0;//Fixed
 	};
 
 	struct StereoVolume {
-		I16 Left;
-		I16 Right;
+		I16 Left = 0x0000;
+		I16 Right = 0x0000;
 	};
 
 	struct Voice {
-		U32 Number;
-		Volume VolumeLeft, VolumeRight;/*1F801C00*/
-		U16 ADPCMSampleRate;/*1F801C04*/
-		U16 ADPCMStartAddress;/*1F801C06*/
-		ADSR ADSR;/*1F801C08*/
-		I16 ADSRCurrentVolume;/*1F801C0C*/
-		U16 ADPCMRepeatAddress;/*1F801C0E*/
-		StereoVolume CurrentVolume;/*1F801E00*/
+		U32 Number = 0;
+		Volume VolumeLeft = {};
+		Volume VolumeRight = {};/*1F801C00*/
+		U16 ADPCMSampleRate = 0x0000;/*1F801C04*/
+		U16 ADPCMStartAddress = 0x0000;/*1F801C06*/
+		ADSR ADSR = {};/*1F801C08*/
+		I16 ADSRCurrentVolume = 0x0000;/*1F801C0C*/
+		U16 ADPCMRepeatAddress = 0x0000;/*1F801C0E*/
+		StereoVolume CurrentVolume = {};/*1F801E00*/
 		BIT ReachedLoopEnd = ESX_TRUE;
-		NoiseMode NoiseMode;
+		NoiseMode NoiseMode = NoiseMode::ADPCM;
 		BIT PitchModulation = ESX_FALSE;
-		ReverbMode ReverbMode;
+		ReverbMode ReverbMode = ReverbMode::ToMixer;
+
+		U32 ADPCMCurrentAddress = 0;
 	};
 
 	struct DataTransferControl {
-		U8 TransferType;
+		U8 TransferType = 0x00;
 	};
 
 	struct SPUControl {
-		BIT Enable;
-		BIT Mute;
-		U8 NoiseFrequencyShift;
-		U8 NoiseFrequencyStep;
-		BIT ReverbMasterEnable;
-		BIT IRQ9Enable;
-		TransferMode TransferMode;
-		BIT ExternalAudioReverb;
-		BIT CDAudioReverb;
-		BIT ExternalAudioEnable;
-		BIT CDAudioEnable;
+		BIT Enable = ESX_FALSE;
+		BIT Mute = ESX_FALSE;
+		U8 NoiseFrequencyShift = 0x00;
+		U8 NoiseFrequencyStep = 0x00;
+		BIT ReverbMasterEnable = ESX_FALSE;
+		BIT IRQ9Enable = ESX_FALSE;
+		TransferMode TransferMode = TransferMode::Stop;
+		BIT ExternalAudioReverb = ESX_FALSE;
+		BIT CDAudioReverb = ESX_FALSE;
+		BIT ExternalAudioEnable = ESX_FALSE;
+		BIT CDAudioEnable = ESX_FALSE;
 	};
 
 	struct SPUStatus {
-		BIT WriteToSecondHalf;
-		BIT DataTransferBusyFlag;
-		BIT DataTransferDMAReadRequest;
-		BIT DataTransferDMAWriteRequest;
-		BIT IRQ9Flag;
+		BIT CDAudioEnable = ESX_FALSE;
+		BIT ExternalAudioEnable = ESX_FALSE;
+		BIT CDAudioReverb = ESX_FALSE;
+		BIT ExternalAudioReverb = ESX_FALSE;
+		BIT WriteToSecondHalf = ESX_FALSE;
+		BIT DataTransferBusyFlag = ESX_FALSE;
+		BIT DataTransferDMAReadRequest = ESX_FALSE;
+		BIT DataTransferDMAWriteRequest = ESX_FALSE;
+		BIT IRQ9Flag = ESX_FALSE;
+		TransferMode TransferMode = TransferMode::Stop;
 	};
 	
 
@@ -162,10 +170,14 @@ namespace esx {
 		SPU();
 		~SPU();
 
+		virtual void clock(U64 clocks) override;
+
 		virtual void store(const StringView& busName, U32 address, U16 value) override;
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
 
 	private:
+		void startVoice(U8 voice);
+
 		U16 getVoiceVolumeLeft(U8 voice);
 		void setVoiceVolumeLeft(U8 voice, U16 value);
 		
@@ -296,25 +308,29 @@ namespace esx {
 		U16 getReverbConfigurationAreaRegister(ReverbRegister reg);
 		void setReverbConfigurationAreaRegister(ReverbRegister reg, U16 value);
 	private:
-		Array<Voice, 24> mVoices;
-		Volume mMainVolumeLeft, mMainVolumeRight;
-		Volume mReverbVolumeLeft, mReverbVolumeRight;
-		StereoVolume mCurrentMainVolume;
-		StereoVolume mCDInputVolume, mExternalInputVolume;
-		SPUControl mSPUControl;
-		SPUStatus mSPUStatus;
-		U16 mDataTransferAddress;
-		DataTransferControl mDataTransferControl;
-		U16 mUnknown1F801DA0;
-		U16 mReverbWorkAreaStartAddress;
-		U16 mSoundRAMIRQAddress;
+		Array<Voice, 24> mVoices = {};
+		Volume mMainVolumeLeft = {};
+		Volume mMainVolumeRight = {};
+		Volume mReverbVolumeLeft = {};
+		Volume mReverbVolumeRight = {};
+		StereoVolume mCurrentMainVolume = {};
+		StereoVolume mCDInputVolume = {};
+		StereoVolume mExternalInputVolume = {};
+		SPUControl mSPUControl = {};
+		SPUStatus mSPUStatus = {};
+		U16 mDataTransferAddress = 0x0000;
+		DataTransferControl mDataTransferControl = {};
+		U16 mUnknown1F801DA0 = 0x0000;
+		U16 mReverbWorkAreaStartAddress = 0x0000;
+		U16 mSoundRAMIRQAddress = 0x0000;
 
 		//Reverb configuration Area
-		Array<U16, 32> mReverbConfigurationArea;
+		Array<U16, 32> mReverbConfigurationArea = {};
 
-		Vector<U8> mRAM;
+		Queue<U16> mFIFO = {};
+		Vector<U8> mRAM = {};
 
-		U16 mCurrentTransferAddress;
+		U32 mCurrentTransferAddress = 0;
 	};
 
 }

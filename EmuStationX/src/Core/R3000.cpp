@@ -10,6 +10,7 @@
 #include "Core/SIO.h"
 #include "Core/InterruptControl.h"
 #include "Core/DMA.h"
+#include "Core/SPU.h"
 
 #include "optick.h"
 
@@ -40,6 +41,7 @@ namespace esx {
 		if (!mSIO1) mSIO1 = getBus("Root")->getDevice<SIO>("SIO1");
 		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 		if (!mDMA) mDMA = getBus("Root")->getDevice<DMA>("DMA");
+		if (!mSPU) mSPU = getBus("Root")->getDevice<SPU>("SPU");
 
 		if (!mStall) {
 			U32 opcode = fetch(mPC);
@@ -76,6 +78,7 @@ namespace esx {
 		mTimer->clock(mCycles);
 		mCDROM->clock(mCycles);
 		mSIO0->clock(mCycles);
+		mSPU->clock(mCycles);
 		mDMA->clock(mCycles);
 		if (!mDMA->isRunning()) {
 			mStall = ESX_FALSE;

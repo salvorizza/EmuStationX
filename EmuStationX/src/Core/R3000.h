@@ -124,6 +124,7 @@ namespace esx {
 	class CDROM;
 	class SIO;
 	class InterruptControl;
+	class SPU;
 
 	struct RegisterIndex {
 		I32 Value;
@@ -404,6 +405,7 @@ namespace esx {
 		SharedPtr<SIO> mSIO0,mSIO1;
 		SharedPtr<InterruptControl> mInterruptControl;
 		SharedPtr<DMA> mDMA;
+		SharedPtr<SPU> mSPU;
 
 		U64 mCycles = 0;
 	};
