@@ -6,6 +6,7 @@
 #include "UI/Panels/DisassemblerPanel.h"
 #include "UI/Panels/ConsolePanel.h"
 #include "UI/Panels/KernelTables.h"
+#include "UI/Panels/SPUStatusPanel.h"
 
 #include "UI/Graphics/BatchRenderer.h"
 #include "UI/Window/FontAwesome5.h"
@@ -122,6 +123,7 @@ public:
 		mBatchRenderer = MakeShared<BatchRenderer>();
 		mViewportPanel = MakeShared<ViewportPanel>();
 		mKernelTablesPanel = MakeShared<KernelTables>();
+		mSPUStatusPanel = MakeShared<SPUStatusPanel>();
 
 		root = MakeShared<Bus>(ESX_TEXT("Root"));
 		cpu = MakeShared<R3000>();
@@ -201,6 +203,7 @@ public:
 		mDisassemblerPanel->setGPU(gpu);
 		mMemoryEditorPanel->setInstance(root);
 		mKernelTablesPanel->setInstance(root);
+		mSPUStatusPanel->setInstance(spu);
 
 		mBatchRenderer->Begin();
 
@@ -293,6 +296,7 @@ public:
 		mConsolePanel->render(pManager);
 		mViewportPanel->render(pManager);
 		mKernelTablesPanel->render(pManager);
+		mSPUStatusPanel->render(pManager);
 	}
 
 private:
@@ -323,6 +327,7 @@ private:
 	SharedPtr<BatchRenderer> mBatchRenderer;
 	SharedPtr<ViewportPanel> mViewportPanel;
 	SharedPtr<KernelTables> mKernelTablesPanel;
+	SharedPtr<SPUStatusPanel> mSPUStatusPanel;
 	glm::mat4 mProjectionMatrix;
 
 };

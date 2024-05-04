@@ -204,6 +204,7 @@
     <ClInclude Include="src\Utils\LoggingSystem.h">
       <Filter>src\Utils</Filter>
     </ClInclude>
+    <ClInclude Include="src\UI\Panels\SPUStatusPanel.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -320,6 +321,7 @@
     <ClCompile Include="src\main.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI\Panels\SPUStatusPanel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="commons\icons\Logo.ico">

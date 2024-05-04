@@ -192,6 +192,7 @@
     <ClInclude Include="src\UI\Panels\MemoryEditor.h" />
     <ClInclude Include="src\UI\Panels\MemoryEditorPanel.h" />
     <ClInclude Include="src\UI\Panels\Panel.h" />
+    <ClInclude Include="src\UI\Panels\SPUStatusPanel.h" />
     <ClInclude Include="src\UI\Panels\ViewportPanel.h" />
     <ClInclude Include="src\UI\Utils.h" />
     <ClInclude Include="src\UI\Window\FontAwesome5.h" />
@@ -232,6 +233,7 @@
     <ClCompile Include="src\UI\Panels\KernelTables.cpp" />
     <ClCompile Include="src\UI\Panels\MemoryEditorPanel.cpp" />
     <ClCompile Include="src\UI\Panels\Panel.cpp" />
+    <ClCompile Include="src\UI\Panels\SPUStatusPanel.cpp" />
     <ClCompile Include="src\UI\Panels\ViewportPanel.cpp" />
     <ClCompile Include="src\UI\Utils.cpp" />
     <ClCompile Include="src\UI\Window\ImGuiManager.cpp" />

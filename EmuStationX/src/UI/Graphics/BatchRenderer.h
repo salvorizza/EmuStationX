@@ -30,7 +30,7 @@ namespace esx {
 		void VRAMWrite(U16 x, U16 y, U16 data) override;
 		U16 VRAMRead(U16 x, U16 y) override;
 
-		SharedPtr<FrameBuffer> getPreviousFrame() { return mFBO; }
+		const SharedPtr<FrameBuffer>& getPreviousFrame() { return mFBO; }
 
 	public:
 		static const size_t QUAD_VERTEX_SIZE = sizeof(PolygonVertex);

@@ -12,15 +12,6 @@ namespace esx {
 		Sweep
 	};
 
-	enum class Mode : U8 {
-		Linear,
-		Exponential
-	};
-
-	enum class SPUDirection : U8 {
-		Increase,
-		Decrease
-	};
 
 	enum class SweepPhase : U8 {
 		Positive,
@@ -43,6 +34,8 @@ namespace esx {
 		DMAwrite,
 		DMAread
 	};
+
+
 
 	enum class ReverbRegister {
 		dAPF1,
@@ -79,35 +72,77 @@ namespace esx {
 		vRIN
 	};
 
+	enum class SweepMode : U8 {
+		Linear,
+		Exponential
+	};
+
+	enum class SweepDirection : U8 {
+		Increase,
+		Decrease
+	};
+
 	struct Volume {
 		VolumeMode VolumeMode = VolumeMode::Volume;
 		I16 Level = 0x0000;
 
-		Mode SweepMode = Mode::Linear;
-		SPUDirection SweepDirection = SPUDirection::Increase;
+		SweepMode SweepMode = SweepMode::Linear;
+		SweepDirection SweepDirection = SweepDirection::Increase;
 		SweepPhase SweepPhase = SweepPhase::Positive;
 		U8 SweepShift = 0x00;
 		U8 SweepStep = 0x00;
 	};
 
+	enum class ADSRMode : U8 {
+		Linear,
+		Exponential
+	};
+
+	enum class ADSRDirection : U8 {
+		Increase,
+		Decrease
+	};
+
+	enum class ADSRPhaseType : U8 {
+		Attack,
+		Decay,
+		Sustain,
+		Release,
+		Off
+	};
+
+	struct ADSRPhase {
+		ADSRMode Mode = ADSRMode::Linear;
+		ADSRDirection Direction = ADSRDirection::Increase; //Fixed
+		U8 Shift = 0x00;
+		U8 Step = 0x00;
+		I16 Target = 0x0000;
+
+		ADSRPhase(ADSRMode mode, ADSRDirection direction, U8 shift, U8 step, I16 target) 
+			:	Mode(mode),
+				Direction(direction),
+				Shift(shift),
+				Step(step),
+				Target(target)
+		{}
+	};
+
+
 	struct ADSR {
-		Mode AttackMode = Mode::Linear;
-		SPUDirection AttackDirection = SPUDirection::Increase; //Fixed
-		U8 AttackShift = 0x00;
-		U8 AttackStep = 0x00;
-		Mode DecayMode = Mode::Exponential; //Fixed
-		SPUDirection DecayDirection = SPUDirection::Decrease;//Fixed
-		U8 DecayShift = 0x00;
-		U8 DecayStep = 0; //Fixed
+		Array<ADSRPhase, 4> Phases = {
+			ADSRPhase(ADSRMode::Linear,ADSRDirection::Increase,0x00,0x00,0x7FFF),
+			ADSRPhase(ADSRMode::Exponential,ADSRDirection::Decrease,0x00,0x00,0x00),
+			ADSRPhase(ADSRMode::Linear,ADSRDirection::Increase,0x00,0x00,0x00),
+			ADSRPhase(ADSRMode::Linear,ADSRDirection::Decrease,0x00,0x00,0x00),
+		};
+
 		U8 SustainLevel = 0x00;
-		Mode SustainMode = Mode::Linear;
-		SPUDirection SustainDirection;
-		U8 SustainShift = 0x00;
-		U8 SustainStep = 0x00;
-		Mode ReleaseMode = Mode::Linear;
-		SPUDirection ReleaseDirection = SPUDirection::Decrease;//Fixed
-		U8 ReleaseShift = 0x00;
-		U8 ReleaseStep = 0;//Fixed
+
+		I16 CurrentVolume = 0;
+		I16 Step = 0;
+
+		ADSRPhaseType Phase = ADSRPhaseType::Off;
+		U64 Tick = 0;
 	};
 
 	struct StereoVolume {
@@ -122,15 +157,38 @@ namespace esx {
 		U16 ADPCMSampleRate = 0x0000;/*1F801C04*/
 		U16 ADPCMStartAddress = 0x0000;/*1F801C06*/
 		ADSR ADSR = {};/*1F801C08*/
-		I16 ADSRCurrentVolume = 0x0000;/*1F801C0C*/
 		U16 ADPCMRepeatAddress = 0x0000;/*1F801C0E*/
 		StereoVolume CurrentVolume = {};/*1F801E00*/
 		BIT ReachedLoopEnd = ESX_TRUE;
 		NoiseMode NoiseMode = NoiseMode::ADPCM;
 		BIT PitchModulation = ESX_FALSE;
 		ReverbMode ReverbMode = ReverbMode::ToMixer;
+		U16 ADPCMCurrentAddress = 0x0000;
 
-		U32 ADPCMCurrentAddress = 0;
+		I16 Latest = 0;
+		U32 PitchCounter = 0;
+
+		U8 PrevSampleIndex = 0;
+
+		I16 OldSample = 0;
+		I16 OlderSample = 0;
+		I16 OldestSample = 0;
+
+		BIT KeyOn = ESX_FALSE;
+		BIT KeyOff = ESX_FALSE;
+
+		inline U8 getSampleIndex() const {
+			return (PitchCounter >> 12);
+		}
+
+		inline U8 getInterpolationIndex() const {
+			return (PitchCounter >> 4) & 0xFF;
+		}
+
+		inline void setSampleIndex(U8 value) {
+			PitchCounter &= 0xFFF;
+			PitchCounter |= (value << 12);
+		}
 	};
 
 	struct DataTransferControl {
@@ -166,6 +224,7 @@ namespace esx {
 	
 
 	class SPU : public BusDevice {
+		friend class SPUStatusPanel;
 	public:
 		SPU();
 		~SPU();
