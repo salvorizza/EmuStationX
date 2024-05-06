@@ -5,11 +5,21 @@
 #include <fstream>
 
 namespace esx {
+	
 	static U16 getVolume(const Volume& volume)
 	{
 		U16 value = 0;
 
-		value |= ((volume.Level & 0x7FFF) << 0);
+		if (volume.VolumeMode == VolumeMode::Volume) {
+			value |= ((volume.Level & 0x7FFF) << 0);
+		} else {
+			value |= (volume.Envelope.Step << 0);
+			value |= (volume.Envelope.Shift << 2);
+			value |= ((U8)volume.SweepPhase << 12);
+			value |= ((U8)volume.Envelope.Direction << 13);
+			value |= ((U8)volume.Envelope.Mode << 14);
+		}
+
 		value |= ((U8)volume.VolumeMode << 15);
 
 		return value;
@@ -19,14 +29,17 @@ namespace esx {
 	{
 		#define SIGNEXT16(x) (((x) & 0x4000) ? ((x) | 0x8000) : (x))
 
-		volume.Level = SIGNEXT16(value & 0x7FFF);
 		volume.VolumeMode = (VolumeMode)((value >> 15) & 0x1);
 
-		volume.SweepStep = (value >> 0) & 0x3;
-		volume.SweepShift = (value >> 2) & 0x1F;
-		volume.SweepPhase = (SweepPhase)((value >> 12) & 0x1);
-		volume.SweepDirection = (SweepDirection)((value >> 13) & 0x1);
-		volume.SweepMode = (SweepMode)((value >> 14) & 0x1);
+		if (volume.VolumeMode == VolumeMode::Volume) {
+			volume.Level = SIGNEXT16(value & 0x7FFF);
+		} else {
+			volume.Envelope.Step = (value >> 0) & 0x3;
+			volume.Envelope.Shift = (value >> 2) & 0x1F;
+			volume.SweepPhase = (SweepPhase)((value >> 12) & 0x1);
+			volume.Envelope.Direction = (EnvelopeDirection)((value >> 13) & 0x1);
+			volume.Envelope.Mode = (EnvelopeMode)((value >> 14) & 0x1);
+		}
 	}
 
 	static U32 getStereoVolume(const StereoVolume& stereoVolume)
@@ -44,6 +57,37 @@ namespace esx {
 		stereoVolume.Left = (value >> 0) & 0xFFFF;
 		stereoVolume.Right = (value >> 16) & 0xFFFF;
 	}
+
+	static void tickEnvelope(EnvelopePhase& phase, I16& outVolume, U64& outTick, I16& outStep) {
+		I16 step = phase.Direction == EnvelopeDirection::Increase ? (7 - phase.Step) : (-8 + phase.Step);
+
+		U32 cycles = 1 << std::max(0, phase.Shift - 11);
+		I16 envelopeStep = step << std::max(0, phase.Shift - 11);
+		if (phase.Mode == EnvelopeMode::Exponential) {
+			if (phase.Direction == EnvelopeDirection::Increase && outVolume > 0x6000) {
+				cycles *= 4;
+			}
+			else if (phase.Direction == EnvelopeDirection::Decrease) {
+				envelopeStep = ((I32)envelopeStep * outVolume) >> 15;
+			}
+		}
+		outTick = cycles;
+		outStep = envelopeStep;
+		outVolume += envelopeStep;
+		outVolume = std::min(std::max(outVolume, (I16)0x0000), (I16)0x7FFF);
+	}
+
+	static I16 processVolume(Volume& volume) {
+		if (volume.VolumeMode == VolumeMode::Volume) {
+			return (volume.Level << 1);
+		}
+		else {
+			ESX_CORE_LOG_TRACE("Sweep");
+			tickEnvelope(volume.Envelope, volume.Level, volume.Tick, volume.Step);
+			return volume.Level;
+		}
+	}
+
 
 	static Array<std::ofstream, 24> sStreams;
 
@@ -151,7 +195,16 @@ namespace esx {
 				mSPUStatus.DataTransferBusyFlag = !mFIFO.empty();
 			}
 
+			{
+				mNoiseTimer = mNoiseTimer - (4 + mSPUControl.NoiseFrequencyStep);
+				U8 parityBit = ((mNoiseLevel >> 15) & 0x1) ^ ((mNoiseLevel >> 12) & 0x1) ^ ((mNoiseLevel >> 11) & 0x1) ^ ((mNoiseLevel >> 10) & 0x1) ^ 1;
+				if (mNoiseTimer < 0) mNoiseLevel = mNoiseLevel * 2 + parityBit;
+				if (mNoiseTimer < 0) mNoiseTimer += 0x20000 << mSPUControl.NoiseFrequencyShift;
+				if (mNoiseTimer < 0) mNoiseTimer += 0x20000 << mSPUControl.NoiseFrequencyShift;
+			}
+
 			I16 left = 0, right = 0;
+			I16 reverbLeft = 0, reverbRight = 0;
 
 			for (Voice& voice : mVoices) {
 				if (voice.KeyOff) {
@@ -169,74 +222,95 @@ namespace esx {
 					getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, ESX_FALSE, ESX_TRUE);
 				}
 
-				//Pitch modulation
-				I32 step = (I16)voice.ADPCMSampleRate;
-				if (voice.PitchModulation && voice.Number > 0) {
-					I32 factor = mVoices[voice.Number - 1].Latest + 0x8000;
-					step = (step * factor) >> 15;
-					step &= 0xFFFF;
+
+				I32 newSample = 0;
+				if (voice.NoiseMode == NoiseMode::ADPCM) {
+					//Pitch modulation
+					I32 step = (I16)voice.ADPCMSampleRate;
+					if (voice.PitchModulation && voice.Number > 0) {
+						I32 factor = mVoices[voice.Number - 1].Latest + 0x8000;
+						step = (step * factor) >> 15;
+						step &= 0xFFFF;
+					}
+					if (step > 0x3FFF) step = 0x4000;
+					voice.PitchCounter += step;
+
+					U8 sampleIndex = voice.getSampleIndex();
+					U8 byteIndex = sampleIndex >> 1;
+					U8 nibbleIndex = sampleIndex & 0x1;
+
+					U8 currentBlockADPCMHeaderShiftFilter = mRAM[voice.ADPCMCurrentAddress * 8 + 0];
+					U8 currentBlockADPCMHeaderFlag = mRAM[voice.ADPCMCurrentAddress * 8 + 1];
+					I32 currentBlockADPCMNibble = (mRAM[voice.ADPCMCurrentAddress * 8 + 2 + byteIndex] >> (nibbleIndex * 4)) & 0xF;
+
+					//Decoding
+					U8 shift = 12 - (currentBlockADPCMHeaderShiftFilter & 0xF);
+					U8 filter = (currentBlockADPCMHeaderShiftFilter >> 4) & 0x7;
+					I16 f0 = pos_xa_adpcm_table[filter];
+					I16 f1 = neg_xa_adpcm_table[filter];
+					newSample = SIGNEXT4(currentBlockADPCMNibble);
+					newSample = (newSample << shift) + ((voice.OldSample * f0 + voice.OlderSample * f1 + 32) / 64);
+					
+					//Interpolation
+					U8 interpolationIndex = voice.getInterpolationIndex();
+					I32 interpolated = ((gauss[0x0FF - interpolationIndex] * voice.OldestSample) >> 15);
+					interpolated += ((gauss[0x1FF - interpolationIndex] * voice.OlderSample) >> 15);
+					interpolated += ((gauss[0x100 + interpolationIndex] * voice.OldSample) >> 15);
+					interpolated += ((gauss[0x000 + interpolationIndex] * newSample) >> 15);
+
+					//Store Decoded Latest samples
+					if (voice.PrevSampleIndex != sampleIndex) {
+						voice.PrevSampleIndex = sampleIndex;
+
+						voice.OlderSample = voice.OlderSample;
+						voice.OlderSample = voice.OldSample;
+						voice.OldSample = newSample;
+					}
+
+					if (sampleIndex >= 28) {
+						voice.setSampleIndex(sampleIndex - 28);
+
+						if (currentBlockADPCMHeaderFlag & 0b100) {
+							voice.ADPCMRepeatAddress = voice.ADPCMCurrentAddress;
+						}
+
+						switch (currentBlockADPCMHeaderFlag & 0x3) {
+							case 1: {
+								voice.ADPCMCurrentAddress = voice.ADPCMRepeatAddress;
+								voice.ReachedLoopEnd = ESX_TRUE;
+								voice.ADSR.Phase = ADSRPhaseType::Release;
+								//ADSR Envelope = 0x0000 Volume?
+								break;
+							}
+
+							case 3: {
+								voice.ADPCMCurrentAddress = voice.ADPCMRepeatAddress;
+								voice.ReachedLoopEnd = ESX_TRUE;
+								break;
+							}
+
+							default: {
+								voice.ADPCMCurrentAddress += 0x2; //Next block
+								break;
+							}
+						}
+					}
+
+					newSample = interpolated;
+				} else {
+					//Noise
+					newSample = mNoiseLevel;
 				}
-				if (step > 0x3FFF) step = 0x4000;
-				voice.PitchCounter += step;
-
-				//Decoding
-				U8 sampleIndex = voice.getSampleIndex();
-				U8 byteIndex = sampleIndex >> 1;
-				U8 nibbleIndex = sampleIndex & 0x1;
-
-				U8 currentBlockADPCMHeaderShiftFilter = mRAM[voice.ADPCMCurrentAddress * 8 + 0];
-				U8 currentBlockADPCMHeaderFlag = mRAM[voice.ADPCMCurrentAddress * 8 + 1];
-				U16 currentBlockADPCMNibble = (mRAM[voice.ADPCMCurrentAddress * 8 + 2 + byteIndex] >> (nibbleIndex * 4)) & 0xF;
-
-				//Decoding
-				U8 shift = currentBlockADPCMHeaderShiftFilter & 0xF;
-				U8 filter = (currentBlockADPCMHeaderShiftFilter >> 4) & 0x7;
-				I16 f0 = pos_xa_adpcm_table[filter];
-				I16 f1 = neg_xa_adpcm_table[filter];
-				I16 newSample = SIGNEXT4(currentBlockADPCMNibble);
-				newSample = (newSample << shift) + ((voice.OldSample * f0 + voice.OlderSample * f1 + 32) / 64);
-
-				//Interpolation
-				U8 interpolationIndex = voice.getInterpolationIndex();
-				I32 interpolated =	(gauss[0x0FF - interpolationIndex] * voice.OldestSample);
-				interpolated +=		(gauss[0x1FF - interpolationIndex] * voice.OlderSample);
-				interpolated +=		(gauss[0x100 + interpolationIndex] * voice.OldSample);
-				interpolated +=		(gauss[0x000 + interpolationIndex] * newSample);
-				interpolated >>= 15;
-
-				//Store Decoded Latest samples
-				if (voice.PrevSampleIndex != sampleIndex) {
-					voice.PrevSampleIndex = sampleIndex;
-
-					voice.OlderSample = voice.OlderSample;
-					voice.OlderSample = voice.OldSample;
-					voice.OldSample = newSample;
-				}
-
+				
 				//ADSR
-				I16 sample = (interpolated * voice.ADSR.CurrentVolume) >> 15;
+				I16 sample = (newSample * voice.ADSR.CurrentVolume) >> 15;
 				{
 					ADSR& adsr = voice.ADSR;
 					if (adsr.Phase != ADSRPhaseType::Off) {
-						ADSRPhase& currentPhase = adsr.Phases[(U8)adsr.Phase];
+						EnvelopePhase& currentPhase = adsr.Phases[(U8)adsr.Phase];
 						if (adsr.Tick == 0) {
-							I16 step = currentPhase.Direction == ADSRDirection::Increase ? (7 - currentPhase.Step) : (-8 + currentPhase.Step);
-
-							U32 adsrCycles = 1 << std::max(0, currentPhase.Shift - 11);
-							I16 adsrStep = step << std::max(0, currentPhase.Shift - 11);
-							if (currentPhase.Mode == ADSRMode::Exponential) {
-								if (currentPhase.Direction == ADSRDirection::Increase && adsr.CurrentVolume > 0x6000) {
-									adsrCycles *= 4;
-								}
-								else if (currentPhase.Direction == ADSRDirection::Decrease) {
-									adsrStep = ((I32)adsrStep * adsr.CurrentVolume) >> 15;
-								}
-							}
-							adsr.Tick = adsrCycles;
-							adsr.Step = adsrStep;
-							adsr.CurrentVolume += adsr.Step;
-							adsr.CurrentVolume = std::min(std::max(adsr.CurrentVolume, (I16)0x0000), (I16)0x7FFF);
-							BIT goToNextPhase = currentPhase.Direction == ADSRDirection::Decrease ? (adsr.CurrentVolume <= currentPhase.Target) : (adsr.CurrentVolume >= currentPhase.Target);
+							tickEnvelope(currentPhase, adsr.CurrentVolume, adsr.Tick, adsr.Step);
+							BIT goToNextPhase = currentPhase.Direction == EnvelopeDirection::Decrease ? (adsr.CurrentVolume <= currentPhase.Target) : (adsr.CurrentVolume >= currentPhase.Target);
 							if (goToNextPhase && adsr.Phase != ADSRPhaseType::Sustain) {
 								adsr.Phase = (ADSRPhaseType)((U8)adsr.Phase + 1);
 							}
@@ -250,43 +324,23 @@ namespace esx {
 				voice.Latest = sample;
 
 				//Mixing
-				left += ((I32)sample * (voice.VolumeLeft.Level << 1)) >> 15;
-				right += ((I32)sample * (voice.VolumeRight.Level << 1)) >> 15;
+				left += ((I32)sample * processVolume(voice.VolumeLeft)) >> 15;
+				right += ((I32)sample * processVolume(voice.VolumeRight)) >> 15;
 
-				if (sampleIndex >= 28) {
-					voice.setSampleIndex(sampleIndex - 28);
-
-					if (currentBlockADPCMHeaderFlag & 0b100) {
-						voice.ADPCMRepeatAddress = voice.ADPCMCurrentAddress;
-					}
-
-					switch (currentBlockADPCMHeaderFlag & 0x3) {
-						case 1: {
-							voice.ADPCMCurrentAddress = voice.ADPCMRepeatAddress;
-							voice.ReachedLoopEnd = ESX_TRUE;
-							voice.ADSR.Phase = ADSRPhaseType::Release;
-							//ADSR Envelope = 0x0000 Volume?
-							break;
-						}
-
-						case 3: {
-							voice.ADPCMCurrentAddress = voice.ADPCMRepeatAddress;
-							voice.ReachedLoopEnd = ESX_TRUE;
-							break;
-						}
-
-						default: {
-							voice.ADPCMCurrentAddress += 0x2; //Next block
-							break;
-						}
-					}
+				if (voice.ReverbMode == ReverbMode::ToMixerAndToReverb) {
+					reverbLeft += ((I32)sample * processVolume(voice.VolumeLeft)) >> 15;
+					reverbRight += ((I32)sample * processVolume(voice.VolumeRight)) >> 15;
 				}
 			}
 
-			left = ((I32)left * (mMainVolumeLeft.Level << 1)) >> 15;
-			right = ((I32)right * (mMainVolumeLeft.Level << 1)) >> 15;
-			sStreams[0].write((char*)&left, 2);
+			left = ((I32)left * processVolume(mMainVolumeLeft)) >> 15;
+			right = ((I32)right * processVolume(mMainVolumeRight)) >> 15;
 
+			auto [leftReverb, rightReverb] = reverb(reverbLeft, reverbRight);
+			left += leftReverb;
+			right += rightReverb;
+
+			sStreams[0].write((char*)&left, 2);
 		}
 	}
 
@@ -343,11 +397,11 @@ namespace esx {
 					break;
 				}
 				case 0x1F801D84: {
-					setReverbVolumeLeft(value);
+					setReverbConfigurationAreaRegister(vLOUT, value);
 					break;
 				}
 				case 0x1F801D86: {
-					setReverbVolumeRight(value);
+					setReverbConfigurationAreaRegister(vROUT, value);
 					break;
 				}
 				case 0x1F801D88: {
@@ -395,7 +449,7 @@ namespace esx {
 					break;
 				}
 				case 0x1F801DA2: {
-					setReverbWorkAreaStartAddress(value);
+					setReverbConfigurationAreaRegister(mBASE, value);
 					break;
 				}
 				case 0x1F801DA4: {
@@ -522,11 +576,11 @@ namespace esx {
 					break;
 				}
 				case 0x1F801D84: {
-					output = getReverbVolumeLeft();
+					output = getReverbConfigurationAreaRegister(vLOUT);
 					break;
 				}
 				case 0x1F801D86: {
-					output = getReverbVolumeRight();
+					output = getReverbConfigurationAreaRegister(vROUT);
 					break;
 				}
 				case 0x1F801D88: {
@@ -574,7 +628,7 @@ namespace esx {
 					break;
 				}
 				case 0x1F801DA2: {
-					output = getReverbWorkAreaStartAddress();
+					output = getReverbConfigurationAreaRegister(mBASE);
 					break;
 				}
 				case 0x1F801DA4: {
@@ -650,6 +704,25 @@ namespace esx {
 		} else {
 			ESX_CORE_LOG_ERROR("SPU - Reading from address {:08x} not implemented yet", address);
 		}
+	}
+
+	Pair<I16, I16> SPU::reverb(I16 LeftInput, I16 RightInput)
+	{
+		I16 Lin = ((I16)mReverb[vLIN] * LeftInput) >> 15;
+		I16 Rin = ((I16)mReverb[vRIN] * RightInput) >> 15;
+
+		mRAM[mReverb[mLSAME] * 8] = (Lin + mRAM[mBufferAddress + mReverb[dLSAME] * 8] * (I16)mReverb[vWALL])
+		
+	}
+
+	I16 SPU::loadReverb(U16 address)
+	{
+		return I16();
+	}
+
+	I16 SPU::writeReverb(U16 addr)
+	{
+		return I16();
 	}
 
 	void SPU::startVoice(U8 voice)
@@ -731,13 +804,13 @@ namespace esx {
 	{
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Step = 0; // Fixed
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Shift = (value >> 0) & 0xF;
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Direction = ADSRDirection::Decrease; // Fixed
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Mode = (ADSRMode)((value >> 5) & 0x1);
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Direction = EnvelopeDirection::Decrease; // Fixed
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Mode = (EnvelopeMode)((value >> 5) & 0x1);
 
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Step = (value >> 6) & 0x3;
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Shift = (value >> 8) & 0xF;
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Direction = (ADSRDirection)((value >> 14) & 0x1);
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Mode = (ADSRMode)((value >> 15) & 0x1);
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Direction = (EnvelopeDirection)((value >> 14) & 0x1);
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Mode = (EnvelopeMode)((value >> 15) & 0x1);
 	}
 
 	U16 SPU::getVoiceADSRLower(U8 voice)
@@ -759,14 +832,14 @@ namespace esx {
 
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Step = 0; // Fixed
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Shift = (value >> 4) & 0xF;
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Direction = ADSRDirection::Decrease; // Fixed
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Mode = ADSRMode::Exponential; // Fixed
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Direction = EnvelopeDirection::Decrease; // Fixed
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Mode = EnvelopeMode::Exponential; // Fixed
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Target = (mVoices[voice].ADSR.SustainLevel + 1) * 0x800;
 
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Step = (value >> 8) & 0x3;
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Shift = (value >> 10) & 0xF;
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Direction = ADSRDirection::Increase; // Fixed
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Mode = (ADSRMode)((value >> 15) & 0x1);
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Direction = EnvelopeDirection::Increase; // Fixed
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Mode = (EnvelopeMode)((value >> 15) & 0x1);
 	}
 
 	U16 SPU::getVoiceCurrentADSRVolume(U8 voice)
@@ -1139,26 +1212,6 @@ namespace esx {
 		setVolume(mMainVolumeRight, value);
 	}
 
-	U16 SPU::getReverbVolumeLeft()
-	{
-		return getVolume(mReverbVolumeLeft);
-	}
-
-	void SPU::setReverbVolumeLeft(U16 value)
-	{
-		setVolume(mReverbVolumeLeft,value);
-	}
-
-	U16 SPU::getReverbVolumeRight()
-	{
-		return getVolume(mReverbVolumeRight);
-	}
-
-	void SPU::setReverbVolumeRight(U16 value)
-	{
-		setVolume(mReverbVolumeRight, value);
-	}
-
 	U32 SPU::getCDInputVolume()
 	{
 		return getStereoVolume(mCDInputVolume);
@@ -1187,16 +1240,6 @@ namespace esx {
 	void SPU::setCDInputVolumeRight(U16 value)
 	{
 		mCDInputVolume.Right = value;
-	}
-
-	U16 SPU::getReverbWorkAreaStartAddress()
-	{
-		return mReverbWorkAreaStartAddress;
-	}
-
-	void SPU::setReverbWorkAreaStartAddress(U16 value)
-	{
-		mReverbWorkAreaStartAddress = value;
 	}
 
 	U16 SPU::getSoundRAMIRQAddress()
@@ -1241,12 +1284,16 @@ namespace esx {
 
 	U16 SPU::getReverbConfigurationAreaRegister(ReverbRegister reg)
 	{
-		return mReverbConfigurationArea[(U8)reg];
+		return mReverb[(U8)reg];
 	}
 
 	void SPU::setReverbConfigurationAreaRegister(ReverbRegister reg, U16 value)
 	{
-		mReverbConfigurationArea[(U8)reg] = value;
+		if (reg == mBASE) {
+			mCurrentBufferAddress = value;
+		}
+
+		mReverb[(U8)reg] = value;
 	}
 
 }

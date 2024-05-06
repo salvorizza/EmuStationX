@@ -35,9 +35,10 @@ namespace esx {
 		DMAread
 	};
 
-
-
-	enum class ReverbRegister {
+	enum ReverbRegister {
+		vLOUT,
+		vROUT,
+		mBASE,
 		dAPF1,
 		dAPF2,
 		vIIR,
@@ -72,35 +73,45 @@ namespace esx {
 		vRIN
 	};
 
-	enum class SweepMode : U8 {
+	enum class EnvelopeMode : U8 {
 		Linear,
 		Exponential
 	};
 
-	enum class SweepDirection : U8 {
+	enum class EnvelopeDirection : U8 {
 		Increase,
 		Decrease
+	};
+
+
+	struct EnvelopePhase {
+		EnvelopeMode Mode = EnvelopeMode::Linear;
+		EnvelopeDirection Direction = EnvelopeDirection::Increase;
+		U8 Shift = 0x00;
+		U8 Step = 0x00;
+		I16 Target = 0x0000;
+
+		EnvelopePhase()
+		{}
+
+		EnvelopePhase(EnvelopeMode mode, EnvelopeDirection direction, U8 shift, U8 step, I16 target)
+			:	Mode(mode),
+				Direction(direction),
+				Shift(shift),
+				Step(step),
+				Target(target)
+		{}
 	};
 
 	struct Volume {
 		VolumeMode VolumeMode = VolumeMode::Volume;
 		I16 Level = 0x0000;
 
-		SweepMode SweepMode = SweepMode::Linear;
-		SweepDirection SweepDirection = SweepDirection::Increase;
+		EnvelopePhase Envelope;
 		SweepPhase SweepPhase = SweepPhase::Positive;
-		U8 SweepShift = 0x00;
-		U8 SweepStep = 0x00;
-	};
 
-	enum class ADSRMode : U8 {
-		Linear,
-		Exponential
-	};
-
-	enum class ADSRDirection : U8 {
-		Increase,
-		Decrease
+		U64 Tick = 0;
+		I16 Step = 0;
 	};
 
 	enum class ADSRPhaseType : U8 {
@@ -111,29 +122,12 @@ namespace esx {
 		Off
 	};
 
-	struct ADSRPhase {
-		ADSRMode Mode = ADSRMode::Linear;
-		ADSRDirection Direction = ADSRDirection::Increase; //Fixed
-		U8 Shift = 0x00;
-		U8 Step = 0x00;
-		I16 Target = 0x0000;
-
-		ADSRPhase(ADSRMode mode, ADSRDirection direction, U8 shift, U8 step, I16 target) 
-			:	Mode(mode),
-				Direction(direction),
-				Shift(shift),
-				Step(step),
-				Target(target)
-		{}
-	};
-
-
 	struct ADSR {
-		Array<ADSRPhase, 4> Phases = {
-			ADSRPhase(ADSRMode::Linear,ADSRDirection::Increase,0x00,0x00,0x7FFF),
-			ADSRPhase(ADSRMode::Exponential,ADSRDirection::Decrease,0x00,0x00,0x00),
-			ADSRPhase(ADSRMode::Linear,ADSRDirection::Increase,0x00,0x00,0x00),
-			ADSRPhase(ADSRMode::Linear,ADSRDirection::Decrease,0x00,0x00,0x00),
+		Array<EnvelopePhase, 4> Phases = {
+			EnvelopePhase(EnvelopeMode::Linear,EnvelopeDirection::Increase,0x00,0x00,0x7FFF),
+			EnvelopePhase(EnvelopeMode::Exponential,EnvelopeDirection::Decrease,0x00,0x00,0x00),
+			EnvelopePhase(EnvelopeMode::Linear,EnvelopeDirection::Increase,0x00,0x00,0x00),
+			EnvelopePhase(EnvelopeMode::Linear,EnvelopeDirection::Decrease,0x00,0x00,0x00),
 		};
 
 		U8 SustainLevel = 0x00;
@@ -235,6 +229,10 @@ namespace esx {
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
 
 	private:
+		Pair<I16, I16> reverb(I16 LeftInput, I16 RightInput);
+		I16 loadReverb(U16 addr);
+		I16 writeReverb(U16 addr);
+
 		void startVoice(U8 voice);
 
 		U16 getVoiceVolumeLeft(U8 voice);
@@ -334,12 +332,6 @@ namespace esx {
 		U16 getMainVolumeRight();
 		void setMainVolumeRight(U16 value);
 
-		U16 getReverbVolumeLeft();
-		void setReverbVolumeLeft(U16 value);
-
-		U16 getReverbVolumeRight();
-		void setReverbVolumeRight(U16 value);
-
 		U32 getCDInputVolume();
 		void setCDInputVolume(U32 value);
 
@@ -348,9 +340,6 @@ namespace esx {
 
 		U16 getCDInputVolumeRight();
 		void setCDInputVolumeRight(U16 value);
-
-		U16 getReverbWorkAreaStartAddress();
-		void setReverbWorkAreaStartAddress(U16 value);
 
 		U16 getSoundRAMIRQAddress();
 		void setSoundRAMIRQAddress(U16 value);
@@ -370,8 +359,6 @@ namespace esx {
 		Array<Voice, 24> mVoices = {};
 		Volume mMainVolumeLeft = {};
 		Volume mMainVolumeRight = {};
-		Volume mReverbVolumeLeft = {};
-		Volume mReverbVolumeRight = {};
 		StereoVolume mCurrentMainVolume = {};
 		StereoVolume mCDInputVolume = {};
 		StereoVolume mExternalInputVolume = {};
@@ -380,11 +367,14 @@ namespace esx {
 		U16 mDataTransferAddress = 0x0000;
 		DataTransferControl mDataTransferControl = {};
 		U16 mUnknown1F801DA0 = 0x0000;
-		U16 mReverbWorkAreaStartAddress = 0x0000;
 		U16 mSoundRAMIRQAddress = 0x0000;
 
+		I32 mNoiseTimer = 0;
+		I16 mNoiseLevel = 0;
+
 		//Reverb configuration Area
-		Array<U16, 32> mReverbConfigurationArea = {};
+		Array<U16, 35> mReverb = {};
+		U32 mCurrentBufferAddress = 0x00000000;
 
 		Queue<U16> mFIFO = {};
 		Vector<U8> mRAM = {};
