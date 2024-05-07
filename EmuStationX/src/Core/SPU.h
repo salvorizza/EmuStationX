@@ -215,6 +215,8 @@ namespace esx {
 		BIT IRQ9Flag = ESX_FALSE;
 		TransferMode TransferMode = TransferMode::Stop;
 	};
+
+	#define SATURATE(x) std::min(std::max((x), -0x8000), 0x7FFF)
 	
 
 	class SPU : public BusDevice {
@@ -231,7 +233,7 @@ namespace esx {
 	private:
 		Pair<I16, I16> reverb(I16 LeftInput, I16 RightInput);
 		I16 loadReverb(U16 addr);
-		I16 writeReverb(U16 addr);
+		void writeReverb(U16 addr,I16 value);
 
 		void startVoice(U8 voice);
 
@@ -355,6 +357,8 @@ namespace esx {
 
 		U16 getReverbConfigurationAreaRegister(ReverbRegister reg);
 		void setReverbConfigurationAreaRegister(ReverbRegister reg, U16 value);
+
+		static I16 reverbFirFilter(I16 sample);
 	private:
 		Array<Voice, 24> mVoices = {};
 		Volume mMainVolumeLeft = {};

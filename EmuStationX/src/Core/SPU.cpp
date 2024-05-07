@@ -62,19 +62,18 @@ namespace esx {
 		I16 step = phase.Direction == EnvelopeDirection::Increase ? (7 - phase.Step) : (-8 + phase.Step);
 
 		U32 cycles = 1 << std::max(0, phase.Shift - 11);
-		I16 envelopeStep = step << std::max(0, phase.Shift - 11);
+		I16 envelopeStep = step << std::max(0, 11 - phase.Shift);
 		if (phase.Mode == EnvelopeMode::Exponential) {
 			if (phase.Direction == EnvelopeDirection::Increase && outVolume > 0x6000) {
 				cycles *= 4;
 			}
 			else if (phase.Direction == EnvelopeDirection::Decrease) {
-				envelopeStep = ((I32)envelopeStep * outVolume) >> 15;
+				envelopeStep = (envelopeStep * outVolume) >> 15;
 			}
 		}
 		outTick = cycles;
 		outStep = envelopeStep;
-		outVolume += envelopeStep;
-		outVolume = std::min(std::max(outVolume, (I16)0x0000), (I16)0x7FFF);
+		outVolume = std::min(std::max(outVolume + envelopeStep, 0x0000), 0x7FFF);
 	}
 
 	static I16 processVolume(Volume& volume) {
@@ -111,7 +110,7 @@ namespace esx {
 
 	const Array<I16, 5> pos_xa_adpcm_table = { 0, 60, 115, 98, 122 };
 	const Array<I16, 5> neg_xa_adpcm_table = { 0, 0, -52, -55, -60 };
-	const Array<I32, 0x200> gauss = {
+	const Array<I16, 0x200> gauss = {
 	 -0x0001,-0x0001,-0x0001,-0x0001,-0x0001,-0x0001,-0x0001,-0x0001,
 	 -0x0001,-0x0001,-0x0001,-0x0001,-0x0001,-0x0001,-0x0001,-0x0001,
 	  0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0001,
@@ -226,9 +225,9 @@ namespace esx {
 				I32 newSample = 0;
 				if (voice.NoiseMode == NoiseMode::ADPCM) {
 					//Pitch modulation
-					I32 step = (I16)voice.ADPCMSampleRate;
+					I16 step = (I16)voice.ADPCMSampleRate;
 					if (voice.PitchModulation && voice.Number > 0) {
-						I32 factor = mVoices[voice.Number - 1].Latest + 0x8000;
+						U16 factor = mVoices[voice.Number - 1].Latest + 0x8000;
 						step = (step * factor) >> 15;
 						step &= 0xFFFF;
 					}
@@ -241,7 +240,7 @@ namespace esx {
 
 					U8 currentBlockADPCMHeaderShiftFilter = mRAM[voice.ADPCMCurrentAddress * 8 + 0];
 					U8 currentBlockADPCMHeaderFlag = mRAM[voice.ADPCMCurrentAddress * 8 + 1];
-					I32 currentBlockADPCMNibble = (mRAM[voice.ADPCMCurrentAddress * 8 + 2 + byteIndex] >> (nibbleIndex * 4)) & 0xF;
+					I16 currentBlockADPCMNibble = (mRAM[voice.ADPCMCurrentAddress * 8 + 2 + byteIndex] >> (nibbleIndex * 4)) & 0xF;
 
 					//Decoding
 					U8 shift = 12 - (currentBlockADPCMHeaderShiftFilter & 0xF);
@@ -253,7 +252,7 @@ namespace esx {
 					
 					//Interpolation
 					U8 interpolationIndex = voice.getInterpolationIndex();
-					I32 interpolated = ((gauss[0x0FF - interpolationIndex] * voice.OldestSample) >> 15);
+					I16 interpolated = ((gauss[0x0FF - interpolationIndex] * voice.OldestSample) >> 15);
 					interpolated += ((gauss[0x1FF - interpolationIndex] * voice.OlderSample) >> 15);
 					interpolated += ((gauss[0x100 + interpolationIndex] * voice.OldSample) >> 15);
 					interpolated += ((gauss[0x000 + interpolationIndex] * newSample) >> 15);
@@ -313,6 +312,7 @@ namespace esx {
 							BIT goToNextPhase = currentPhase.Direction == EnvelopeDirection::Decrease ? (adsr.CurrentVolume <= currentPhase.Target) : (adsr.CurrentVolume >= currentPhase.Target);
 							if (goToNextPhase && adsr.Phase != ADSRPhaseType::Sustain) {
 								adsr.Phase = (ADSRPhaseType)((U8)adsr.Phase + 1);
+								adsr.Tick = 0;
 							}
 						}
 						else {
@@ -324,21 +324,23 @@ namespace esx {
 				voice.Latest = sample;
 
 				//Mixing
-				left += ((I32)sample * processVolume(voice.VolumeLeft)) >> 15;
-				right += ((I32)sample * processVolume(voice.VolumeRight)) >> 15;
+				left += (sample * processVolume(voice.VolumeLeft)) >> 15;
+				right += (sample * processVolume(voice.VolumeRight)) >> 15;
 
 				if (voice.ReverbMode == ReverbMode::ToMixerAndToReverb) {
-					reverbLeft += ((I32)sample * processVolume(voice.VolumeLeft)) >> 15;
-					reverbRight += ((I32)sample * processVolume(voice.VolumeRight)) >> 15;
+					reverbLeft += (sample * processVolume(voice.VolumeLeft)) >> 15;
+					reverbRight += (sample * processVolume(voice.VolumeRight)) >> 15;
 				}
 			}
 
-			left = ((I32)left * processVolume(mMainVolumeLeft)) >> 15;
-			right = ((I32)right * processVolume(mMainVolumeRight)) >> 15;
+			left = (left * processVolume(mMainVolumeLeft)) >> 15;
+			right = (right * processVolume(mMainVolumeRight)) >> 15;
 
-			auto [leftReverb, rightReverb] = reverb(reverbLeft, reverbRight);
-			left += leftReverb;
-			right += rightReverb;
+			if (clocks % 1536 == 0) {
+				auto [leftReverb, rightReverb] = reverb(reverbLeft, reverbRight);
+				left += leftReverb;
+				right += rightReverb;
+			}
 
 			sStreams[0].write((char*)&left, 2);
 		}
@@ -509,7 +511,7 @@ namespace esx {
 				}
 			}
 		} else if (address < 0x1F801E00) {
-			ReverbRegister reverbRegister = (ReverbRegister)((address - 0x1F801DC0) / 2);
+			ReverbRegister reverbRegister = (ReverbRegister)((address - 0x1F801DC0) / 2 + 3);
 			setReverbConfigurationAreaRegister(reverbRegister, value);
 		} else if (address < 0x1F801E60) {
 			U8 voice = (address & 0xFF) >> 2;
@@ -692,7 +694,7 @@ namespace esx {
 				}
 			}
 		} else if (address < 0x1F801E00) {
-			ReverbRegister reverbRegister = (ReverbRegister)((address - 0x1F801DC0) / 2);
+			ReverbRegister reverbRegister = (ReverbRegister)((address - 0x1F801DC0) / 2 + 3);
 			output = getReverbConfigurationAreaRegister(reverbRegister);
 		} else if (address < 0x1F801E60) {
 			U8 voice = (address & 0xFF) >> 2;
@@ -708,21 +710,81 @@ namespace esx {
 
 	Pair<I16, I16> SPU::reverb(I16 LeftInput, I16 RightInput)
 	{
-		I16 Lin = ((I16)mReverb[vLIN] * LeftInput) >> 15;
-		I16 Rin = ((I16)mReverb[vRIN] * RightInput) >> 15;
+		#define MULT(x,y) (((x) * (y)) >> 15)
+		#define LOAD(x) loadReverb(mReverb[x])
+		#define LOAD_DIFF(x,y) loadReverb(mReverb[x] - mReverb[y])
+		#define LOAD_SUB(x,y) loadReverb(mReverb[x] - y)
+		#define VOLUME(x) (I16)mReverb[x]
 
-		mRAM[mReverb[mLSAME] * 8] = (Lin + mRAM[mBufferAddress + mReverb[dLSAME] * 8] * (I16)mReverb[vWALL])
-		
+		LeftInput = reverbFirFilter(LeftInput);
+		RightInput = reverbFirFilter(RightInput);
+
+		I16 Lin = MULT(VOLUME(vLIN), LeftInput);
+		I16 Rin = MULT(VOLUME(vRIN), RightInput);
+
+		//____Same Side Reflection (left-to-left and right-to-right)___________________
+		I16 mlSame = SATURATE(MULT(Lin + MULT(LOAD(dLSAME), VOLUME(vWALL)) - LOAD_SUB(mLSAME, 2), VOLUME(vIIR)) + LOAD_SUB(mLSAME, 2));
+		I16 mrSame = SATURATE(MULT(Rin + MULT(LOAD(dRSAME), VOLUME(vWALL)) - LOAD_SUB(mRSAME, 2), VOLUME(vIIR)) + LOAD_SUB(mRSAME, 2));
+		writeReverb(mLSAME, mlSame);
+		writeReverb(mRSAME, mrSame);
+
+		//___Different Side Reflection (left-to-right and right-to-left)_______________
+		I16 mlDiff = SATURATE(MULT(Lin + MULT(LOAD(dRDIFF), VOLUME(vWALL)) - LOAD_SUB(mLDIFF, 2), VOLUME(vIIR)) + LOAD_SUB(mLDIFF, 2));
+		I16 mrDiff = SATURATE(MULT(Rin + MULT(LOAD(dLDIFF), VOLUME(vWALL)) - LOAD_SUB(mRDIFF, 2), VOLUME(vIIR)) + LOAD_SUB(mRDIFF, 2));
+		writeReverb(mLDIFF, mlDiff);
+		writeReverb(mRDIFF, mrDiff);
+
+		//Early echo
+		I16 Lout = SATURATE(MULT(VOLUME(vCOMB1), LOAD(mLCOMB1)) + MULT(VOLUME(vCOMB2), LOAD(mLCOMB2)) + MULT(VOLUME(vCOMB3), LOAD(mLCOMB3)) + MULT(VOLUME(vCOMB4), LOAD(mLCOMB4)));
+		I16 Rout = SATURATE(MULT(VOLUME(vCOMB1), LOAD(mRCOMB1)) + MULT(VOLUME(vCOMB2), LOAD(mRCOMB2)) + MULT(VOLUME(vCOMB3), LOAD(mRCOMB3)) + MULT(VOLUME(vCOMB4), LOAD(mRCOMB4)));
+
+		// Late reverb APF1
+		Lout = SATURATE(Lout - MULT(VOLUME(vAPF1), LOAD_DIFF(mLAPF1, dAPF1)));
+		Rout = SATURATE(Rout - MULT(VOLUME(vAPF1), LOAD_DIFF(mRAPF1, dAPF1)));
+
+		writeReverb(mReverb[mLAPF1], Lout); 
+		writeReverb(mReverb[mRAPF1], Rout);
+
+		Lout = SATURATE(MULT(Lout, VOLUME(vAPF1)) + LOAD_DIFF(mLAPF1, dAPF1));
+		Rout = SATURATE(MULT(Rout, VOLUME(vAPF1)) + LOAD_DIFF(mRAPF1, dAPF1));
+
+		// Late reverb APF2
+		Lout = SATURATE(Lout - MULT(VOLUME(vAPF2), LOAD_DIFF(mLAPF2, dAPF2)));
+		Rout = SATURATE(Rout - MULT(VOLUME(vAPF2), LOAD_DIFF(mRAPF2, dAPF2)));
+
+		writeReverb(mReverb[mLAPF2], Lout);
+		writeReverb(mReverb[mRAPF2], Rout);
+
+		Lout = SATURATE(MULT(Lout, VOLUME(vAPF2)) + LOAD_DIFF(mLAPF2, dAPF2));
+		Rout = SATURATE(MULT(Rout, VOLUME(vAPF2)) + LOAD_DIFF(mRAPF2, dAPF2));
+
+		//___Output to Mixer (Output volume multiplied with input from APF2)___________
+		I16 LeftOutput = SATURATE(MULT(Lout, VOLUME(vLOUT)));
+		I16 RightOutput = SATURATE(MULT(Rout, VOLUME(vROUT)));
+
+		LeftOutput = reverbFirFilter(LeftOutput);
+		RightOutput = reverbFirFilter(RightOutput);
+
+		mCurrentBufferAddress = std::max(((U32)mReverb[mBASE]) << 3, (mCurrentBufferAddress + 2) & 0x7FFFE);
+
+		return std::make_pair(LeftOutput, RightOutput);
 	}
 
 	I16 SPU::loadReverb(U16 address)
 	{
-		return I16();
+		U32 relative = ((address >> 3) + mCurrentBufferAddress - (mReverb[mBASE] >> 3)) % (0x80000 - (mReverb[mBASE] >> 3));
+		U32 wrapped = ((mReverb[mBASE] >> 3) + relative) & 0x7FFFE;
+
+		return *(I16*)(mRAM.data() + wrapped);
 	}
 
-	I16 SPU::writeReverb(U16 addr)
+	void SPU::writeReverb(U16 address, I16 value)
 	{
-		return I16();
+		if (mSPUControl.ReverbMasterEnable == ESX_FALSE) return;
+		U32 relative = ((address >> 3) + mCurrentBufferAddress - (mReverb[mBASE] >> 3)) % (0x80000 - (mReverb[mBASE] >> 3));
+		U32 wrapped = ((mReverb[mBASE] >> 3) + relative) & 0x7FFFE;
+
+		*(I16*)(mRAM.data() + wrapped) = value;
 	}
 
 	void SPU::startVoice(U8 voice)
@@ -1284,16 +1346,34 @@ namespace esx {
 
 	U16 SPU::getReverbConfigurationAreaRegister(ReverbRegister reg)
 	{
-		return mReverb[(U8)reg];
+		return mReverb[reg];
 	}
 
 	void SPU::setReverbConfigurationAreaRegister(ReverbRegister reg, U16 value)
 	{
 		if (reg == mBASE) {
-			mCurrentBufferAddress = value;
+			mCurrentBufferAddress = value * 8;
 		}
 
-		mReverb[(U8)reg] = value;
+		mReverb[reg] = value;
+	}
+
+	static Array<I16, 39> fir_filter_coefficients = {
+		 -0x0001,  0x0000,  0x0002,  0x0000, -0x000A,  0x0000,  0x0023,  0x0000,
+		 -0x0067,  0x0000,  0x010A,  0x0000, -0x0268,  0x0000,  0x0534,  0x0000,
+		 -0x0B90,  0x0000,  0x2806,  0x4000,  0x2806,  0x0000, -0x0B90,  0x0000,
+		  0x0534,  0x0000, -0x0268,  0x0000,  0x010A,  0x0000, -0x0067,  0x0000,
+		  0x0023,  0x0000, -0x000A,  0x0000,  0x0002,  0x0000, -0x0001,
+	};
+	I16 SPU::reverbFirFilter(I16 sample)
+	{
+		I32 output = 0;
+
+		for (I16 coefficient : fir_filter_coefficients) {
+			output += sample * coefficient;
+		}
+
+		return output >> 15;
 	}
 
 }

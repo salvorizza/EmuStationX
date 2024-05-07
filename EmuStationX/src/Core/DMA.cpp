@@ -301,6 +301,8 @@ namespace esx {
 
 	void DMA::startBlockTransfer(Channel& channel)
 	{
+		ESX_CORE_ASSERT(channel.Port != Port::SPU, "DMA Port {} not supported yet", (U8)channel.Port);
+
 		U32 transferSize = 0;
 		switch (channel.SyncMode)
 		{
