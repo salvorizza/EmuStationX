@@ -122,6 +122,28 @@ namespace esx {
 		Off
 	};
 
+	struct ADPCMBlock {
+		U8 ShiftFilter = 0;
+		U8 Flags = 0;
+		Array<U8, 14> Data = {};
+
+		U8 Shift() const {
+			const U8 shift =  (ShiftFilter & 0xF);
+			return (shift > 12) ? 9 : shift;
+		}
+
+		U8 Filter() const {
+			return (ShiftFilter >> 4) & 0x7;
+		}
+
+		U8 GetNibble(U8 nibble) const {
+			const U8 byteIndex = nibble / 2;
+			const U8 nibbleIndex = nibble % 2;
+
+			return (Data[byteIndex] >> (nibbleIndex * 4)) & 0xF;
+		}
+	};
+
 	struct ADSR {
 		Array<EnvelopePhase, 4> Phases = {
 			EnvelopePhase(EnvelopeMode::Linear,EnvelopeDirection::Increase,0x00,0x00,0x7FFF),
@@ -162,11 +184,10 @@ namespace esx {
 		I16 Latest = 0;
 		U32 PitchCounter = 0;
 
-		U8 PrevSampleIndex = 0;
-
-		I16 OldSample = 0;
-		I16 OlderSample = 0;
-		I16 OldestSample = 0;
+		BIT HasSamples = ESX_FALSE;
+		Array<I16, 31> CurrentSamples = {}; //28 + 3
+		Array<I16, 2> LastSamples = {};
+		U8 CurrentBLockFlags = 0;
 
 		BIT KeyOn = ESX_FALSE;
 		BIT KeyOff = ESX_FALSE;
@@ -191,7 +212,7 @@ namespace esx {
 
 	struct SPUControl {
 		BIT Enable = ESX_FALSE;
-		BIT Mute = ESX_FALSE;
+		BIT Unmute = ESX_FALSE;
 		U8 NoiseFrequencyShift = 0x00;
 		U8 NoiseFrequencyStep = 0x00;
 		BIT ReverbMasterEnable = ESX_FALSE;
@@ -216,7 +237,7 @@ namespace esx {
 		TransferMode TransferMode = TransferMode::Stop;
 	};
 
-	#define SATURATE(x) std::min(std::max((x), -0x8000), 0x7FFF)
+	#define SATURATE(x) std::clamp((x), -0x8000, 0x7FFF)
 	
 
 	class SPU : public BusDevice {
@@ -231,6 +252,12 @@ namespace esx {
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
 
 	private:
+		ADPCMBlock readADPCMBlock(U16 address);
+		void decodeBlock(Voice& voice, const ADPCMBlock& block);
+
+		Pair<I32, I32> sampleVoice(Voice& voice);
+		void tickADSR(Voice& voice);
+
 		Pair<I16, I16> reverb(I16 LeftInput, I16 RightInput);
 		I16 loadReverb(U16 addr);
 		void writeReverb(U16 addr,I16 value);

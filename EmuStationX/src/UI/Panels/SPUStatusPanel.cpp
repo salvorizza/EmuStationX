@@ -27,7 +27,7 @@ namespace esx {
 				ImGui::TextColored(mInstance->mSPUControl.Enable ? kEnabled : kDisabled, "SPU Enable");
 
 				ImGui::SameLine();
-				ImGui::TextColored(mInstance->mSPUControl.Mute ? kEnabled : kDisabled, "Mute SPU");
+				ImGui::TextColored(!mInstance->mSPUControl.Unmute ? kEnabled : kDisabled, "Mute SPU");
 
 				ImGui::SameLine();
 				ImGui::TextColored(mInstance->mSPUControl.ExternalAudioEnable ? kEnabled : kDisabled, "External Audio");
@@ -58,6 +58,11 @@ namespace esx {
 			}
 
 			ImGui::TextUnformatted("Interrupt:");
+			{
+				ImGui::SameLine();
+				ImGui::TextColored(mInstance->mSPUControl.IRQ9Enable ? kEnabled : kDisabled, 
+					mInstance->mSPUControl.IRQ9Enable ? "Enabled" : "Disabled");
+			}
 
 			ImGui::TextUnformatted("Volume:");
 			{
@@ -155,7 +160,7 @@ namespace esx {
 					}
 
 					ImGui::TableNextColumn();
-					ImGui::Text("%.2f", ((voice.ADSR.CurrentVolume) / (float)0x7FFF) * 100);
+					ImGui::Text("%.2f", (voice.ADSR.CurrentVolume / (float)0x7FFF) * 100);
 
 					ImGui::TableNextColumn();
 					ImGui::Text("%d", voice.ADSR.Tick);
