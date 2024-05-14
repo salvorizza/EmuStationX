@@ -110,7 +110,7 @@ namespace esx {
 		EnvelopePhase Envelope;
 		SweepPhase SweepPhase = SweepPhase::Positive;
 
-		U64 Tick = 0;
+		U32 Tick = 0;
 		I16 Step = 0;
 	};
 
@@ -158,7 +158,7 @@ namespace esx {
 		I16 Step = 0;
 
 		ADSRPhaseType Phase = ADSRPhaseType::Off;
-		U64 Tick = 0;
+		U32 Tick = 0;
 	};
 
 	struct StereoVolume {
@@ -187,7 +187,7 @@ namespace esx {
 		BIT HasSamples = ESX_FALSE;
 		Array<I16, 31> CurrentSamples = {}; //28 + 3
 		Array<I16, 2> LastSamples = {};
-		U8 CurrentBLockFlags = 0;
+		U8 CurrentBlockFlags = 0;
 
 		BIT KeyOn = ESX_FALSE;
 		BIT KeyOff = ESX_FALSE;
@@ -262,7 +262,8 @@ namespace esx {
 		I16 loadReverb(U16 addr);
 		void writeReverb(U16 addr,I16 value);
 
-		void startVoice(U8 voice);
+		void startVoice(Voice& voice);
+		void stopVoice(Voice& voice);
 
 		U16 getVoiceVolumeLeft(U8 voice);
 		void setVoiceVolumeLeft(U8 voice, U16 value);

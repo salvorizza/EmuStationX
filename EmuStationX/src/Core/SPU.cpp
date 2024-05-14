@@ -11,7 +11,7 @@ namespace esx {
 		U16 value = 0;
 
 		if (volume.VolumeMode == VolumeMode::Volume) {
-			value |= ((volume.Level & 0x7FFF) << 0);
+			value |= (static_cast<U16>(volume.Level) >> 1);
 		} else {
 			value |= (volume.Envelope.Step << 0);
 			value |= (volume.Envelope.Shift << 2);
@@ -32,7 +32,7 @@ namespace esx {
 		volume.VolumeMode = (VolumeMode)((value >> 15) & 0x1);
 
 		if (volume.VolumeMode == VolumeMode::Volume) {
-			volume.Level = SIGNEXT16(value & 0x7FFF);
+			volume.Level = static_cast<I16>(value << 1);
 		} else {
 			volume.Envelope.Step = (value >> 0) & 0x3;
 			volume.Envelope.Shift = (value >> 2) & 0x1F;
@@ -58,10 +58,9 @@ namespace esx {
 		stereoVolume.Right = (value >> 16) & 0xFFFF;
 	}
 
-	static void tickEnvelope(EnvelopePhase& phase, I16& outVolume, U64& outTick, I16& outStep) {
+	static void tickEnvelope(EnvelopePhase& phase, I16& outVolume, U32& outTick, I16& outStep) {
 		I32 step = phase.Direction == EnvelopeDirection::Increase ? (7 - phase.Step) : (-8 + phase.Step);
-		ESX_CORE_LOG_TRACE("{}", phase.Shift);
-		U64 cycles = 1llu << std::max<U64>(0, phase.Shift - 11);
+		U32 cycles = 1 << std::max(0, phase.Shift - 11);
 		I32 envelopeStep = step << std::max(0, 11 - phase.Shift);
 		if (phase.Mode == EnvelopeMode::Exponential) {
 			if (phase.Direction == EnvelopeDirection::Increase && outVolume > 0x6000) {
@@ -73,12 +72,13 @@ namespace esx {
 		}
 		outTick = cycles;
 		outStep = envelopeStep;
+
 		outVolume = std::clamp(outVolume + envelopeStep, 0x0000, 0x7FFF);
 	}
 
 	static I16 processVolume(Volume& volume) {
 		if (volume.VolumeMode == VolumeMode::Volume) {
-			return (volume.Level << 1);
+			return volume.Level;
 		}
 		else {
 			ESX_CORE_LOG_TRACE("Sweep");
@@ -140,7 +140,7 @@ namespace esx {
 				}
 
 				if (voice.KeyOn) {
-					startVoice(voice.Number);
+					startVoice(voice);
 					voice.KeyOn = ESX_FALSE;
 				}
 
@@ -690,7 +690,7 @@ namespace esx {
 			decodeBlock(voice, currentBlock);
 			voice.HasSamples = ESX_TRUE;
 
-			if (voice.CurrentBLockFlags & 0b100) {
+			if (voice.CurrentBlockFlags & 0b100) {
 				voice.ADPCMRepeatAddress = voice.ADPCMCurrentAddress;
 			}
 		}
@@ -732,7 +732,7 @@ namespace esx {
 			voice.HasSamples = ESX_FALSE;
 			voice.ADPCMCurrentAddress += 0x2;
 
-			switch (voice.CurrentBLockFlags & 0x3) {
+			switch (voice.CurrentBlockFlags & 0x3) {
 				case 1: {
 					voice.ADPCMCurrentAddress = voice.ADPCMRepeatAddress & ~1;
 					voice.ReachedLoopEnd = ESX_TRUE;
@@ -776,15 +776,27 @@ namespace esx {
 		*(I16*)(mRAM.data() + wrapped) = value;
 	}
 
-	void SPU::startVoice(U8 voice)
+	void SPU::startVoice(Voice& voice)
 	{
-		mVoices[voice].ReachedLoopEnd = ESX_FALSE;
-		mVoices[voice].ADPCMCurrentAddress = mVoices[voice].ADPCMStartAddress;
-		mVoices[voice].ADSR.Phase = ADSRPhaseType::Attack;
-		mVoices[voice].ADSR.CurrentVolume = 0;
-		mVoices[voice].ADSR.Tick = 0;
-		mVoices[voice].HasSamples = ESX_FALSE;
-		mVoices[voice].LastSamples.fill(0);
+		voice.ReachedLoopEnd = ESX_FALSE;
+		voice.ADPCMCurrentAddress = voice.ADPCMStartAddress;
+		voice.ADSR.Phase = ADSRPhaseType::Attack;
+		voice.ADSR.CurrentVolume = 0;
+		voice.ADSR.Tick = 0;
+		voice.HasSamples = ESX_FALSE;
+		voice.LastSamples.fill(0);
+
+		voice.CurrentSamples[voice.CurrentSamples.size() - 2] = 0;
+		voice.CurrentSamples[voice.CurrentSamples.size() - 1] = 0;
+		voice.CurrentSamples[voice.CurrentSamples.size() - 0] = 0;
+	}
+
+	void SPU::stopVoice(Voice& voice)
+	{
+		if (voice.ADSR.Phase == ADSRPhaseType::Off || voice.ADSR.Phase == ADSRPhaseType::Release)
+			return;
+
+		voice.KeyOff = ESX_TRUE;
 	}
 
 	U16 SPU::getVoiceVolumeLeft(U8 voice)
@@ -821,7 +833,7 @@ namespace esx {
 		const I32 filter_pos = pos_xa_adpcm_table[block.Filter()];
 		const I32 filter_neg = neg_xa_adpcm_table[block.Filter()];
 
-		for (I32 i = 0; i < voice.CurrentSamples.size(); i++) {
+		for (I32 i = 0; i < voice.CurrentSamples.size() - 3; i++) {
 			I32 sample = I32(static_cast<I16>(static_cast<U16>(block.GetNibble(i)) << 12) >> block.Shift());
 			sample += (lastSamples[0] * filter_pos) >> 6;
 			sample += (lastSamples[1] * filter_neg) >> 6;
@@ -831,7 +843,7 @@ namespace esx {
 		}
 
 		voice.LastSamples = lastSamples;
-		voice.CurrentBLockFlags = block.Flags;
+		voice.CurrentBlockFlags = block.Flags;
 	}
 
 
@@ -1026,7 +1038,7 @@ namespace esx {
 	{
 		for (U32 i = 0; i < 8; i++) {
 			if (value & (1 << i)) {
-				mVoices[i].KeyOn = ESX_TRUE;
+				mVoices[16 + i].KeyOn = ESX_TRUE;
 			}
 		}
 	}
@@ -1041,7 +1053,7 @@ namespace esx {
 	{
 		for (U32 i = 0; i < 16; i++) {
 			if (value & (1 << i)) {
-				mVoices[i].KeyOff = ESX_TRUE;
+				stopVoice(mVoices[i]);
 			}
 		}
 	}
@@ -1050,7 +1062,7 @@ namespace esx {
 	{
 		for (U32 i = 0; i < 8; i++) {
 			if (value & (1 << i)) {
-				mVoices[i].KeyOff = ESX_TRUE;
+				stopVoice(mVoices[16 + i]);
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 #include "UI/Panels/SPUStatusPanel.h"
 
 #include <imgui.h>
+#include "MemoryEditor.h"
 
 namespace esx {
 
@@ -17,6 +18,8 @@ namespace esx {
 
 
 	void SPUStatusPanel::onImGuiRender() {
+		static MemoryEditor mem_edit;
+
 		const ImVec4 kDisabled = ImVec4(0.5, 0.5, 0.5, 1.0);
 		const ImVec4 kEnabled = ImVec4(1, 1, 1, 1.0);
 
@@ -195,8 +198,10 @@ namespace esx {
 				ImGui::SameLine();
 				ImGui::TextColored(voice.PitchModulation ? kEnabled : kDisabled, "%d", voice.Number);
 			}
+		}
 
-
+		if (ImGui::CollapsingHeader("RAM")) {
+			mem_edit.DrawContents(mInstance->mRAM.data(), mInstance->mRAM.size());
 		}
 	}
 
