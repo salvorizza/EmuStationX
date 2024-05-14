@@ -2,8 +2,6 @@
 
 #include "InterruptControl.h"
 
-#include <fstream>
-
 namespace esx {
 	
 	static U16 getVolume(const Volume& volume)
@@ -98,15 +96,12 @@ namespace esx {
 
 		for (U32 i = 0; i < 24; i++) {
 			mVoices[i].Number = i;
-			sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
 		}
 	}
 
 	SPU::~SPU()
 	{
 	}
-
-	#define SIGNEXT4(x) (((x) << 28) >> 28)
 
 	const Array<I16, 5> pos_xa_adpcm_table = { 0, 60, 115, 98, 122 };
 	const Array<I16, 5> neg_xa_adpcm_table = { 0, 0, -52, -55, -60 };
@@ -183,7 +178,13 @@ namespace esx {
 			I16 left = static_cast<I16>((SATURATE(leftSum) * processVolume(mMainVolumeLeft)) >> 15);
 			I16 right = static_cast<I16>((SATURATE(rightSum) * processVolume(mMainVolumeRight)) >> 15);
 
-			sStreams[0].write((char*)&left, 2);
+			mSamples[mWriteSample] = left;
+			mWriteSample = (mWriteSample + 1) % mSamples.size();
+
+			mSamples[mWriteSample] = right;
+			mWriteSample = (mWriteSample + 1) % mSamples.size();
+
+			mFrameCount++;
 		}
 	}
 
@@ -832,11 +833,14 @@ namespace esx {
 
 		const I32 filter_pos = pos_xa_adpcm_table[block.Filter()];
 		const I32 filter_neg = neg_xa_adpcm_table[block.Filter()];
+		const U8 shift = block.Shift();
 
 		for (I32 i = 0; i < voice.CurrentSamples.size() - 3; i++) {
-			I32 sample = I32(static_cast<I16>(static_cast<U16>(block.GetNibble(i)) << 12) >> block.Shift());
-			sample += (lastSamples[0] * filter_pos) >> 6;
-			sample += (lastSamples[1] * filter_neg) >> 6;
+			U8 nibble = block.GetNibble(i);
+			I16 extendedNibble = static_cast<I16>(static_cast<U16>(nibble) << 12);
+
+			I32 sample = I32(extendedNibble >> shift);
+			sample += (lastSamples[0] * filter_pos + lastSamples[1] * filter_neg + 32) / 64;
 
 			lastSamples[1] = lastSamples[0];
 			voice.CurrentSamples[3 + i] = lastSamples[0] = static_cast<I16>(SATURATE(sample));
@@ -911,12 +915,12 @@ namespace esx {
 	void SPU::setVoiceADSRUpper(U8 voice, U16 value)
 	{
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Step = 0; // Fixed
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Shift = (value >> 0) & 0xF;
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Shift = (value >> 0) & 0x1F;
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Direction = EnvelopeDirection::Decrease; // Fixed
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Release].Mode = (EnvelopeMode)((value >> 5) & 0x1);
 
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Step = (value >> 6) & 0x3;
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Shift = (value >> 8) & 0xF;
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Shift = (value >> 8) & 0x1F;
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Direction = (EnvelopeDirection)((value >> 14) & 0x1);
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Sustain].Mode = (EnvelopeMode)((value >> 15) & 0x1);
 	}
@@ -945,7 +949,7 @@ namespace esx {
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Target = (mVoices[voice].ADSR.SustainLevel + 1) * 0x800;
 
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Step = (value >> 8) & 0x3;
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Shift = (value >> 10) & 0xF;
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Shift = (value >> 10) & 0x1F;
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Direction = EnvelopeDirection::Increase; // Fixed
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Mode = (EnvelopeMode)((value >> 15) & 0x1);
 	}

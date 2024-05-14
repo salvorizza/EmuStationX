@@ -16,3 +16,6 @@
 [submodule "EmuStationX/vendor/optick"]
 	path = EmuStationX/vendor/optick
 	url = https://github.com/salvorizza/optick
+[submodule "EmuStationX/vendor/miniaudio"]
+	path = EmuStationX/vendor/miniaudio
+	url = https://github.com/salvorizza/miniaudio

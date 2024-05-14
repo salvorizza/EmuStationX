@@ -146,10 +146,10 @@ namespace esx {
 
 	struct ADSR {
 		Array<EnvelopePhase, 4> Phases = {
-			EnvelopePhase(EnvelopeMode::Linear,EnvelopeDirection::Increase,0x00,0x00,0x7FFF),
-			EnvelopePhase(EnvelopeMode::Exponential,EnvelopeDirection::Decrease,0x00,0x00,0x00),
-			EnvelopePhase(EnvelopeMode::Linear,EnvelopeDirection::Increase,0x00,0x00,0x00),
-			EnvelopePhase(EnvelopeMode::Linear,EnvelopeDirection::Decrease,0x00,0x00,0x00),
+			EnvelopePhase(EnvelopeMode::Linear,EnvelopeDirection::Increase,0x00,0x00,0x7FFF),//Attack
+			EnvelopePhase(EnvelopeMode::Exponential,EnvelopeDirection::Decrease,0x00,0x00,0x00),//Decay
+			EnvelopePhase(EnvelopeMode::Linear,EnvelopeDirection::Increase,0x00,0x00,0x00),//Sustain
+			EnvelopePhase(EnvelopeMode::Linear,EnvelopeDirection::Decrease,0x00,0x00,0x00),//Release
 		};
 
 		U8 SustainLevel = 0x00;
@@ -250,6 +250,7 @@ namespace esx {
 
 		virtual void store(const StringView& busName, U32 address, U16 value) override;
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
+
 
 	private:
 		ADPCMBlock readADPCMBlock(U16 address);
@@ -412,6 +413,8 @@ namespace esx {
 		Vector<U8> mRAM = {};
 
 		U32 mCurrentTransferAddress = 0;
+	public:
+		Array<I16, 441 * 2> mSamples = {}; U32 mWriteSample = 0; U32 mReadSample = 0; U32 mFrameCount = 0;
 	};
 
 }

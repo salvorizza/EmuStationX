@@ -369,8 +369,8 @@ namespace esx {
 		Instruction mCurrentInstruction;
 
 	private:
-		void addPendingLoad(RegisterIndex index, U32 value);
-		void resetPendingLoad();
+		inline void addPendingLoad(RegisterIndex index, U32 value);
+		inline void resetPendingLoad();
 
 		void setRegister(RegisterIndex index, U32 value);
 		U32 getRegister(RegisterIndex index);

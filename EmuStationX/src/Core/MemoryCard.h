@@ -89,6 +89,7 @@ namespace esx {
 		Array<File, 14> Files;
 	};
 
+
 	enum class MemoryCardCommunicationPhase {
 		Adressing,
 		Command,

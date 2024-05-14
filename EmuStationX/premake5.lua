@@ -29,7 +29,8 @@ project "EmuStationX"
 		"%{IncludeDir.glm}",
 		"%{IncludeDir.stb}",
 		"%{IncludeDir.ImGuiConsole}",
-		"%{IncludeDir.Optick}"
+		"%{IncludeDir.Optick}",
+		"%{IncludeDir.miniaudio}"
 	}
 
 	links
@@ -40,6 +41,7 @@ project "EmuStationX"
 		"ImGuiConsole",
 		"STB",
 		"OptickCore",
+		"miniaudio",
 		"opengl32.lib"
 	}
 	

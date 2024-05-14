@@ -45,6 +45,7 @@
 #include <iostream>
 
 #include "optick.h"
+#include "miniaudio.h"
 
 
 
@@ -108,6 +109,7 @@ public:
 	}
 
 	~EmuStationXApp() {
+		ma_device_uninit(&mAudioDevice);
 	}
 
 	virtual void onSetup() override {
@@ -207,8 +209,35 @@ public:
 
 		mBatchRenderer->Begin();
 
+		ma_device_config config = ma_device_config_init(ma_device_type_playback);
+		config.playback.format = ma_format_s16;
+		config.playback.channels = 2;
+		config.sampleRate = 44100;
+		config.dataCallback = audioCallback;
+		config.pUserData = this;
+
+		if (ma_device_init(NULL, &config, &mAudioDevice) != MA_SUCCESS) {
+			ESX_CORE_LOG_ERROR("failed to init MiniAudio");
+		}
+
+		ma_device_start(&mAudioDevice);
+
 		InputManager::Init();
 		loopTimer.init();
+	}
+
+	static void audioCallback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
+	{
+		if (frameCount == 0) {
+			return;
+		}
+
+		EmuStationXApp* pApp = (EmuStationXApp*)pDevice->pUserData;
+
+		do {
+		} while (pApp->spu->mFrameCount < frameCount);
+
+		std::memcpy(pOutput, pApp->spu->mSamples.data(), frameCount * 2 * sizeof(I16));
 	}
 
 	virtual void onUpdate() override {
@@ -227,6 +256,8 @@ public:
 		mDisassemblerPanel->onUpdate();
 		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
 		InputManager::Update();
+
+		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
 		loopTimer.update();
 	}
 
@@ -329,6 +360,8 @@ private:
 	SharedPtr<KernelTables> mKernelTablesPanel;
 	SharedPtr<SPUStatusPanel> mSPUStatusPanel;
 	glm::mat4 mProjectionMatrix;
+
+	ma_device mAudioDevice;
 
 };
 
