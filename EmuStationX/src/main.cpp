@@ -64,10 +64,10 @@ public:
 	virtual void Log(LogType type, const StringView& message) override {
 		if ((I32)type < mLogLevel) return;
 
-		auto& items = mConsolePanel->getInternalConsole().System().Items();
+		/*auto& items = mConsolePanel->getInternalConsole().System().Items();
 		if (items.size() > 1000) {
 			items.erase(items.begin());
-		}
+		}*/
 
 		if (mConsolePanel) {
 			switch (type)
@@ -109,7 +109,6 @@ public:
 	}
 
 	~EmuStationXApp() {
-		ma_device_uninit(&mAudioDevice);
 	}
 
 	virtual void onSetup() override {
@@ -193,10 +192,8 @@ public:
 		sio0->plugDevice(SerialPort::Port1, memoryCard);
 		memoryCard->setMaster(sio0);
 
-
 		sio0->plugDevice(SerialPort::Port2, memoryCard2);
 		memoryCard2->setMaster(sio0);
-
 
 		root->sortRanges();
 
@@ -234,10 +231,12 @@ public:
 
 		EmuStationXApp* pApp = (EmuStationXApp*)pDevice->pUserData;
 
-		do {
-		} while (pApp->spu->mFrameCount < frameCount);
+		while (pApp->spu->mFrameCount.load() < frameCount) {
+		}
 
+		std::scoped_lock<std::mutex> lc(pApp->spu->mSamplesMutex);
 		std::memcpy(pOutput, pApp->spu->mSamples.data(), frameCount * 2 * sizeof(I16));
+		pApp->spu->mFrameCount.store(0);
 	}
 
 	virtual void onUpdate() override {
@@ -263,6 +262,11 @@ public:
 
 	virtual void onRender() override {
 	}
+
+	virtual void onCleanUp() override {
+		ma_device_uninit(&mAudioDevice);
+	}
+
 
 	virtual void onImGuiRender(const SharedPtr<ImGuiManager>& pManager, const SharedPtr<Window>& pWindow) override {
 		static bool p_open = true;
@@ -362,7 +366,6 @@ private:
 	glm::mat4 mProjectionMatrix;
 
 	ma_device mAudioDevice;
-
 };
 
 int

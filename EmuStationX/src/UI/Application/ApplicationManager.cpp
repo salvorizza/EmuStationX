@@ -31,6 +31,7 @@ namespace esx {
 			InputManager::Update();
 		}
 
+		mApplication->onCleanUp();
 		mImGuiManager->cleanUp();
 	}
 }

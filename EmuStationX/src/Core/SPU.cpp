@@ -109,13 +109,7 @@ namespace esx {
 
 	void SPU::clock(U64 clocks)
 	{
-		if (clocks % 768 == 0 && mSPUControl.Enable) {
-			mSPUStatus.CDAudioEnable = mSPUControl.CDAudioEnable;
-			mSPUStatus.ExternalAudioEnable = mSPUControl.ExternalAudioEnable;
-			mSPUStatus.CDAudioReverb = mSPUControl.CDAudioReverb;
-			mSPUStatus.ExternalAudioReverb = mSPUControl.ExternalAudioReverb;
-			mSPUStatus.TransferMode = mSPUControl.TransferMode;
-
+		if (clocks % 16 == 0) {
 			if (mSPUStatus.TransferMode == TransferMode::ManualWrite && !mFIFO.empty()) {
 				U16 value = mFIFO.front();
 				mRAM[mCurrentTransferAddress++] = (U8)(value & 0xFF);
@@ -123,6 +117,14 @@ namespace esx {
 				mFIFO.pop();
 				mSPUStatus.DataTransferBusyFlag = !mFIFO.empty();
 			}
+		}
+
+		if (clocks % 768 == 0 && mSPUControl.Enable) {
+			mSPUStatus.CDAudioEnable = mSPUControl.CDAudioEnable;
+			mSPUStatus.ExternalAudioEnable = mSPUControl.ExternalAudioEnable;
+			mSPUStatus.CDAudioReverb = mSPUControl.CDAudioReverb;
+			mSPUStatus.ExternalAudioReverb = mSPUControl.ExternalAudioReverb;
+			mSPUStatus.TransferMode = mSPUControl.TransferMode;
 
 			I32 leftSum = 0, rightSum = 0;
 			I32 reverbLeftSum = 0, reverbRightSum = 0;
@@ -178,13 +180,13 @@ namespace esx {
 			I16 left = static_cast<I16>((SATURATE(leftSum) * processVolume(mMainVolumeLeft)) >> 15);
 			I16 right = static_cast<I16>((SATURATE(rightSum) * processVolume(mMainVolumeRight)) >> 15);
 
-			mSamples[mWriteSample] = left;
-			mWriteSample = (mWriteSample + 1) % mSamples.size();
-
-			mSamples[mWriteSample] = right;
-			mWriteSample = (mWriteSample + 1) % mSamples.size();
-
-			mFrameCount++;
+			if (mFrameCount > mSamples.size()) {
+				ESX_CORE_LOG_TRACE("Pippo na cifra!");
+			}
+			std::scoped_lock<std::mutex> lc(mSamplesMutex);
+			mSamples[mFrameCount].Left = left;
+			mSamples[mFrameCount].Right = right;
+			mFrameCount.fetch_add(1);
 		}
 	}
 

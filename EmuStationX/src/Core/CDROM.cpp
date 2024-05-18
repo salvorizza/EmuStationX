@@ -9,7 +9,9 @@ namespace esx {
 		: BusDevice("CDROM")
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801800, BYTE(0x4), 0xFFFFFFFF);
+		mShellOpen = ESX_TRUE;
 
+		mStat = StatusFlagsShellOpen;
 	}
 
 	CDROM::~CDROM()
@@ -148,7 +150,9 @@ namespace esx {
 		switch (command) {
 			case CommandType::GetStat: {
 				ESX_CORE_LOG_ERROR("CDROM - GetStat");
-				mStat = (StatusFlags)(mStat & ~StatusFlagsShellOpen);
+				if (!mShellOpen) {
+					mStat = (StatusFlags)(mStat & ~StatusFlagsShellOpen);
+				}
 				break;
 			}
 
@@ -190,9 +194,9 @@ namespace esx {
 				response.NumberOfResponses = 2;
 				if (responseNumber == 2) {
 					response.Clear();
-					response.Push(mStat | StatusFlagsIdError); //Stat shell open
-					response.Push(0xC0); //No disk + unlicensed
-					response.Push(0x00);
+					response.Push(mStat);//response.Push(mStat | StatusFlagsIdError);
+					response.Push(0x00); //response.Push(GetIdFlagsUnlicensed | GetIdFlagsMissing);
+					response.Push(GetIdDiskTypeMode1);
 					response.Push(0x00);
 					response.Push('S');
 					response.Push('C');

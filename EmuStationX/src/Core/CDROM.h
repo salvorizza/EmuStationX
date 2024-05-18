@@ -7,6 +7,28 @@ namespace esx {
 
 	using FIFO = Queue<U8>;
 
+	enum GetIdFlags {
+		GetIdFlagsUnlicensed = 1 << 7,
+		GetIdFlagsMissing = 1 << 6,
+		GetIdFlagsAudioCD = 1 << 4
+	};
+
+	enum GetIdDiskType {
+		GetIdDiskTypeMode1 = 0x00,
+		GetIdDiskTypeMode2 = 0x20
+	};
+
+	enum SetmodeFlags {
+		SetmodeFlagsSpeed = 1 << 7,
+		SetmodeFlagsXAADPCM = 1 << 6,
+		SetmodeFlagsSectorSize = 1 << 5,
+		SetmodeFlagsIgnore = 1 << 4,
+		SetmodeFlagsXAFilter= 1 << 3,
+		SetmodeFlagsReport = 1 << 2,
+		SetmodeFlagsAutoPause = 1 << 1,
+		SetmodeFlagsCDDA = 1 << 0,
+	};
+
 	enum StatusFlags {
 		StatusFlagsPlay = 1 << 7,
 		StatusFlagsSeek = 1 << 6,
@@ -112,6 +134,8 @@ namespace esx {
 		StatusFlags mStat = StatusFlagsRotating;
 
 		Queue<Response> mResponses;
+
+		BIT mShellOpen = ESX_FALSE;
 	};
 
 }

@@ -237,6 +237,10 @@ namespace esx {
 		TransferMode TransferMode = TransferMode::Stop;
 	};
 
+	struct AudioFrame {
+		I16 Left, Right;
+	};
+
 	#define SATURATE(x) std::clamp((x), -0x8000, 0x7FFF)
 	
 
@@ -414,7 +418,8 @@ namespace esx {
 
 		U32 mCurrentTransferAddress = 0;
 	public:
-		Array<I16, 441 * 2> mSamples = {}; U32 mWriteSample = 0; U32 mReadSample = 0; U32 mFrameCount = 0;
+		std::mutex mSamplesMutex = {};
+		Array<AudioFrame, 441> mSamples = {}; std::atomic<U32> mFrameCount = 0;
 	};
 
 }
