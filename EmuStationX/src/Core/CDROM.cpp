@@ -9,9 +9,9 @@ namespace esx {
 		: BusDevice("CDROM")
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801800, BYTE(0x4), 0xFFFFFFFF);
-		mShellOpen = ESX_TRUE;
+		mShellOpen = ESX_FALSE;
 
-		mStat = StatusFlagsShellOpen;
+		mStat = StatusFlagsShellOpen | StatusFlagsRotating;
 	}
 
 	CDROM::~CDROM()
@@ -196,26 +196,32 @@ namespace esx {
 					response.Clear();
 					response.Push(mStat);//response.Push(mStat | StatusFlagsIdError);
 					response.Push(0x00); //response.Push(GetIdFlagsUnlicensed | GetIdFlagsMissing);
-					response.Push(GetIdDiskTypeMode1);
+					response.Push(GetIdDiskTypeMode2);
 					response.Push(0x00);
 					response.Push('S');
 					response.Push('C');
 					response.Push('E');
 					response.Push('A');
 					response.Code = INT2;
+				}
+				else {
 					response.TargetCycle = clocks + 20480;
 				}
 				break;
 			}
 
 			case CommandType::ReadTOC: {
-				ESX_CORE_LOG_ERROR("CDROM - ReadTOC");
+				ESX_CORE_LOG_ERROR("CDROM - ReadTOC {}", response.Number);
 
 				response.NumberOfResponses = 2;
 				if (responseNumber == 2) {
 					response.Clear();
 					response.Push(mStat);
 					response.Code = INT2;
+				}
+				else {
+					mStat |= StatusFlagsRotating;
+					response.TargetCycle = clocks + CD_READ_DELAY * 180 / 4;
 				}
 				
 				break;

@@ -180,13 +180,12 @@ namespace esx {
 			I16 left = static_cast<I16>((SATURATE(leftSum) * processVolume(mMainVolumeLeft)) >> 15);
 			I16 right = static_cast<I16>((SATURATE(rightSum) * processVolume(mMainVolumeRight)) >> 15);
 
-			if (mFrameCount > mSamples.size()) {
-				ESX_CORE_LOG_TRACE("Pippo na cifra!");
+			if (mFrameCount < mSamples.size()) {
+				std::scoped_lock<std::mutex> lc(mSamplesMutex);
+				mSamples[mFrameCount].Left = left;
+				mSamples[mFrameCount].Right = right;
+				mFrameCount.fetch_add(1);
 			}
-			std::scoped_lock<std::mutex> lc(mSamplesMutex);
-			mSamples[mFrameCount].Left = left;
-			mSamples[mFrameCount].Right = right;
-			mFrameCount.fetch_add(1);
 		}
 	}
 
@@ -789,9 +788,9 @@ namespace esx {
 		voice.HasSamples = ESX_FALSE;
 		voice.LastSamples.fill(0);
 
+		voice.CurrentSamples[voice.CurrentSamples.size() - 3] = 0;
 		voice.CurrentSamples[voice.CurrentSamples.size() - 2] = 0;
 		voice.CurrentSamples[voice.CurrentSamples.size() - 1] = 0;
-		voice.CurrentSamples[voice.CurrentSamples.size() - 0] = 0;
 	}
 
 	void SPU::stopVoice(Voice& voice)

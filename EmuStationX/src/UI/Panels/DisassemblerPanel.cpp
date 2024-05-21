@@ -192,7 +192,7 @@ namespace esx {
 
 						Instruction instruction;
 						instruction.Address = translatedAddress;
-						instruction.Mnemonic = cpuInstruction.Mnemonic();
+						instruction.Mnemonic = cpuInstruction.Mnemonic(mInstance);
 
 						//Instruction instruction = mInstructions[row];
 
@@ -306,7 +306,7 @@ namespace esx {
 
 				Instruction instruction;
 				instruction.Address = address;
-				instruction.Mnemonic = cpuInstruction.Mnemonic();
+				instruction.Mnemonic = cpuInstruction.Mnemonic(mInstance);
 				mInstructions.push_back(instruction);
 			}
 

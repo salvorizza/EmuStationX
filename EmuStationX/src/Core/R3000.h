@@ -14,17 +14,17 @@
 
 namespace esx {
 
-	#define CO(x) ((x >> 25) & 0x1)
-	#define CO_N(x) ((x >> 26) & 0x3)
-	#define COP_FUNC(x) (x & 0x1F)
+	#define CO(x) (((x) >> 25) & 0x1)
+	#define CO_N(x) (((x) >> 26) & 0x3)
+	#define COP_FUNC(x) ((x) & 0x1F)
 
-	#define SIGNEXT8(x) ((x & 0x80) ? x | 0xFFFFFF00 : x)
-	#define SIGNEXT16(x) ((x & 0x8000) ? x | 0xFFFF0000 : x)
+	#define SIGNEXT8(x) (((x) & 0x80) ? (x) | 0xFFFFFF00 : (x))
+	#define SIGNEXT16(x) (((x) & 0x8000) ? (x) | 0xFFFF0000 : (x))
 	#define EXCEPTION_HANDLER_ADDRESS 0x80000080
 	#define BREAKPOINT_EXCEPTION_HANDLER_ADDRESS 0x80000040
-	#define ADDRESS_UNALIGNED(x,type) ((x & (sizeof(type) - 1)) != 0x0)
-	#define OVERFLOW_ADD32(a,b,s) (~((a & 0x80000000) ^ (b & 0x80000000)) & ((a & 0x80000000) ^ (s & 0x80000000)))
-	#define OVERFLOW_SUB32(a,b,s) ((a & 0x80000000) ^ (b & 0x80000000)) & ((a & 0x80000000) ^ (s & 0x80000000))
+	#define ADDRESS_UNALIGNED(x,type) (((x) & (sizeof(type) - 1)) != 0x0)
+	#define OVERFLOW_ADD32(a,b,s) (~(((a) & 0x80000000) ^ ((b) & 0x80000000)) & (((a) & 0x80000000) ^ ((s) & 0x80000000)))
+	#define OVERFLOW_SUB32(a,b,s) (((a) & 0x80000000) ^ ((b) & 0x80000000)) & (((a) & 0x80000000) ^ ((s) & 0x80000000))
 
 
 	constexpr std::array<U32, 8> SEGS_MASKS = {
@@ -188,7 +188,7 @@ namespace esx {
 			return PseudoAddress();
 		}
 
-		String Mnemonic() const;
+		String Mnemonic(const SharedPtr<R3000>& cpuState) const;
 	};
 
 	class CPUStatusPanel;
@@ -243,6 +243,8 @@ namespace esx {
 
 		template<typename T>
 		void store(U32 address, U32 value) {
+			
+
 			if (ADDRESS_UNALIGNED(address, T)) {
 				raiseException(ExceptionType::AddressErrorStore);
 				return;
@@ -255,7 +257,11 @@ namespace esx {
 				mStall = ESX_TRUE;
 			}
 
-			mRootBus->store<T>(toPhysicalAddress(address), value);
+			U32 physicalAddress = toPhysicalAddress(address);
+			if (physicalAddress == 0x79d9c) {
+				ESX_CORE_LOG_TRACE("{:08X}h - SW {}", mCurrentInstruction.Address, value);
+			}
+			mRootBus->store<T>(physicalAddress, value);
 		}
 
 		static U32 toPhysicalAddress(U32 address) {
@@ -368,25 +374,33 @@ namespace esx {
 
 		Instruction mCurrentInstruction;
 
+		U32 getRegister(RegisterIndex index);
 	private:
 		inline void addPendingLoad(RegisterIndex index, U32 value);
 		inline void resetPendingLoad();
 
 		void setRegister(RegisterIndex index, U32 value);
-		U32 getRegister(RegisterIndex index);
 
 		void setCP0Register(RegisterIndex index, U32 value);
 		U32 getCP0Register(RegisterIndex index);
 
 		U32 cacheMiss(U32 address, U32 cacheLineNumber, U32 tag, U32 startIndex);
+
+		void BiosA0(U32 callPC);
+		void BiosB0(U32 callPC);
+		void BiosC0(U32 callPC);
 	private:
 		SharedPtr<Bus> mRootBus;
 		Array<U32, 32> mRegisters;
-		Array<U32, 32> mOutRegisters;
+
 		Pair<RegisterIndex, U32> mPendingLoad;
+		Pair<RegisterIndex, U32> mMemoryLoad;
+		Pair<RegisterIndex, U32> mWriteBack;
+
 		U32 mPC = 0;
 		U32 mNextPC = 0;
 		U32 mCurrentPC = 0;
+		U32 mCallPC = 0;
 		U32 mHI = 0;
 		U32 mLO = 0;
 		Array<U32, 64> mCP0Registers;

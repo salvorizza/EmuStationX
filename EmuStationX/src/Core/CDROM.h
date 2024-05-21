@@ -5,6 +5,8 @@
 
 namespace esx {
 
+	constexpr size_t CD_READ_DELAY = 33868800 / 75;
+
 	using FIFO = Queue<U8>;
 
 	enum GetIdFlags {
@@ -131,7 +133,7 @@ namespace esx {
 
 		FIFO mData;
 
-		StatusFlags mStat = StatusFlagsRotating;
+		U8 mStat = 0;
 
 		Queue<Response> mResponses;
 

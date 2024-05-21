@@ -19,13 +19,17 @@ namespace esx {
 	R3000::R3000()
 		:	BusDevice(ESX_TEXT("R3000")),
 			mRegisters(),
-			mOutRegisters(),
 			mCP0Registers(),
 			mPC(0xBFC00000)
 	{
 		mNextPC = mPC + 4;
 		setCP0Register(COP0Register::PRId, 0x00000002);
 		resetPendingLoad();
+
+		mMemoryLoad = std::make_pair<RegisterIndex, U32>(RegisterIndex(0), 0);
+		mPendingLoad = std::make_pair<RegisterIndex, U32>(RegisterIndex(0), 0);
+		mWriteBack = std::make_pair<RegisterIndex, U32>(RegisterIndex(0), 0);
+
 	}
 
 	R3000::~R3000()
@@ -48,8 +52,6 @@ namespace esx {
 
 			decode(mCurrentInstruction, opcode, mPC);
 
-			//ESX_CORE_ASSERT(mCurrentInstruction.Execute, "No Operation");
-
 			mCurrentPC = mPC;
 			mPC = mNextPC;
 			mNextPC += 4;
@@ -59,19 +61,33 @@ namespace esx {
 			mBranch = ESX_FALSE;
 			mTookBranchSlot = ESX_FALSE;
 
-			setRegister(mPendingLoad.first, mPendingLoad.second);
-			resetPendingLoad();
-
 			(this->*mCurrentInstruction.Execute)();
 
-			/*if (mStall) {
-				mNextPC = mPC;
-				mPC = mCurrentPC;
-				resetPendingLoad();
-			} else {
-				mRegisters = mOutRegisters;
-			}*/
+			if (mMemoryLoad.first != mPendingLoad.first) {
+				mRegisters[mMemoryLoad.first] = mMemoryLoad.second;
+				mRegisters[0] = 0;
+			}
+			mMemoryLoad = mPendingLoad;
+			resetPendingLoad();
 
+			mRegisters[mWriteBack.first] = mWriteBack.second;
+			mWriteBack.first = RegisterIndex(0);
+			mRegisters[0] = 0;
+
+			switch (mCurrentPC) {
+				case 0xA0: {
+					BiosA0(mCallPC);
+					break;
+				}
+				case 0xB0: {
+					BiosB0(mCallPC);
+					break;
+				}
+				case 0xC0: {
+					BiosC0(mCallPC);
+					break;
+				}
+			}
 		}
 
 		mGPU->clock(mCycles);
@@ -306,7 +322,7 @@ namespace esx {
 
 	void R3000::MFLO()
 	{
-		addPendingLoad(mCurrentInstruction.RegisterDestination(), mLO);
+		setRegister(mCurrentInstruction.RegisterDestination(), mLO);
 	}
 
 	void R3000::MTLO()
@@ -316,7 +332,7 @@ namespace esx {
 
 	void R3000::MFHI()
 	{
-		addPendingLoad(mCurrentInstruction.RegisterDestination(), mHI);
+		setRegister(mCurrentInstruction.RegisterDestination(), mHI);
 	}
 
 	void R3000::MTHI()
@@ -851,6 +867,7 @@ namespace esx {
 		mNextPC = a;
 		mBranch = ESX_TRUE;
 		mTookBranch = ESX_TRUE;
+		mCallPC = mCurrentPC;
 	}
 
 	void R3000::JR()
@@ -1159,13 +1176,13 @@ namespace esx {
 
 	void R3000::setRegister(RegisterIndex index, U32 value)
 	{
-		mOutRegisters[index.Value] = value;
-		mOutRegisters[(U8)GPRRegister::zero] = 0;
+		mWriteBack.first = index;
+		mWriteBack.second = value;
 	}
 
 	U32 R3000::getRegister(RegisterIndex index)
 	{
-		return mOutRegisters[index.Value];
+		return mRegisters[index.Value];
 	}
 
 	void R3000::setCP0Register(RegisterIndex index, U32 value)
@@ -1198,6 +1215,294 @@ namespace esx {
 		}
 
 		return cacheLine.Instructions[startIndex].Word;
+	}
+
+	void R3000::BiosA0(U32 callPC)
+	{
+		switch (mRegisters[9]) {
+			case 0x00: ESX_CORE_LOG_TRACE("0x{:08X} - open(filename,accessmode)",callPC); break;
+			case 0x01: ESX_CORE_LOG_TRACE("0x{:08X} - lseek(fd,offset,seektype)",callPC); break;
+			case 0x02: ESX_CORE_LOG_TRACE("0x{:08X} - read(fd,dst,length)",callPC); break;
+			case 0x03: ESX_CORE_LOG_TRACE("0x{:08X} - write(fd,src,length)",callPC); break;
+			case 0x04: ESX_CORE_LOG_TRACE("0x{:08X} - close(fd)",callPC); break;
+			case 0x05: ESX_CORE_LOG_TRACE("0x{:08X} - ioctl(fd,cmd,arg)",callPC); break;
+			case 0x06: ESX_CORE_LOG_TRACE("0x{:08X} - exit(exitcode)",callPC); break;
+			case 0x07: ESX_CORE_LOG_TRACE("0x{:08X} - isatty(fd)",callPC); break;
+			case 0x08: ESX_CORE_LOG_TRACE("0x{:08X} - getc(fd)",callPC); break;
+			case 0x09: ESX_CORE_LOG_TRACE("0x{:08X} - putc(char,fd)",callPC); break;
+			case 0x0A: ESX_CORE_LOG_TRACE("0x{:08X} - todigit(char)",callPC); break;
+			case 0x0B: ESX_CORE_LOG_TRACE("0x{:08X} - atof(src)",callPC); break;
+			case 0x0C: ESX_CORE_LOG_TRACE("0x{:08X} - strtoul(src,src_end,base)",callPC); break;
+			case 0x0D: ESX_CORE_LOG_TRACE("0x{:08X} - strtol(src,src_end,base)",callPC); break;
+			case 0x0E: ESX_CORE_LOG_TRACE("0x{:08X} - abs(val)",callPC); break;
+			case 0x0F: ESX_CORE_LOG_TRACE("0x{:08X} - labs(val)",callPC); break;
+			case 0x10: ESX_CORE_LOG_TRACE("0x{:08X} - atoi(src)",callPC); break;
+			case 0x11: ESX_CORE_LOG_TRACE("0x{:08X} - atol(src)",callPC); break;
+			case 0x12: ESX_CORE_LOG_TRACE("0x{:08X} - atob(src,num_dst)",callPC); break;
+			case 0x13: ESX_CORE_LOG_TRACE("0x{:08X} - setjmp(buf)",callPC); break;
+			case 0x14: ESX_CORE_LOG_TRACE("0x{:08X} - longjmp(buf,param)",callPC); break;
+			case 0x15: ESX_CORE_LOG_TRACE("0x{:08X} - strcat(dst,src)",callPC); break;
+			case 0x16: ESX_CORE_LOG_TRACE("0x{:08X} - strncat(dst,src,maxlen)",callPC); break;
+			case 0x17: ESX_CORE_LOG_TRACE("0x{:08X} - strcmp(str1,str2)",callPC); break;
+			case 0x18: ESX_CORE_LOG_TRACE("0x{:08X} - strncmp(str1,str2,maxlen)",callPC); break;
+			case 0x19: ESX_CORE_LOG_TRACE("0x{:08X} - strcpy(dst,src)",callPC); break;
+			case 0x1A: ESX_CORE_LOG_TRACE("0x{:08X} - strncpy(dst,src,maxlen)",callPC); break;
+			case 0x1B: ESX_CORE_LOG_TRACE("0x{:08X} - strlen(src)",callPC); break;
+			case 0x1C: ESX_CORE_LOG_TRACE("0x{:08X} - index(src,char)",callPC); break;
+			case 0x1D: ESX_CORE_LOG_TRACE("0x{:08X} - rindex(src,char)",callPC); break;
+			case 0x1E: ESX_CORE_LOG_TRACE("0x{:08X} - strchr(src,char)",callPC); break;
+			case 0x1F: ESX_CORE_LOG_TRACE("0x{:08X} - strrchr(src,char)",callPC); break;
+			case 0x20: ESX_CORE_LOG_TRACE("0x{:08X} - strpbrk(src,list)",callPC); break;
+			case 0x21: ESX_CORE_LOG_TRACE("0x{:08X} - strspn(src,list)",callPC); break;
+			case 0x22: ESX_CORE_LOG_TRACE("0x{:08X} - strcspn(src,list)",callPC); break;
+			case 0x23: ESX_CORE_LOG_TRACE("0x{:08X} - strtok(src,list)",callPC); break;
+			case 0x24: ESX_CORE_LOG_TRACE("0x{:08X} - strstr(str,substr)",callPC); break;
+			case 0x25: ESX_CORE_LOG_TRACE("0x{:08X} - toupper(char)",callPC); break;
+			case 0x26: ESX_CORE_LOG_TRACE("0x{:08X} - tolower(char)",callPC); break;
+			case 0x27: ESX_CORE_LOG_TRACE("0x{:08X} - bcopy(src,dst,len)",callPC); break;
+			case 0x28: ESX_CORE_LOG_TRACE("0x{:08X} - bzero(dst,len)",callPC); break;
+			case 0x29: ESX_CORE_LOG_TRACE("0x{:08X} - bcmp(ptr1,ptr2,len)",callPC); break;
+			case 0x2A: ESX_CORE_LOG_TRACE("0x{:08X} - memcpy(dst,src,len)",callPC); break;
+			case 0x2B: ESX_CORE_LOG_TRACE("0x{:08X} - memset(dst,fillbyte,len)",callPC); break;
+			case 0x2C: ESX_CORE_LOG_TRACE("0x{:08X} - memmove(dst,src,len)",callPC); break;
+			case 0x2D: ESX_CORE_LOG_TRACE("0x{:08X} - memcmp(src1,src2,len)",callPC); break;
+			case 0x2E: ESX_CORE_LOG_TRACE("0x{:08X} - memchr(src,scanbyte,len)",callPC); break;
+			case 0x2F: ESX_CORE_LOG_TRACE("0x{:08X} - rand()",callPC); break;
+			case 0x30: ESX_CORE_LOG_TRACE("0x{:08X} - srand(seed)",callPC); break;
+			case 0x31: ESX_CORE_LOG_TRACE("0x{:08X} - qsort(base,nel,width,callback)",callPC); break;
+			case 0x32: ESX_CORE_LOG_TRACE("0x{:08X} - strtod(src,src_end)",callPC); break;
+			case 0x33: ESX_CORE_LOG_TRACE("0x{:08X} - malloc(size)",callPC); break;
+			case 0x34: ESX_CORE_LOG_TRACE("0x{:08X} - free(buf)",callPC); break;
+			case 0x35: ESX_CORE_LOG_TRACE("0x{:08X} - lsearch(key,base,nel,width,callback)",callPC); break;
+			case 0x36: ESX_CORE_LOG_TRACE("0x{:08X} - bsearch(key,base,nel,width,callback)",callPC); break;
+			case 0x37: ESX_CORE_LOG_TRACE("0x{:08X} - calloc(sizx,sizy)",callPC); break;
+			case 0x38: ESX_CORE_LOG_TRACE("0x{:08X} - realloc(old_buf,new_siz)",callPC); break;
+			case 0x39: ESX_CORE_LOG_TRACE("0x{:08X} - InitHeap(addr,size)",callPC); break;
+			case 0x3A: ESX_CORE_LOG_TRACE("0x{:08X} - _exit(exitcode)",callPC); break;
+			case 0x3B: ESX_CORE_LOG_TRACE("0x{:08X} - getchar()",callPC); break;
+			case 0x3C: ESX_CORE_LOG_TRACE("0x{:08X} - putchar('{}')",callPC,(char)mRegisters[4]); break;
+			case 0x3D: ESX_CORE_LOG_TRACE("0x{:08X} - gets(dst)",callPC); break;
+			case 0x3E: ESX_CORE_LOG_TRACE("0x{:08X} - puts(src)",callPC); break;
+			case 0x3F: ESX_CORE_LOG_TRACE("0x{:08X} - printf(txt,param1,param2,etc.)",callPC); break;
+			case 0x40: ESX_CORE_LOG_TRACE("0x{:08X} - SystemErrorUnresolvedException()",callPC); break;
+			case 0x41: ESX_CORE_LOG_TRACE("0x{:08X} - LoadTest(filename,headerbuf)",callPC); break;
+			case 0x42: ESX_CORE_LOG_TRACE("0x{:08X} - Load(filename,headerbuf)",callPC); break;
+			case 0x43: ESX_CORE_LOG_TRACE("0x{:08X} - Exec(headerbuf,param1,param2)",callPC); break;
+			case 0x44: ESX_CORE_LOG_TRACE("0x{:08X} - FlushCache()",callPC); break;
+			case 0x45: ESX_CORE_LOG_TRACE("0x{:08X} - init_a0_b0_c0_vectors",callPC); break;
+			case 0x46: ESX_CORE_LOG_TRACE("0x{:08X} - GPU_dw(Xdst,Ydst,Xsiz,Ysiz,src)",callPC); break;
+			case 0x47: ESX_CORE_LOG_TRACE("0x{:08X} - gpu_send_dma(Xdst,Ydst,Xsiz,Ysiz,src)",callPC); break;
+			case 0x48: ESX_CORE_LOG_TRACE("0x{:08X} - SendGP1Command(gp1cmd)",callPC); break;
+			case 0x49: ESX_CORE_LOG_TRACE("0x{:08X} - GPU_cw(gp0cmd)",callPC); break;
+			case 0x4A: ESX_CORE_LOG_TRACE("0x{:08X} - GPU_cwp(src,num)",callPC); break;
+			case 0x4B: ESX_CORE_LOG_TRACE("0x{:08X} - send_gpu_linked_list(src)",callPC); break;
+			case 0x4C: ESX_CORE_LOG_TRACE("0x{:08X} - gpu_abort_dma()",callPC); break;
+			case 0x4D: ESX_CORE_LOG_TRACE("0x{:08X} - GetGPUStatus()",callPC); break;
+			case 0x4E: ESX_CORE_LOG_TRACE("0x{:08X} - gpu_sync()",callPC); break;
+			case 0x4F: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError",callPC); break;
+			case 0x50: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError",callPC); break;
+			case 0x51: ESX_CORE_LOG_TRACE("0x{:08X} - LoadExec(filename,stackbase,stackoffset)",callPC); break;
+			case 0x52: ESX_CORE_LOG_TRACE("0x{:08X} - GetSysSp",callPC); break;
+			case 0x53: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError",callPC); break;
+			case 0x54: case 0x71: ESX_CORE_LOG_TRACE("0x{:08X} - _96_init()",callPC); break;
+			case 0x55: case 0x70: ESX_CORE_LOG_TRACE("0x{:08X} - _bu_init()",callPC); break;
+			case 0x56: case 0x72: ESX_CORE_LOG_TRACE("0x{:08X} - _96_remove()",callPC); break;
+			case 0x57: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x58: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x59: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x5A: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x5B: ESX_CORE_LOG_TRACE("0x{:08X} - dev_tty_init()",callPC); break;
+			case 0x5C: ESX_CORE_LOG_TRACE("0x{:08X} - dev_tty_open(fcb,and unused:'path\name', accessmode)",callPC); break;
+			case 0x5D: ESX_CORE_LOG_TRACE("0x{:08X} - dev_tty_in_out(fcb,cmd)",callPC); break;
+			case 0x5E: ESX_CORE_LOG_TRACE("0x{:08X} - dev_tty_ioctl(fcb,cmd,arg)",callPC); break;
+			case 0x5F: ESX_CORE_LOG_TRACE("0x{:08X} - dev_cd_open(fcb,'path\name',accessmode)",callPC); break;
+			case 0x60: ESX_CORE_LOG_TRACE("0x{:08X} - dev_cd_read(fcb,dst,len)",callPC); break;
+			case 0x61: ESX_CORE_LOG_TRACE("0x{:08X} - dev_cd_close(fcb)",callPC); break;
+			case 0x62: ESX_CORE_LOG_TRACE("0x{:08X} - dev_cd_firstfile(fcb,'path\name',direntry)",callPC); break;
+			case 0x63: ESX_CORE_LOG_TRACE("0x{:08X} - dev_cd_nextfile(fcb,direntry)",callPC); break;
+			case 0x64: ESX_CORE_LOG_TRACE("0x{:08X} - dev_cd_chdir(fcb,'path')",callPC); break;
+			case 0x65: ESX_CORE_LOG_TRACE("0x{:08X} - dev_card_open(fcb,'path\name',accessmode)",callPC); break;
+			case 0x66: ESX_CORE_LOG_TRACE("0x{:08X} - dev_card_read(fcb,dst,len)",callPC); break;
+			case 0x67: ESX_CORE_LOG_TRACE("0x{:08X} - dev_card_write(fcb,src,len)",callPC); break;
+			case 0x68: ESX_CORE_LOG_TRACE("0x{:08X} - dev_card_close(fcb)",callPC); break;
+			case 0x69: ESX_CORE_LOG_TRACE("0x{:08X} - dev_card_firstfile(fcb,'path\name',direntry)",callPC); break;
+			case 0x6A: ESX_CORE_LOG_TRACE("0x{:08X} - dev_card_nextfile(fcb,direntry)",callPC); break;
+			case 0x6B: ESX_CORE_LOG_TRACE("0x{:08X} - dev_card_erase(fcb,'path\name')",callPC); break;
+			case 0x6C: ESX_CORE_LOG_TRACE("0x{:08X} - dev_card_undelete(fcb,'path\name')",callPC); break;
+			case 0x6D: ESX_CORE_LOG_TRACE("0x{:08X} - dev_card_format(fcb)",callPC); break;
+			case 0x6E: ESX_CORE_LOG_TRACE("0x{:08X} - dev_card_rename(fcb1,'path\name1',fcb2,'path\name2')",callPC); break;
+			case 0x6F: ESX_CORE_LOG_TRACE("0x{:08X} - ? ;card ;[r4+18h]=00000000h",callPC); break;
+			case 0x73: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x74: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x75: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x76: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x77: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x78: ESX_CORE_LOG_TRACE("0x{:08X} - CdAsyncSeekL(src)",callPC); break;
+			case 0x79: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x7A: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x7B: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x7C: ESX_CORE_LOG_TRACE("0x{:08X} - CdAsyncGetStatus(dst)",callPC); break;
+			case 0x7D: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x7E: ESX_CORE_LOG_TRACE("0x{:08X} - CdAsyncReadSector(count,dst,mode)",callPC); break;
+			case 0x7F: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x80: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x81: ESX_CORE_LOG_TRACE("0x{:08X} - CdAsyncSetMode(mode)",callPC); break;
+			case 0x82: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x83: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x84: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x85: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x86: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x87: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x88: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x89: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x8A: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x8B: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x8C: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x8D: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x8E: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x8F: ESX_CORE_LOG_TRACE("0x{:08X} - return 0",callPC); break;
+			case 0x90: ESX_CORE_LOG_TRACE("0x{:08X} - CdromIoIrqFunc1()",callPC); break;
+			case 0x91: ESX_CORE_LOG_TRACE("0x{:08X} - CdromDmaIrqFunc1()",callPC); break;
+			case 0x92: ESX_CORE_LOG_TRACE("0x{:08X} - CdromIoIrqFunc2()",callPC); break;
+			case 0x93: ESX_CORE_LOG_TRACE("0x{:08X} - CdromDmaIrqFunc2()",callPC); break;
+			case 0x94: ESX_CORE_LOG_TRACE("0x{:08X} - CdromGetInt5errCode(dst1,dst2)",callPC); break;
+			case 0x95: ESX_CORE_LOG_TRACE("0x{:08X} - CdInitSubFunc()",callPC); break;
+			case 0x96: ESX_CORE_LOG_TRACE("0x{:08X} - AddCDROMDevice()",callPC); break;
+			case 0x97: ESX_CORE_LOG_TRACE("0x{:08X} - AddMemCardDevice()",callPC); break;
+			case 0x98: ESX_CORE_LOG_TRACE("0x{:08X} - AddDuartTtyDevice()",callPC); break;
+			case 0x99: ESX_CORE_LOG_TRACE("0x{:08X} - add_nullcon_driver()",callPC); break;
+			case 0x9A: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError",callPC); break;
+			case 0x9B: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError",callPC); break;
+			case 0x9C: ESX_CORE_LOG_TRACE("0x{:08X} - SetConf(num_EvCB,num_TCB,stacktop)",callPC); break;
+			case 0x9D: ESX_CORE_LOG_TRACE("0x{:08X} - GetConf(num_EvCB_dst,num_TCB_dst,stacktop_dst)",callPC); break;
+			case 0x9E: ESX_CORE_LOG_TRACE("0x{:08X} - SetCdromIrqAutoAbort(type,flag)",callPC); break;
+			case 0x9F: ESX_CORE_LOG_TRACE("0x{:08X} - SetMem(megabytes)",callPC); break;
+			case 0xA0: ESX_CORE_LOG_TRACE("0x{:08X} - _boot()", callPC); break;
+			case 0xA1: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError(type,errorcode)", callPC); break;
+			case 0xA2: ESX_CORE_LOG_TRACE("0x{:08X} - EnqueueCdIntr()", callPC); break;
+			case 0xA3: ESX_CORE_LOG_TRACE("0x{:08X} - DequeueCdIntr()", callPC); break;
+			case 0xA4: ESX_CORE_LOG_TRACE("0x{:08X} - CdGetLbn(filename)", callPC); break;
+			case 0xA5: ESX_CORE_LOG_TRACE("0x{:08X} - CdReadSector(count,sector,buffer)", callPC); break;
+			case 0xA6: ESX_CORE_LOG_TRACE("0x{:08X} - CdGetStatus()", callPC); break;
+			case 0xA7: ESX_CORE_LOG_TRACE("0x{:08X} - bufs_cb_0()", callPC); break;
+			case 0xA8: ESX_CORE_LOG_TRACE("0x{:08X} - bufs_cb_1()", callPC); break;
+			case 0xA9: ESX_CORE_LOG_TRACE("0x{:08X} - bufs_cb_2()", callPC); break;
+			case 0xAA: ESX_CORE_LOG_TRACE("0x{:08X} - bufs_cb_3()", callPC); break;
+			case 0xAB: ESX_CORE_LOG_TRACE("0x{:08X} - _card_info(port)", callPC); break;
+			case 0xAC: ESX_CORE_LOG_TRACE("0x{:08X} - _card_load(port)", callPC); break;
+			case 0xAD: ESX_CORE_LOG_TRACE("0x{:08X} - _card_auto(flag)", callPC); break;
+			case 0xAE: ESX_CORE_LOG_TRACE("0x{:08X} - bufs_cb_4()", callPC); break;
+			case 0xAF: ESX_CORE_LOG_TRACE("0x{:08X} - card_write_test(port)", callPC); break;
+			case 0xB0: ESX_CORE_LOG_TRACE("0x{:08X} - return 0", callPC); break;
+			case 0xB1: ESX_CORE_LOG_TRACE("0x{:08X} - return 0", callPC); break;
+			case 0xB2: ESX_CORE_LOG_TRACE("0x{:08X} - ioabort_raw(param)", callPC); break;
+			case 0xB3: ESX_CORE_LOG_TRACE("0x{:08X} - return 0", callPC); break;
+			case 0xB4: ESX_CORE_LOG_TRACE("0x{:08X} - GetSystemInfo(index)", callPC); break;
+		}
+	}
+
+	void R3000::BiosB0(U32 callPC)
+	{
+		switch (mRegisters[9]) {
+			case 0x00: ESX_CORE_LOG_TRACE("0x{:08X} - alloc_kernel_memory(size)", callPC); break;
+			case 0x01: ESX_CORE_LOG_TRACE("0x{:08X} - free_kernel_memory(buf)", callPC); break;
+			case 0x02: ESX_CORE_LOG_TRACE("0x{:08X} - init_timer(t,reload,flags)", callPC); break;
+			case 0x03: ESX_CORE_LOG_TRACE("0x{:08X} - get_timer(t)", callPC); break;
+			case 0x04: ESX_CORE_LOG_TRACE("0x{:08X} - enable_timer_irq(t)", callPC); break;
+			case 0x05: ESX_CORE_LOG_TRACE("0x{:08X} - disable_timer_irq(t)", callPC); break;
+			case 0x06: ESX_CORE_LOG_TRACE("0x{:08X} - restart_timer(t)", callPC); break;
+			case 0x07: ESX_CORE_LOG_TRACE("0x{:08X} - DeliverEvent(class, spec)", callPC); break;
+			case 0x08: ESX_CORE_LOG_TRACE("0x{:08X} - OpenEvent(class,spec,mode,func)", callPC); break;
+			case 0x09: ESX_CORE_LOG_TRACE("0x{:08X} - CloseEvent(event)", callPC); break;
+			case 0x0A: ESX_CORE_LOG_TRACE("0x{:08X} - WaitEvent(event)", callPC); break;
+			case 0x0B: ESX_CORE_LOG_TRACE("0x{:08X} - TestEvent(event)", callPC); break;
+			case 0x0C: ESX_CORE_LOG_TRACE("0x{:08X} - EnableEvent(event)", callPC); break;
+			case 0x0D: ESX_CORE_LOG_TRACE("0x{:08X} - DisableEvent(event)", callPC); break;
+			case 0x0E: ESX_CORE_LOG_TRACE("0x{:08X} - OpenTh(reg_PC,reg_SP_FP,reg_GP)", callPC); break;
+			case 0x0F: ESX_CORE_LOG_TRACE("0x{:08X} - CloseTh(handle)", callPC); break;
+			case 0x10: ESX_CORE_LOG_TRACE("0x{:08X} - ChangeTh(handle)", callPC); break;
+			case 0x11: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x12: ESX_CORE_LOG_TRACE("0x{:08X} - InitPAD2(buf1,siz1,buf2,siz2)", callPC); break;
+			case 0x13: ESX_CORE_LOG_TRACE("0x{:08X} - StartPAD2()", callPC); break;
+			case 0x14: ESX_CORE_LOG_TRACE("0x{:08X} - StopPAD2()", callPC); break;
+			case 0x15: ESX_CORE_LOG_TRACE("0x{:08X} - PAD_init2(type,button_dest,unused,unused)", callPC); break;
+			case 0x16: ESX_CORE_LOG_TRACE("0x{:08X} - PAD_dr()", callPC); break;
+			case 0x17: ESX_CORE_LOG_TRACE("0x{:08X} - ReturnFromException()", callPC); break;
+			case 0x18: ESX_CORE_LOG_TRACE("0x{:08X} - ResetEntryInt()", callPC); break;
+			case 0x19: ESX_CORE_LOG_TRACE("0x{:08X} - HookEntryInt(addr)", callPC); break;
+			case 0x1A: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x1B: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x1C: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x1D: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x1E: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x1F: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x20: ESX_CORE_LOG_TRACE("0x{:08X} - UnDeliverEvent(class,spec)", callPC); break;
+			case 0x21: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x22: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x23: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x24: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x25: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x26: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x27: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x28: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x29: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x2A: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x2B: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x2C: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x2D: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x2E: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x2F: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x30: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x31: ESX_CORE_LOG_TRACE("0x{:08X} - jump_to_00000000h", callPC); break;
+			case 0x32: ESX_CORE_LOG_TRACE("0x{:08X} - open(filename,accessmode)", callPC); break;
+			case 0x33: ESX_CORE_LOG_TRACE("0x{:08X} - lseek(fd,offset,seektype)", callPC); break;
+			case 0x34: ESX_CORE_LOG_TRACE("0x{:08X} - read(fd,dst,length)", callPC); break;
+			case 0x35: ESX_CORE_LOG_TRACE("0x{:08X} - write(fd,src,length)", callPC); break;
+			case 0x36: ESX_CORE_LOG_TRACE("0x{:08X} - close(fd)", callPC); break;
+			case 0x37: ESX_CORE_LOG_TRACE("0x{:08X} - ioctl(fd,cmd,arg)", callPC); break;
+			case 0x38: ESX_CORE_LOG_TRACE("0x{:08X} - exit(exitcode)", callPC); break;
+			case 0x39: ESX_CORE_LOG_TRACE("0x{:08X} - isatty(fd)", callPC); break;
+			case 0x3A: ESX_CORE_LOG_TRACE("0x{:08X} - getc(fd)", callPC); break;
+			case 0x3B: ESX_CORE_LOG_TRACE("0x{:08X} - putc(char,fd)", callPC); break;
+			case 0x3C: ESX_CORE_LOG_TRACE("0x{:08X} - getchar()", callPC); break;
+			case 0x3D: ESX_CORE_LOG_TRACE("0x{:08X} - putchar('{}')", callPC, (char)mRegisters[4]); break;
+			case 0x3E: ESX_CORE_LOG_TRACE("0x{:08X} - gets(dst)", callPC); break;
+			case 0x3F: ESX_CORE_LOG_TRACE("0x{:08X} - puts(src)", callPC); break;
+			case 0x40: ESX_CORE_LOG_TRACE("0x{:08X} - cd(name)", callPC); break;
+			case 0x41: ESX_CORE_LOG_TRACE("0x{:08X} - format(devicename)", callPC); break;
+			case 0x42: ESX_CORE_LOG_TRACE("0x{:08X} - firstfile2(filename,direntry)", callPC); break;
+			case 0x43: ESX_CORE_LOG_TRACE("0x{:08X} - nextfile(direntry)", callPC); break;
+			case 0x44: ESX_CORE_LOG_TRACE("0x{:08X} - rename(old_filename,new_filename)", callPC); break;
+			case 0x45: ESX_CORE_LOG_TRACE("0x{:08X} - erase(filename)", callPC); break;
+			case 0x46: ESX_CORE_LOG_TRACE("0x{:08X} - undelete(filename)", callPC); break;
+			case 0x47: ESX_CORE_LOG_TRACE("0x{:08X} - AddDrv(device_info)  ", callPC); break;
+			case 0x48: ESX_CORE_LOG_TRACE("0x{:08X} - DelDrv(device_name_lowercase)", callPC); break;
+			case 0x49: ESX_CORE_LOG_TRACE("0x{:08X} - PrintInstalledDevices()", callPC); break;
+			case 0x4A: ESX_CORE_LOG_TRACE("0x{:08X} - InitCARD2(pad_enable)", callPC); break;
+			case 0x4B: ESX_CORE_LOG_TRACE("0x{:08X} - StartCARD2()", callPC); break;
+			case 0x4C: ESX_CORE_LOG_TRACE("0x{:08X} - StopCARD2()", callPC); break;
+			case 0x4D: ESX_CORE_LOG_TRACE("0x{:08X} - _card_info_subfunc(port)", callPC); break;
+			case 0x4E: ESX_CORE_LOG_TRACE("0x{:08X} - _card_write(port,sector,src)", callPC); break;
+			case 0x4F: ESX_CORE_LOG_TRACE("0x{:08X} - _card_read(port,sector,dst)", callPC); break;
+			case 0x50: ESX_CORE_LOG_TRACE("0x{:08X} - _new_card()", callPC); break;
+			case 0x51: ESX_CORE_LOG_TRACE("0x{:08X} - Krom2RawAdd(shiftjis_code)", callPC); break;
+			case 0x52: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError ", callPC); break;
+			case 0x53: ESX_CORE_LOG_TRACE("0x{:08X} - Krom2Offset(shiftjis_code)", callPC); break;
+			case 0x54: ESX_CORE_LOG_TRACE("0x{:08X} - _get_errno()", callPC); break;
+			case 0x55: ESX_CORE_LOG_TRACE("0x{:08X} - _get_error(fd)", callPC); break;
+			case 0x56: ESX_CORE_LOG_TRACE("0x{:08X} - GetC0Table", callPC); break;
+			case 0x57: ESX_CORE_LOG_TRACE("0x{:08X} - GetB0Table", callPC); break;
+			case 0x58: ESX_CORE_LOG_TRACE("0x{:08X} - _card_chan()", callPC); break;
+			case 0x59: ESX_CORE_LOG_TRACE("0x{:08X} - testdevice(devicename)", callPC); break;
+			case 0x5A: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
+			case 0x5B: ESX_CORE_LOG_TRACE("0x{:08X} - ChangeClearPAD(int)", callPC); break;
+			case 0x5C: ESX_CORE_LOG_TRACE("0x{:08X} - _card_status(slot)", callPC); break;
+			case 0x5D: ESX_CORE_LOG_TRACE("0x{:08X} - _card_wait(slot)", callPC); break;
+		}
+	}
+
+	void R3000::BiosC0(U32 callPC)
+	{
 	}
 
 	void R3000::handleInterrupts()
@@ -1265,7 +1570,7 @@ namespace esx {
 		mNextPC = mPC + 4;
 	}
 
-	String Instruction::Mnemonic() const
+	String Instruction::Mnemonic(const SharedPtr<R3000>& cpuState) const
 	{
 		constexpr static std::array<StringView,32> registersMnemonics = {
 			ESX_TEXT("$zero"),
@@ -1495,40 +1800,40 @@ namespace esx {
 						break;
 					}
 					case 0x20: {
-						return FormatString(ESX_TEXT("lb {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("lb {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x21: {
-						return FormatString(ESX_TEXT("lh {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("lh {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x22: {
-						return FormatString(ESX_TEXT("lwl {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("lwl {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x23: {
-						return FormatString(ESX_TEXT("lw {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("lw {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x24: {
-						return FormatString(ESX_TEXT("lbu {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("lbu {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x25: {
-						return FormatString(ESX_TEXT("lhu {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("lhu {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x26: {
-						return FormatString(ESX_TEXT("lwr {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("lwr {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x28: {
-						return FormatString(ESX_TEXT("sb {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("sb {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x29: {
-						return FormatString(ESX_TEXT("sh {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("sh {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x2A: {
-						return FormatString(ESX_TEXT("swl {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("swl {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x2B: {
-						return FormatString(ESX_TEXT("sw {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("sw {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x2E: {
-						return FormatString(ESX_TEXT("swr {},0x{:04x}({})"), registersMnemonics[(U8)RegisterTarget()], Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("swr {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 
 					case 0x30:
@@ -1536,7 +1841,7 @@ namespace esx {
 					case 0x32:
 					case 0x33: {
 						U8 cpn = CO_N(binaryInstruction);
-						return FormatString(ESX_TEXT("lwc{} ${},0x{:04x}({})"), cpn, RegisterTarget().Value, Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("lwc{} ${},0x{:08x}"), cpn, registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 						break;
 					}
 
@@ -1546,7 +1851,7 @@ namespace esx {
 					case 0x3A:
 					case 0x3B: {
 						U8 cpn = CO_N(binaryInstruction);
-						return FormatString(ESX_TEXT("swc{} ${},0x{:04x}({})"), cpn, RegisterTarget().Value, Immediate(), registersMnemonics[(U8)RegisterSource()]);
+						return FormatString(ESX_TEXT("swc{} ${},0x{:08x}"), cpn, registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 						break;
 					}
 				}

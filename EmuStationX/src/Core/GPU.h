@@ -13,6 +13,19 @@ namespace esx {
 	constexpr U64 PAL_SCANLINES_PER_FRAME = 314;
 	constexpr U64 PAL_CLOCKS_PER_SCANLINE = 3406;
 
+	constexpr U64 NTSC_SCANLINES_PER_FRAME = 263;
+	constexpr U64 NTSC_CLOCKS_PER_SCANLINE = 3413;
+
+	constexpr Array<U8, 7> DOT_CLOCKS = {
+			10,
+			8,
+			7,
+			0,
+			5,
+			0,
+			4
+	};
+
 	enum class SemiTransparency : U8 {
 		B2PlusF2 = 0,
 		BPlusF = 1,
@@ -257,6 +270,8 @@ namespace esx {
 		SharedPtr<Timer> mTimer = {};
 		SharedPtr<InterruptControl> mInterruptControl = {};
 
+		U64 mScanlinesPerFrame = 0;
+		U64 mClocksPerScanline = 0;
 	};
 
 }

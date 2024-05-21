@@ -15,6 +15,9 @@ namespace esx {
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801810, BYTE(0x9), 0xFFFFFFFF);
 		mCurrentCommand.Complete = ESX_TRUE;
+
+		mScanlinesPerFrame = NTSC_SCANLINES_PER_FRAME;
+		mClocksPerScanline = NTSC_CLOCKS_PER_SCANLINE;
 	}
 
 	void GPU::store(const StringView& busName, U32 address, U32 value)
@@ -265,32 +268,24 @@ namespace esx {
 		return packet;
 	}
 
-	const Array<U8, 7> PAL_DOT_CLOCKS = {
-			10,
-			8,
-			7,
-			0,
-			5,
-			0,
-			4
-	};
+	
 
 	void GPU::clock(U64 clocks)
 	{
-		U8 dotClocks = PAL_DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
+		U8 dotClocks = DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
 
 		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
 		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 
 		U64 gpuClocks = (clocks * 11) / 7;
-		gpuClocks -= (mFrames * PAL_SCANLINES_PER_FRAME * PAL_CLOCKS_PER_SCANLINE);
+		gpuClocks -= (mFrames * mScanlinesPerFrame * mClocksPerScanline);
 
 		if (gpuClocks > ((mNumDots + 1) * dotClocks)) {
 			mNumDots++;
 			mTimer->dot();
 		}
 
-		if (gpuClocks > ((mCurrentScanLine + 1) * PAL_CLOCKS_PER_SCANLINE)) {
+		if (gpuClocks >= ((mCurrentScanLine + 1) * mClocksPerScanline)) {
 			mCurrentScanLine++;
 
 			mTimer->hblank();
@@ -305,7 +300,7 @@ namespace esx {
 				mVBlank = ESX_FALSE;
 			}
 
-			if (mCurrentScanLine >= PAL_SCANLINES_PER_FRAME) {
+			if (mCurrentScanLine >= mScanlinesPerFrame) {
 				mCurrentScanLine = 0;
 				if (mGPUStat.VerticalInterlace == ESX_TRUE && mGPUStat.VerticalResolution == VerticalResolution::V480) {
 					mGPUStat.DrawOddLines = !mGPUStat.DrawOddLines;
