@@ -238,7 +238,8 @@ namespace esx {
 				mStall = ESX_TRUE;
 			}
 
-			return mRootBus->load<T>(toPhysicalAddress(address));
+			U32 physicalAddress = toPhysicalAddress(address);
+			return mRootBus->load<T>(physicalAddress);
 		}
 
 		template<typename T>
@@ -258,9 +259,6 @@ namespace esx {
 			}
 
 			U32 physicalAddress = toPhysicalAddress(address);
-			if (physicalAddress == 0x79d9c) {
-				ESX_CORE_LOG_TRACE("{:08X}h - SW {}", mCurrentInstruction.Address, value);
-			}
 			mRootBus->store<T>(physicalAddress, value);
 		}
 
@@ -269,7 +267,7 @@ namespace esx {
 		}
 
 		static inline BIT isCacheActive(U32 address) {
-			return ((address >> 29) & 1) == 0;
+			return (address & (1 << 29)) == 0;
 		}
 
 		void handleInterrupts();

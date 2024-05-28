@@ -50,7 +50,9 @@ namespace esx {
 		if (!mStall) {
 			U32 opcode = fetch(mPC);
 
-			decode(mCurrentInstruction, opcode, mPC);
+			if (opcode != 0) {
+				decode(mCurrentInstruction, opcode, mPC);
+			}
 
 			mCurrentPC = mPC;
 			mPC = mNextPC;
@@ -61,7 +63,9 @@ namespace esx {
 			mBranch = ESX_FALSE;
 			mTookBranchSlot = ESX_FALSE;
 
-			(this->*mCurrentInstruction.Execute)();
+			if (opcode != 0) {
+				(this->*mCurrentInstruction.Execute)();
+			}
 
 			if (mMemoryLoad.first != mPendingLoad.first) {
 				mRegisters[mMemoryLoad.first] = mMemoryLoad.second;
@@ -74,7 +78,7 @@ namespace esx {
 			mWriteBack.first = RegisterIndex(0);
 			mRegisters[0] = 0;
 
-			switch (mCurrentPC) {
+			/*switch (mCurrentPC) {
 				case 0xA0: {
 					BiosA0(mCallPC);
 					break;
@@ -87,7 +91,7 @@ namespace esx {
 					BiosC0(mCallPC);
 					break;
 				}
-			}
+			}*/
 		}
 
 		mGPU->clock(mCycles);
@@ -1800,40 +1804,40 @@ namespace esx {
 						break;
 					}
 					case 0x20: {
-						return FormatString(ESX_TEXT("lb {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("lb {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x21: {
-						return FormatString(ESX_TEXT("lh {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("lh {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x22: {
-						return FormatString(ESX_TEXT("lwl {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("lwl {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x23: {
-						return FormatString(ESX_TEXT("lw {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("lw {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x24: {
-						return FormatString(ESX_TEXT("lbu {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("lbu {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x25: {
-						return FormatString(ESX_TEXT("lhu {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("lhu {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x26: {
-						return FormatString(ESX_TEXT("lwr {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("lwr {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x28: {
-						return FormatString(ESX_TEXT("sb {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("sb {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x29: {
-						return FormatString(ESX_TEXT("sh {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("sh {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x2A: {
-						return FormatString(ESX_TEXT("swl {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("swl {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x2B: {
-						return FormatString(ESX_TEXT("sw {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("sw {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 					case 0x2E: {
-						return FormatString(ESX_TEXT("swr {},0x{:08x}"), registersMnemonics[(U8)RegisterTarget()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
+						return FormatString(ESX_TEXT("swr {},{}({}) [0x{:08x}]"), registersMnemonics[(U8)RegisterTarget()], (I32)ImmediateSE(), registersMnemonics[(U8)RegisterSource()], cpuState->getRegister(RegisterSource()) + ImmediateSE());
 					}
 
 					case 0x30:

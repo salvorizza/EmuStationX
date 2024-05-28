@@ -43,9 +43,12 @@ namespace esx {
 	};
 
 	enum class CommandType : U8 {
-		None = 0x0,
-		GetStat = 0x1,
-		Setmode = 0xE,
+		None = 0x00,
+		GetStat = 0x01,
+		Setloc = 0x02,
+		ReadN = 0x06,
+		Setmode = 0x0E,
+		SeekL = 0x15,
 		Test = 0x19,
 		GetID = 0x1A,
 		ReadTOC = 0x1E

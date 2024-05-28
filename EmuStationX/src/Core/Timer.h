@@ -22,6 +22,14 @@ namespace esx {
 		BIT ReachedMax = ESX_FALSE;
 	};
 
+	struct Counter {
+		U32 Number = 0;
+		CounterModeRegister Mode = {};
+		U16 CurrentValue = 0;
+		U16 TargetValue = 0;
+		BIT Pause = ESX_FALSE;
+	};
+
 	class Timer : public BusDevice {
 	public:
 		Timer();
@@ -48,14 +56,11 @@ namespace esx {
 		void setTargetValue(U8 counter, U32 value);
 		U32 getTargetValue(U8 counter);
 
-		void incrementCounter(U8 counter);
+		void incrementCounter(Counter& counter);
 
 
 	private:
-		Array<U16, 3> mCurrentValues;
-		Array<CounterModeRegister, 3> mCounterModes;
-		Array<U16, 3> mTargetValues;
-		Array<BIT, 3> mPause;
+		Array<Counter, 3> mCounters;
 	};
 
 }

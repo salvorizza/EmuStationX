@@ -29,7 +29,9 @@ namespace esx {
 				pushResponse(response.Pop());
 			}
 			CDROM_REG3 = response.Code;
-			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
+			if ((CDROM_REG3 & CDROM_REG2) == CDROM_REG3) {
+				getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
+			}
 
 			mResponses.pop();
 
@@ -134,6 +136,7 @@ namespace esx {
 	void CDROM::command(CommandType command, U32 responseNumber)
 	{
 		if (!mResponses.empty()) {
+			ESX_CORE_LOG_ERROR("CDROM - command {:02X}h skipped", (U8)command);
 			return;
 		}
 
@@ -141,7 +144,7 @@ namespace esx {
 
 		Response response = {};
 		response.Push(mStat);
-		response.Code = INT3;
+		response.Code = (responseNumber == 1) ? INT3 : ((responseNumber == 2) ? INT2 : INT1);
 		response.TargetCycle = clocks + 800;
 		response.CommandType = command;
 		response.Number = responseNumber;
@@ -149,21 +152,42 @@ namespace esx {
 
 		switch (command) {
 			case CommandType::GetStat: {
-				ESX_CORE_LOG_ERROR("CDROM - GetStat");
+				ESX_CORE_LOG_INFO("CDROM - GetStat");
 				if (!mShellOpen) {
 					mStat = (StatusFlags)(mStat & ~StatusFlagsShellOpen);
 				}
 				break;
 			}
 
+			case CommandType::Setloc: {
+				U8 assect = popParameter();
+				U8 ass = popParameter();
+				U8 amm = popParameter();
+
+				ESX_CORE_LOG_INFO("CDROM - Setloc {:02X}h,{:02X}h,{:02X}h", amm, ass, assect);
+				break;
+			}
+
+			case CommandType::ReadN: {
+				ESX_CORE_LOG_INFO("CDROM - ReadN");
+				break;
+			}
+
 			case CommandType::Setmode: {
 				U8 parameter = popParameter();
-				ESX_CORE_LOG_ERROR("CDROM - Setmode {:02X}h", parameter);
+				ESX_CORE_LOG_INFO("CDROM - Setmode {:02X}h", parameter);
+				break;
+			}
+
+			case CommandType::SeekL: {
+				ESX_CORE_LOG_INFO("CDROM - SeekL {}", response.Number);
+				response.NumberOfResponses = 2;
+				break;
 			}
 
 			case CommandType::Test: {
 				U8 parameter = popParameter();
-				ESX_CORE_LOG_ERROR("CDROM - Test {:02X}h", parameter);
+				ESX_CORE_LOG_INFO("CDROM - Test {:02X}h", parameter);
 
 				switch (parameter) {
 					case 0x00: {
@@ -189,7 +213,7 @@ namespace esx {
 			}
 
 			case CommandType::GetID: {
-				ESX_CORE_LOG_ERROR("CDROM - GetID {}", response.Number);
+				ESX_CORE_LOG_INFO("CDROM - GetID {}", response.Number);
 
 				response.NumberOfResponses = 2;
 				if (responseNumber == 2) {
@@ -202,7 +226,6 @@ namespace esx {
 					response.Push('C');
 					response.Push('E');
 					response.Push('A');
-					response.Code = INT2;
 				}
 				else {
 					response.TargetCycle = clocks + 20480;
@@ -211,13 +234,12 @@ namespace esx {
 			}
 
 			case CommandType::ReadTOC: {
-				ESX_CORE_LOG_ERROR("CDROM - ReadTOC {}", response.Number);
+				ESX_CORE_LOG_INFO("CDROM - ReadTOC {}", response.Number);
 
 				response.NumberOfResponses = 2;
 				if (responseNumber == 2) {
 					response.Clear();
 					response.Push(mStat);
-					response.Code = INT2;
 				}
 				else {
 					mStat |= StatusFlagsRotating;
@@ -258,7 +280,7 @@ namespace esx {
 
 	void CDROM::setInterruptEnableRegister(U8& REG, U8 value)
 	{
-		REG |= value & 0x1F;
+		REG = value & 0x1F;
 	}
 
 	U8 CDROM::getInterruptEnableRegister(U8 REG)
