@@ -5,6 +5,7 @@
 
 #include "Core/RAM.h"
 #include "Core/GPU.h"
+#include "Core/CDROM.h"
 
 namespace esx {
 

@@ -11,7 +11,10 @@ namespace esx {
 		addRange(ESX_TEXT("Root"), 0x1F801800, BYTE(0x4), 0xFFFFFFFF);
 		mShellOpen = ESX_FALSE;
 
-		mStat = StatusFlagsShellOpen | StatusFlagsRotating;
+		mStat.ShellOpen = ESX_TRUE;
+		mStat.Rotating = ESX_TRUE;
+
+		mData.resize(CD_SECTOR_SIZE * 2); //To accomodate double speed
 	}
 
 	CDROM::~CDROM()
@@ -135,15 +138,10 @@ namespace esx {
 
 	void CDROM::command(CommandType command, U32 responseNumber)
 	{
-		if (!mResponses.empty()) {
-			ESX_CORE_LOG_ERROR("CDROM - command {:02X}h skipped", (U8)command);
-			return;
-		}
-
 		U64 clocks = getBus("Root")->getDevice<R3000>("R3000")->getClocks();
 
 		Response response = {};
-		response.Push(mStat);
+		response.Push(getStatus());
 		response.Code = (responseNumber == 1) ? INT3 : ((responseNumber == 2) ? INT2 : INT1);
 		response.TargetCycle = clocks + 800;
 		response.CommandType = command;
@@ -154,34 +152,73 @@ namespace esx {
 			case CommandType::GetStat: {
 				ESX_CORE_LOG_INFO("CDROM - GetStat");
 				if (!mShellOpen) {
-					mStat = (StatusFlags)(mStat & ~StatusFlagsShellOpen);
+					mStat.ShellOpen = ESX_FALSE;
 				}
 				break;
 			}
 
 			case CommandType::Setloc: {
-				U8 assect = popParameter();
-				U8 ass = popParameter();
-				U8 amm = popParameter();
+				mSeekSector = popParameter();
+				mSeekSecond = popParameter();
+				mSeekMinute = popParameter();
 
-				ESX_CORE_LOG_INFO("CDROM - Setloc {:02X}h,{:02X}h,{:02X}h", amm, ass, assect);
+				ESX_CORE_LOG_INFO("CDROM - Setloc {}:{}:{}", mSeekMinute, mSeekSecond, mSeekSector);
 				break;
 			}
 
 			case CommandType::ReadN: {
 				ESX_CORE_LOG_INFO("CDROM - ReadN");
+
+				response.NumberOfResponses++;
+				U8 numSeconds = 1;//mMode.DoubleSpeed ? 2 : 1;
+				if (mMode.WholeSector) {
+					mCD->readWholeSector(reinterpret_cast<Sector*>(mData.data()),numSeconds);
+					mDataWritePointer = CD_SECTOR_SIZE * numSeconds;
+				} else {
+					mCD->readDataSector(reinterpret_cast<SectorData*>(mData.data()), numSeconds);
+					mDataWritePointer = CD_SECTOR_DATA_SIZE * numSeconds;
+				}			
+				mStat.Read = ESX_TRUE;
+				mDataReadPointer = 0;
+				if (response.Number > 1) {
+					response.Code = INT1;
+				}
+				response.TargetCycle = clocks + CD_READ_DELAY;
+				break;
+			}
+
+			case CommandType::Pause: {
+				response.NumberOfResponses = 2;
+				if (response.Number == 1) {
+					if (mStat.Read) {
+						while (!mResponses.empty()) {
+							mResponses.pop();
+						}
+						mStat.Read = ESX_FALSE;
+					}
+				}
 				break;
 			}
 
 			case CommandType::Setmode: {
 				U8 parameter = popParameter();
 				ESX_CORE_LOG_INFO("CDROM - Setmode {:02X}h", parameter);
+				setMode(parameter);
 				break;
 			}
 
 			case CommandType::SeekL: {
 				ESX_CORE_LOG_INFO("CDROM - SeekL {}", response.Number);
 				response.NumberOfResponses = 2;
+				if (response.Number == 1) {
+					mCD->seek(mSeekMinute, mSeekSecond, mSeekSector);
+					if (mStat.Read) {
+						while (!mResponses.empty()) {
+							mResponses.pop();
+						}
+						mStat.Read = ESX_FALSE;
+					}
+				}
 				break;
 			}
 
@@ -218,7 +255,8 @@ namespace esx {
 				response.NumberOfResponses = 2;
 				if (responseNumber == 2) {
 					response.Clear();
-					response.Push(mStat);//response.Push(mStat | StatusFlagsIdError);
+					//mStat.IdError = ESX_TRUE;
+					response.Push(getStatus());
 					response.Push(0x00); //response.Push(GetIdFlagsUnlicensed | GetIdFlagsMissing);
 					response.Push(GetIdDiskTypeMode2);
 					response.Push(0x00);
@@ -239,10 +277,10 @@ namespace esx {
 				response.NumberOfResponses = 2;
 				if (responseNumber == 2) {
 					response.Clear();
-					response.Push(mStat);
+					response.Push(getStatus());
 				}
 				else {
-					mStat |= StatusFlagsRotating;
+					mStat.Rotating = ESX_TRUE;
 					response.TargetCycle = clocks + CD_READ_DELAY * 180 / 4;
 				}
 				
@@ -354,26 +392,65 @@ namespace esx {
 		return value;
 	}
 
-	void CDROM::pushData(U8 value)
-	{
-		mData.push(value);
-		CDROM_REG0.DataFifoEmpty = ESX_FALSE;
-	}
 
 	U8 CDROM::popData()
 	{
 		U8 value = 0;
 
-		if (!mData.empty()) {
-			value = mData.front();
-			mData.pop();
+		if (mDataReadPointer != mDataWritePointer) {
+			value = mData.front() + mDataReadPointer;
+			mDataReadPointer++;
 		}
 
-		if (mData.empty()) {
+		if (mDataReadPointer == mDataWritePointer) {
 			CDROM_REG0.DataFifoEmpty = ESX_TRUE;
 		}
 
 		return value;
+	}
+
+	U8 CDROM::getStatus()
+	{
+		U8 value = 0;
+
+		value |= mStat.Error << 0;
+		value |= mStat.Rotating << 1;
+		value |= mStat.SeekError << 2;
+		value |= mStat.IdError << 3;
+		value |= mStat.ShellOpen << 4;
+		value |= mStat.Read << 5;
+		value |= mStat.Seek << 6;
+		value |= mStat.Play << 7;
+
+		return value;
+	}
+
+	U8 CDROM::getMode()
+	{
+		U8 value = 0;
+
+		value |= mMode.CDDA << 0;
+		value |= mMode.AutoPause << 1;
+		value |= mMode.Report << 2;
+		value |= mMode.XAFilter << 3;
+		value |= mMode.IgnoreBit << 4;
+		value |= mMode.WholeSector << 5;
+		value |= mMode.XAADPCM << 6;
+		value |= mMode.DoubleSpeed << 7;
+
+		return value;
+	}
+
+	void CDROM::setMode(U8 value)
+	{
+		mMode.CDDA = (value >> 0) & 0x1;
+		mMode.AutoPause = (value >> 1) & 0x1;
+		mMode.Report = (value >> 2) & 0x1;
+		mMode.XAFilter = (value >> 3) & 0x1;
+		mMode.IgnoreBit = (value >> 4) & 0x1;
+		mMode.WholeSector = (value >> 5) & 0x1;
+		mMode.XAADPCM = (value >> 6) & 0x1;
+		mMode.DoubleSpeed = (value >> 7) & 0x1;
 	}
 
 }

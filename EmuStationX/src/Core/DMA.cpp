@@ -301,7 +301,7 @@ namespace esx {
 
 	void DMA::startBlockTransfer(Channel& channel)
 	{
-		ESX_CORE_ASSERT(channel.Port != Port::SPU, "DMA Port {} not supported yet", (U8)channel.Port);
+		ESX_CORE_ASSERT(channel.Port != Port::SPU, "DMA Block Transfer Port {} not supported yet", (U8)channel.Port);
 
 		U32 transferSize = 0;
 		switch (channel.SyncMode)
@@ -324,6 +324,7 @@ namespace esx {
 		SharedPtr<Bus> bus = getBus(ESX_TEXT("Root"));
 		SharedPtr<RAM> ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
 		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
+		SharedPtr<CDROM> cdrom = bus->getDevice<CDROM>(ESX_TEXT("CDROM"));
 
 		U32 currentAddress = channel.TransferStatus.BlockCurrentAddress & 0x1FFFFC;
 
@@ -344,6 +345,11 @@ namespace esx {
 
 					case Port::GPU: {
 						valueToWrite = gpu->gpuRead();
+						break;
+					}
+
+					case Port::CDROM: {
+						valueToWrite = (cdrom->popData() << 24) | (cdrom->popData() << 16) | (cdrom->popData() << 8) | (cdrom->popData() << 0);
 						break;
 					}
 
@@ -387,7 +393,7 @@ namespace esx {
 
 	void DMA::startLinkedListTransfer(Channel& channel)
 	{
-		ESX_CORE_ASSERT(channel.Port == Port::GPU, "DMA Port {} not supported yet", (U8)channel.Port);
+		ESX_CORE_ASSERT(channel.Port == Port::GPU, "DMA Linked List Port {} not supported yet", (U8)channel.Port);
 		ESX_CORE_ASSERT(channel.Direction == Direction::FromMainRAM, "ToMainRAM Direction not supported yet");
 		
 		channel.TransferStatus.LinkedListCurrentNodeAddress = channel.BaseAddress & 0x1FFFFC;

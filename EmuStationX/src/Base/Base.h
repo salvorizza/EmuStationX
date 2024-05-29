@@ -44,6 +44,7 @@ namespace esx {
 #ifdef UNICODE
 	typedef std::wostream OutputStream;
 	typedef std::wofstream FileOutputStream;
+	typedef std::wifstream FileInputStream;
 	typedef std::wstreambuf StreamBuffer;
 	typedef std::wstring String;
 	typedef std::wstring_view StringView;
@@ -55,9 +56,11 @@ namespace esx {
 #else
 	typedef std::ostream OutputStream;
 	typedef std::ofstream FileOutputStream;
+	typedef std::ifstream FileInputStream;
 	typedef std::streambuf StreamBuffer;
 	typedef std::string String;
 	typedef std::string_view StringView;
+	typedef std::istringstream InputStringStream;
 	typedef char Char;
 	#define ESX_TEXT(x) x
 	#define ESX_CONSOLE_OUT std::cout

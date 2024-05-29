@@ -47,6 +47,8 @@
 #include "optick.h"
 #include "miniaudio.h"
 
+#include "Core/CD/CDRWIN.h"
+
 
 
 using namespace esx;
@@ -117,6 +119,8 @@ public:
 		LoggingSystem::SetCoreLogger(mLogger);
 
 		//mLogger->SetLogLevel(LogType::Error);
+
+		SharedPtr<CDRWIN> cdrwin = MakeShared<CDRWIN>("C:/Users/salvatore.rizza/Downloads/MediEvil (USA)/MediEvil (USA).cue");
 
 		mCPUStatusPanel = MakeShared<CPUStatusPanel>();
 		mDisassemblerPanel = MakeShared<DisassemblerPanel>();
@@ -195,6 +199,8 @@ public:
 		sio0->plugDevice(SerialPort::Port2, memoryCard2);
 		memoryCard2->setMaster(sio0);
 
+		cdrom->insertCD(cdrwin);
+
 		root->sortRanges();
 
 		mCPUStatusPanel->setInstance(cpu);
@@ -221,6 +227,7 @@ public:
 
 		InputManager::Init();
 		loopTimer.init();
+
 	}
 
 	static void audioCallback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)

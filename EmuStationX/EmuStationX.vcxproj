@@ -159,6 +159,8 @@
     <ClInclude Include="src\Base\PlatformDetection.h" />
     <ClInclude Include="src\Core\Bios.h" />
     <ClInclude Include="src\Core\CDROM.h" />
+    <ClInclude Include="src\Core\CD\CDRWIN.h" />
+    <ClInclude Include="src\Core\CD\CompactDisk.h" />
     <ClInclude Include="src\Core\Controller.h" />
     <ClInclude Include="src\Core\DMA.h" />
     <ClInclude Include="src\Core\GPU.h" />
@@ -205,6 +207,7 @@
     <ClCompile Include="src\Base\Bus.cpp" />
     <ClCompile Include="src\Core\Bios.cpp" />
     <ClCompile Include="src\Core\CDROM.cpp" />
+    <ClCompile Include="src\Core\CD\CDRWIN.cpp" />
     <ClCompile Include="src\Core\Controller.cpp" />
     <ClCompile Include="src\Core\DMA.cpp" />
     <ClCompile Include="src\Core\GPU.cpp" />

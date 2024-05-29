@@ -3,9 +3,11 @@
 #include "Base/Base.h"
 #include "Base/Bus.h"
 
+#include "CD/CompactDisk.h"
+
 namespace esx {
 
-	constexpr size_t CD_READ_DELAY = 33868800 / 75;
+	constexpr size_t CD_READ_DELAY = 33868800 / CD_SECTORS_PER_SECOND;
 
 	using FIFO = Queue<U8>;
 
@@ -20,26 +22,26 @@ namespace esx {
 		GetIdDiskTypeMode2 = 0x20
 	};
 
-	enum SetmodeFlags {
-		SetmodeFlagsSpeed = 1 << 7,
-		SetmodeFlagsXAADPCM = 1 << 6,
-		SetmodeFlagsSectorSize = 1 << 5,
-		SetmodeFlagsIgnore = 1 << 4,
-		SetmodeFlagsXAFilter= 1 << 3,
-		SetmodeFlagsReport = 1 << 2,
-		SetmodeFlagsAutoPause = 1 << 1,
-		SetmodeFlagsCDDA = 1 << 0,
+	struct CDROMStatusRegister {
+		BIT Play = ESX_FALSE;
+		BIT Seek = ESX_FALSE;
+		BIT Read = ESX_FALSE;
+		BIT ShellOpen = ESX_FALSE;
+		BIT IdError = ESX_FALSE;
+		BIT SeekError = ESX_FALSE;
+		BIT Rotating = ESX_FALSE;
+		BIT Error = ESX_FALSE;
 	};
 
-	enum StatusFlags {
-		StatusFlagsPlay = 1 << 7,
-		StatusFlagsSeek = 1 << 6,
-		StatusFlagsRead = 1 << 5,
-		StatusFlagsShellOpen = 1 << 4,
-		StatusFlagsIdError = 1 << 3,
-		StatusFlagsSeekError = 1 << 2,
-		StatusFlagsRotating = 1 << 1,
-		StatusFlagsError = 1 << 0,
+	struct CDROMModeRegister {
+		BIT DoubleSpeed = ESX_FALSE;
+		BIT XAADPCM = ESX_FALSE;
+		BIT WholeSector = ESX_FALSE;
+		BIT IgnoreBit = ESX_FALSE;
+		BIT XAFilter = ESX_FALSE;
+		BIT Report = ESX_FALSE;
+		BIT AutoPause = ESX_FALSE;
+		BIT CDDA = ESX_FALSE;
 	};
 
 	enum class CommandType : U8 {
@@ -47,6 +49,7 @@ namespace esx {
 		GetStat = 0x01,
 		Setloc = 0x02,
 		ReadN = 0x06,
+		Pause = 0x09,
 		Setmode = 0x0E,
 		SeekL = 0x15,
 		Test = 0x19,
@@ -102,6 +105,9 @@ namespace esx {
 		virtual void store(const StringView& busName, U32 address, U8 value) override;
 		virtual void load(const StringView& busName, U32 address, U8& output) override;
 
+		void insertCD(const SharedPtr<CompactDisk>& cd) { mCD = cd; }
+
+		U8 popData();
 	private:
 		void command(CommandType command, U32 responseNumber = 1);
 
@@ -121,8 +127,12 @@ namespace esx {
 		void pushResponse(U8 value);
 		U8 popResponse();
 
-		void pushData(U8 value);
-		U8 popData();
+
+		U8 getStatus();
+
+		U8 getMode();
+		void setMode(U8 value);
+
 
 	private:
 		IndexStatusRegister CDROM_REG0;
@@ -134,13 +144,16 @@ namespace esx {
 
 		Array<U8, 16> mResponse; U8 mResponseSize = 0x00, mResponseReadPointer = 0x00;
 
-		FIFO mData;
+		Vector<U8> mData; U64 mDataWritePointer = 0x00; U64 mDataReadPointer = 0x00;
 
-		U8 mStat = 0;
+		CDROMStatusRegister mStat = {};
+		CDROMModeRegister mMode = {};
 
 		Queue<Response> mResponses;
 
 		BIT mShellOpen = ESX_FALSE;
+		SharedPtr<CompactDisk> mCD;
+		U8 mSeekMinute, mSeekSecond, mSeekSector;
 	};
 
 }
