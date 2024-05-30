@@ -86,7 +86,7 @@ namespace esx {
 	}
 
 
-	static Array<std::ofstream, 24> sStreams;
+	//static Array<std::ofstream, 24> sStreams;
 
 	SPU::SPU()
 		: BusDevice(ESX_TEXT("SPU"))
@@ -94,9 +94,10 @@ namespace esx {
 		addRange(ESX_TEXT("Root"), 0x1F801C00, BYTE(640), 0xFFFFFFFF);
 		mRAM.resize(KIBI(512));
 
-		for (U32 i = 0; i < 24; i++) {
+		/*for (U32 i = 0; i < 24; i++) {
 			mVoices[i].Number = i;
-		}
+			sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
+		}*/
 	}
 
 	SPU::~SPU()
@@ -106,7 +107,6 @@ namespace esx {
 	const Array<I16, 5> pos_xa_adpcm_table = { 0, 60, 115, 98, 122 };
 	const Array<I16, 5> neg_xa_adpcm_table = { 0, 0, -52, -55, -60 };
 	
-
 	void SPU::clock(U64 clocks)
 	{
 		if (clocks % 16 == 0) {
@@ -179,6 +179,8 @@ namespace esx {
 
 			I16 left = static_cast<I16>((SATURATE(leftSum) * processVolume(mMainVolumeLeft)) >> 15);
 			I16 right = static_cast<I16>((SATURATE(rightSum) * processVolume(mMainVolumeRight)) >> 15);
+
+			//sStreams[0].write((char*)&left, 2);
 
 			if (mFrameCount < mSamples.size()) {
 				std::scoped_lock<std::mutex> lc(mSamplesMutex);

@@ -349,7 +349,12 @@ namespace esx {
 					}
 
 					case Port::CDROM: {
-						valueToWrite = (cdrom->popData() << 24) | (cdrom->popData() << 16) | (cdrom->popData() << 8) | (cdrom->popData() << 0);
+						U8 b4 = cdrom->popData();
+						U8 b3 = cdrom->popData();
+						U8 b2 = cdrom->popData();
+						U8 b1 = cdrom->popData();
+
+						valueToWrite = (b1 << 24) | (b2 << 16) | (b3 << 8) | (b4 << 0);
 						break;
 					}
 

@@ -10,7 +10,7 @@ namespace esx {
 
 	void CDRWIN::seek(U8 minute, U8 second, U8 sector)
 	{
-		U32 seekPos = calculateBinaryPosition(minute, second, sector);
+		U32 seekPos = calculateBinaryPosition(minute, second - 2, sector);
 		mCurrentFile = mFiles.begin();
 		mCurrentFile->mStream.seekg(seekPos, mCurrentFile->mStream.beg);
 	}

@@ -67,6 +67,12 @@ namespace esx {
 		BIT CommandTransmissionBusy = ESX_FALSE;
 	};
 
+	struct RequestRegister {
+		BIT WantCommandStartInterrupt = ESX_FALSE;
+		BIT BFWR = ESX_FALSE;;
+		BIT WantData = ESX_FALSE;
+	};
+
 	enum ResponseCode : U8 {
 		INT0  = 0b00000,
 		INT1  = 0b00001,
@@ -114,6 +120,8 @@ namespace esx {
 		void setIndexStatusRegister(U8 value);
 		U8 getIndexStatusRegister();
 
+		void setRequestRegister(U8 value);
+
 		void setInterruptEnableRegister(U8& REG, U8 value);
 		U8 getInterruptEnableRegister(U8 REG);
 
@@ -144,7 +152,8 @@ namespace esx {
 
 		Array<U8, 16> mResponse; U8 mResponseSize = 0x00, mResponseReadPointer = 0x00;
 
-		Vector<U8> mData; U64 mDataWritePointer = 0x00; U64 mDataReadPointer = 0x00;
+		Vector<U8> mData; U64 mDataSize = 0x00; U64 mDataReadPointer = 0x00;
+		Queue<SectorData> mSectors;
 
 		CDROMStatusRegister mStat = {};
 		CDROMModeRegister mMode = {};

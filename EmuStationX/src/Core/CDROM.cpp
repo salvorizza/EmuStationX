@@ -84,10 +84,16 @@ namespace esx {
 
 			case 0x1F801803: {
 				switch (CDROM_REG0.Index) {
+					case 0x0: {
+						setRequestRegister(value);
+						break;
+					}
+
 					case 0x1: {
 						setInterruptFlagRegister(CDROM_REG3,value);
 						break;
 					}
+
 					default: {
 						ESX_CORE_LOG_ERROR("CDROM - Writing to address 0x{:08X} with Index 0x{:02X} not implemented yet", address, CDROM_REG0.Index);
 					}
@@ -158,9 +164,9 @@ namespace esx {
 			}
 
 			case CommandType::Setloc: {
-				mSeekSector = popParameter();
-				mSeekSecond = popParameter();
 				mSeekMinute = popParameter();
+				mSeekSecond = popParameter();
+				mSeekSector = popParameter();
 
 				ESX_CORE_LOG_INFO("CDROM - Setloc {}:{}:{}", mSeekMinute, mSeekSecond, mSeekSector);
 				break;
@@ -170,24 +176,28 @@ namespace esx {
 				ESX_CORE_LOG_INFO("CDROM - ReadN");
 
 				response.NumberOfResponses++;
-				U8 numSeconds = 1;//mMode.DoubleSpeed ? 2 : 1;
-				if (mMode.WholeSector) {
-					mCD->readWholeSector(reinterpret_cast<Sector*>(mData.data()),numSeconds);
-					mDataWritePointer = CD_SECTOR_SIZE * numSeconds;
-				} else {
-					mCD->readDataSector(reinterpret_cast<SectorData*>(mData.data()), numSeconds);
-					mDataWritePointer = CD_SECTOR_DATA_SIZE * numSeconds;
-				}			
-				mStat.Read = ESX_TRUE;
-				mDataReadPointer = 0;
 				if (response.Number > 1) {
-					response.Code = INT1;
+					U8 numSeconds = 1;//mMode.DoubleSpeed ? 2 : 1;
+
+					if (mMode.WholeSector) {
+						/*mCD->readWholeSector(reinterpret_cast<Sector*>(&mData[mDataWritePointer]), numSeconds);
+						mDataWritePointer = (mDataWritePointer + CD_SECTOR_SIZE - 1) % (CD_SECTOR_SIZE * 2);*/
+					} else {
+						SectorData& sector = mSectors.emplace();
+						mCD->readDataSector(&sector, numSeconds);
+					}
+					mStat.Read = ESX_TRUE;
+					if (response.Number > 1) {
+						response.Code = INT1;
+					}
+					response.TargetCycle = clocks + CD_READ_DELAY * 2;
 				}
-				response.TargetCycle = clocks + CD_READ_DELAY;
 				break;
 			}
 
 			case CommandType::Pause: {
+				ESX_CORE_LOG_INFO("CDROM - Pause");
+
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
 					if (mStat.Read) {
@@ -316,6 +326,22 @@ namespace esx {
 		return result;
 	}
 
+	void CDROM::setRequestRegister(U8 value)
+	{
+		RequestRegister requestRegister = {};
+
+		requestRegister.WantData = (value >> 7) & 0x1;
+		requestRegister.BFWR = (value >> 6) & 0x1;
+		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
+
+		if (requestRegister.WantData) {
+			std::memcpy(mData.data(), &mSectors.front(), sizeof(SectorData));
+			mSectors.pop();
+			mDataSize = CD_SECTOR_DATA_SIZE;
+			CDROM_REG0.DataFifoEmpty = ESX_FALSE;
+		}
+	}
+
 	void CDROM::setInterruptEnableRegister(U8& REG, U8 value)
 	{
 		REG = value & 0x1F;
@@ -397,14 +423,12 @@ namespace esx {
 	{
 		U8 value = 0;
 
-		if (mDataReadPointer != mDataWritePointer) {
-			value = mData.front() + mDataReadPointer;
-			mDataReadPointer++;
+		if (mDataReadPointer == mDataSize - 1) {
+			CDROM_REG0.DataFifoEmpty = ESX_TRUE;
+			return value;
 		}
 
-		if (mDataReadPointer == mDataWritePointer) {
-			CDROM_REG0.DataFifoEmpty = ESX_TRUE;
-		}
+		value = mData[mDataReadPointer++];
 
 		return value;
 	}
