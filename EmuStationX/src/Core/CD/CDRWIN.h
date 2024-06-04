@@ -47,10 +47,7 @@ namespace esx {
 
 		virtual void seek(U8 minute, U8 second, U8 sector) override;
 		virtual void readWholeSector(Sector* pOutSector, U8 numSectors) override;
-		virtual void readDataSector(SectorData* pOutSectorData, U8 numSectors) override;
-
 		virtual void readWholeSeconds(Second* pOutSeconds, U8 numSeconds) override;
-		virtual void readDataSeconds(SecondData* pOutSecondsData, U8 numSeconds) override;
 
 	private:
 		void parse(const std::filesystem::path& cuePath);

@@ -46,6 +46,9 @@
     <Filter Include="src\Core">
       <UniqueIdentifier>{A5D31CCF-91A0-77DA-BAB9-6582A6E5AC68}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Core\CD">
+      <UniqueIdentifier>{5B3EAB3D-C7F3-2333-50E8-1D0ABC9C1A37}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\UI">
       <UniqueIdentifier>{3A4B661C-26ED-90F2-0FA8-A446FBE81743}</UniqueIdentifier>
     </Filter>
@@ -80,6 +83,12 @@
     </ClInclude>
     <ClInclude Include="src\Core\Bios.h">
       <Filter>src\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\CD\CDRWIN.h">
+      <Filter>src\Core\CD</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\CD\CompactDisk.h">
+      <Filter>src\Core\CD</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\CDROM.h">
       <Filter>src\Core</Filter>
@@ -207,8 +216,6 @@
     <ClInclude Include="src\Utils\LoggingSystem.h">
       <Filter>src\Utils</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\CD\CompactDisk.h" />
-    <ClInclude Include="src\Core\CD\CDRWIN.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -216,6 +223,9 @@
     </ClCompile>
     <ClCompile Include="src\Core\Bios.cpp">
       <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\CD\CDRWIN.cpp">
+      <Filter>src\Core\CD</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\CDROM.cpp">
       <Filter>src\Core</Filter>
@@ -227,6 +237,9 @@
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\GPU.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\GTE.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\InterruptControl.cpp">
@@ -328,7 +341,6 @@
     <ClCompile Include="src\main.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\CD\CDRWIN.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="commons\icons\Logo.ico">

@@ -67,6 +67,7 @@ namespace esx {
 				(this->*mCurrentInstruction.Execute)();
 			}
 
+
 			if (mMemoryLoad.first != mPendingLoad.first) {
 				mRegisters[mMemoryLoad.first] = mMemoryLoad.second;
 				mRegisters[0] = 0;
@@ -987,7 +988,7 @@ namespace esx {
 			}
 		}
 		else {
-			ESX_CORE_LOG_ERROR("GTE command {:08X}h Not implemented yet", mCurrentInstruction.Immediate25());
+			mGTE.command(mCurrentInstruction.Immediate25());
 		}
 	}
 
@@ -1051,22 +1052,22 @@ namespace esx {
 
 	void R3000::CFC2()
 	{
-		ESX_CORE_LOG_ERROR("GTE Copy from cop2.{} to gpr.{} not implemented yet", mCurrentInstruction.RegisterTarget().Value, mCurrentInstruction.RegisterDestination().Value);
+		addPendingLoad(mCurrentInstruction.RegisterTarget(), mGTE.getRegister(32 + mCurrentInstruction.RegisterDestination().Value));
 	}
 
 	void R3000::MTC2()
 	{
-		ESX_CORE_LOG_ERROR("GTE Move from gpr.{} to cop2.{} not implemented yet", mCurrentInstruction.RegisterTarget().Value, mCurrentInstruction.RegisterDestination().Value);
+		mGTE.setRegister(mCurrentInstruction.RegisterDestination().Value, getRegister(mCurrentInstruction.RegisterTarget()));
 	}
 
 	void R3000::MFC2()
 	{
-		ESX_CORE_LOG_ERROR("GTE Move from cop2.{} to gpr.{} not implemented yet", mCurrentInstruction.RegisterTarget().Value, mCurrentInstruction.RegisterDestination().Value);
+		addPendingLoad(mCurrentInstruction.RegisterTarget(), mGTE.getRegister(mCurrentInstruction.RegisterDestination().Value));
 	}
 
 	void R3000::CTC2()
 	{
-		ESX_CORE_LOG_ERROR("GTE Copy from gpr.{} to cop2.{} not implemented yet", mCurrentInstruction.RegisterTarget().Value, mCurrentInstruction.RegisterDestination().Value);
+		mGTE.setRegister(32 + mCurrentInstruction.RegisterDestination().Value, getRegister(mCurrentInstruction.RegisterTarget()));
 	}
 
 	void R3000::BC0F()
@@ -1084,7 +1085,14 @@ namespace esx {
 
 	void R3000::BC2F()
 	{
-		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+		mBranch = ESX_TRUE;
+		I32 o = mCurrentInstruction.ImmediateSE() << 2;
+
+		if (mGTE.getFlag() == false) {
+			mNextPC += o;
+			mNextPC -= 4;
+			mTookBranch = ESX_TRUE;
+		}
 	}
 
 	void R3000::BC0T()
@@ -1102,7 +1110,14 @@ namespace esx {
 
 	void R3000::BC2T()
 	{
-		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+		mBranch = ESX_TRUE;
+		I32 o = mCurrentInstruction.ImmediateSE() << 2;
+
+		if (mGTE.getFlag() == true) {
+			mNextPC += o;
+			mNextPC -= 4;
+			mTookBranch = ESX_TRUE;
+		}
 	}
 
 	void R3000::RFE()
@@ -1133,7 +1148,20 @@ namespace esx {
 
 	void R3000::LWC2()
 	{
-		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+		U32 sr = getCP0Register(COP0Register::SR);
+		U32 a = getRegister(mCurrentInstruction.RegisterSource());
+		U32 b = mCurrentInstruction.ImmediateSE();
+
+		U32 m = a + b;
+
+		if ((sr & 0x10000) != 0) {
+			ESX_CORE_LOG_WARNING("Cache isolated load from {:08x} not handled", m);
+			return;
+		}
+
+		U32 r = load<U32>(m);
+
+		mGTE.setRegister(mCurrentInstruction.RegisterTarget().Value, r);
 	}
 
 	void R3000::LWC3()
@@ -1153,7 +1181,20 @@ namespace esx {
 
 	void R3000::SWC2()
 	{
-		ESX_CORE_LOG_ERROR("GTE Not implemented yet");
+		U32 sr = getCP0Register(COP0Register::SR);
+		U32 a = getRegister(mCurrentInstruction.RegisterSource());
+		U32 b = mCurrentInstruction.ImmediateSE();
+
+		U32 m = a + b;
+
+		if ((sr & 0x10000) != 0) {
+			ESX_CORE_LOG_WARNING("Cache isolated store to {:08x} not handled", m);
+			return;
+		}
+
+		U32 v = mGTE.getRegister(mCurrentInstruction.RegisterTarget().Value);
+
+		store<U32>(m, v);
 	}
 
 	void R3000::SWC3()
@@ -1382,7 +1423,7 @@ namespace esx {
 			case 0x9E: ESX_CORE_LOG_TRACE("0x{:08X} - SetCdromIrqAutoAbort(type,flag)",callPC); break;
 			case 0x9F: ESX_CORE_LOG_TRACE("0x{:08X} - SetMem(megabytes)",callPC); break;
 			case 0xA0: ESX_CORE_LOG_TRACE("0x{:08X} - _boot()", callPC); break;
-			case 0xA1: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError(type,errorcode)", callPC); break;
+			case 0xA1: ESX_CORE_LOG_TRACE("0x{:08X} - SystemError({},{})", callPC, (Char)mRegisters[4], (I32)mRegisters[5]); break;
 			case 0xA2: ESX_CORE_LOG_TRACE("0x{:08X} - EnqueueCdIntr()", callPC); break;
 			case 0xA3: ESX_CORE_LOG_TRACE("0x{:08X} - DequeueCdIntr()", callPC); break;
 			case 0xA4: ESX_CORE_LOG_TRACE("0x{:08X} - CdGetLbn(filename)", callPC); break;

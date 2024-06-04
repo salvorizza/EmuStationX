@@ -274,4 +274,6 @@ namespace esx {
 		U64 mClocksPerScanline = 0;
 	};
 
+	
+
 }

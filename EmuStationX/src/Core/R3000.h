@@ -11,6 +11,7 @@
 #include "Base/Bus.h"
 
 #include "DMA.h"
+#include "GTE.h"
 
 namespace esx {
 
@@ -389,7 +390,10 @@ namespace esx {
 		void BiosC0(U32 callPC);
 	private:
 		SharedPtr<Bus> mRootBus;
+
 		Array<U32, 32> mRegisters;
+		Array<U32, 64> mCP0Registers;
+		GTE mGTE = {};
 
 		Pair<RegisterIndex, U32> mPendingLoad;
 		Pair<RegisterIndex, U32> mMemoryLoad;
@@ -401,7 +405,6 @@ namespace esx {
 		U32 mCallPC = 0;
 		U32 mHI = 0;
 		U32 mLO = 0;
-		Array<U32, 64> mCP0Registers;
 		iCache mICache = {};
 		BIT mStall = ESX_FALSE;
 

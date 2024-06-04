@@ -178,19 +178,13 @@ namespace esx {
 				response.NumberOfResponses++;
 				if (response.Number > 1) {
 					U8 numSeconds = 1;//mMode.DoubleSpeed ? 2 : 1;
-
-					if (mMode.WholeSector) {
-						/*mCD->readWholeSector(reinterpret_cast<Sector*>(&mData[mDataWritePointer]), numSeconds);
-						mDataWritePointer = (mDataWritePointer + CD_SECTOR_SIZE - 1) % (CD_SECTOR_SIZE * 2);*/
-					} else {
-						SectorData& sector = mSectors.emplace();
-						mCD->readDataSector(&sector, numSeconds);
-					}
+					Sector& sector = mSectors.emplace();
+					mCD->readWholeSector(&sector, numSeconds);
 					mStat.Read = ESX_TRUE;
 					if (response.Number > 1) {
 						response.Code = INT1;
 					}
-					response.TargetCycle = clocks + CD_READ_DELAY * 2;
+					response.TargetCycle = clocks + CD_READ_DELAY;
 				}
 				break;
 			}
@@ -205,6 +199,23 @@ namespace esx {
 							mResponses.pop();
 						}
 						mStat.Read = ESX_FALSE;
+					}
+				}
+				break;
+			}
+
+			case CommandType::Init: {
+				ESX_CORE_LOG_INFO("CDROM - Pause");
+
+				response.NumberOfResponses = 2;
+				if (response.Number == 1) {
+					mStat.Rotating = ESX_TRUE;
+
+					setMode(0x20);
+
+					//Abort all commands
+					while (!mResponses.empty()) {
+						mResponses.pop();
 					}
 				}
 				break;
@@ -227,6 +238,9 @@ namespace esx {
 							mResponses.pop();
 						}
 						mStat.Read = ESX_FALSE;
+					}
+					while (!mSectors.empty()) {
+						mSectors.pop();
 					}
 				}
 				break;
@@ -335,9 +349,18 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 		if (requestRegister.WantData) {
-			std::memcpy(mData.data(), &mSectors.front(), sizeof(SectorData));
+			if (mSectors.empty()) {
+				ESX_CORE_LOG_TRACE("Hello");
+			}
+			if (mMode.WholeSector) {
+				std::memcpy(mData.data(), &(mSectors.front().Header), sizeof(Sector) - 12);
+				mDataSize = sizeof(Sector) - 12;
+			} else {
+				std::memcpy(mData.data(), &(mSectors.front().UserData), CD_SECTOR_DATA_SIZE);
+				mDataSize = CD_SECTOR_DATA_SIZE;
+			}
+			mDataReadPointer = 0;
 			mSectors.pop();
-			mDataSize = CD_SECTOR_DATA_SIZE;
 			CDROM_REG0.DataFifoEmpty = ESX_FALSE;
 		}
 	}

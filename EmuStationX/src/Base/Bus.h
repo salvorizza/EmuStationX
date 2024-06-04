@@ -109,11 +109,16 @@ namespace esx {
 			T result = 0;
 
 			IntervalTreeNode* node = findRangeInIntervalTree(mIntervalTree, address);
-
-			auto& [busRange, device] = node->interval;
-			if (device) {
-				device->load(mName, address & busRange.Mask, result);
-			} else {
+			if (node) {
+				auto& [busRange, device] = node->interval;
+				if (device) {
+					device->load(mName, address & busRange.Mask, result);
+				}
+				else {
+					ESX_CORE_LOG_ERROR("Reading Address 0x{:08x}: not found at {} bytes", address, sizeof(T));
+				}
+			}
+			else {
 				ESX_CORE_LOG_ERROR("Reading Address 0x{:08x}: not found at {} bytes", address, sizeof(T));
 			}
 

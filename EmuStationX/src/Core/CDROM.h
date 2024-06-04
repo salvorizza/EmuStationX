@@ -50,6 +50,7 @@ namespace esx {
 		Setloc = 0x02,
 		ReadN = 0x06,
 		Pause = 0x09,
+		Init = 0x0A,
 		Setmode = 0x0E,
 		SeekL = 0x15,
 		Test = 0x19,
@@ -153,7 +154,7 @@ namespace esx {
 		Array<U8, 16> mResponse; U8 mResponseSize = 0x00, mResponseReadPointer = 0x00;
 
 		Vector<U8> mData; U64 mDataSize = 0x00; U64 mDataReadPointer = 0x00;
-		Queue<SectorData> mSectors;
+		Queue<Sector> mSectors;
 
 		CDROMStatusRegister mStat = {};
 		CDROMModeRegister mMode = {};
