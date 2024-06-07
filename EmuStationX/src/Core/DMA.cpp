@@ -316,6 +316,8 @@ namespace esx {
 
 		channel.TransferStatus.BlockCurrentAddress = channel.BaseAddress;
 		channel.TransferStatus.BlockRemainingSize = transferSize;
+
+		//ESX_CORE_LOG_TRACE("DMA - Starting Block Transfer of {:08x}h size with starting address {:08x}h on port {}", channel.TransferStatus.BlockRemainingSize, channel.TransferStatus.BlockCurrentAddress, (U8)channel.Port);
 	}
 
 	void DMA::clockBlockTransfer(Channel& channel)
@@ -391,6 +393,7 @@ namespace esx {
 		channel.TransferStatus.BlockRemainingSize--;
 
 		if (channel.TransferStatus.BlockRemainingSize == 0) {
+			//ESX_CORE_LOG_TRACE("DMA - Block Transfer Done");
 			setChannelDone(channel);
 		}
 	}

@@ -15,14 +15,9 @@ namespace esx {
 		mCurrentFile->mStream.seekg(seekPos, mCurrentFile->mStream.beg);
 	}
 
-	void CDRWIN::readWholeSector(Sector* pOutSector, U8 numSectors)
+	void CDRWIN::readSector(Sector* pOutSector)
 	{
-		mCurrentFile->mStream.read(reinterpret_cast<char*>(pOutSector), sizeof(Sector) * numSectors);
-	}
-
-	void CDRWIN::readWholeSeconds(Second* pOutSeconds, U8 numSeconds)
-	{
-		mCurrentFile->mStream.read(reinterpret_cast<char*>(pOutSeconds), sizeof(Second) * numSeconds);
+		mCurrentFile->mStream.read(reinterpret_cast<char*>(pOutSector), sizeof(Sector));
 	}
 
 	void CDRWIN::parse(const std::filesystem::path& cuePath)

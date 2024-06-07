@@ -164,6 +164,8 @@ namespace esx {
 
 	void GTE::NCDS() {
 		I64 MAC1, MAC2, MAC3;
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (LLM*V0) SAR (sf*12)*/
 		Multiply(mRegisters.V0, mRegisters.LLM, MAC1, MAC2, MAC3);
 			
 		MAC1 >>= (mCurrentCommand.ShiftFraction * 12);
@@ -178,6 +180,7 @@ namespace esx {
 		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
 		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (BK*1000h + LCM*IR) SAR (sf*12)*/
 		Array<I16, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
 		Multiply(mRegisters.BK, IR, mRegisters.LCM, MAC1, MAC2, MAC3);
 
@@ -192,7 +195,8 @@ namespace esx {
 		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
 		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
 		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
-
+		
+		/*[MAC1,MAC2,MAC3] = [R*IR1,G*IR2,B*IR3] SHL 4 */
 		MAC1 = (I64(mRegisters.RGBC[0]) * I64(mRegisters.IR1)) << 4;
 		MAC2 = (I64(mRegisters.RGBC[1]) * I64(mRegisters.IR2)) << 4;
 		MAC3 = (I64(mRegisters.RGBC[2]) * I64(mRegisters.IR3)) << 4;
@@ -201,14 +205,25 @@ namespace esx {
 		setMAC(2, MAC2);
 		setMAC(3, MAC3);
 
-		MAC1 = I64(mRegisters.MACV[0]) + (I64(mRegisters.FC[0]) - mRegisters.MACV[0]) * mRegisters.IR0;
-		MAC2 = I64(mRegisters.MACV[1]) + (I64(mRegisters.FC[1]) - mRegisters.MACV[1]) * mRegisters.IR0;
-		MAC3 = I64(mRegisters.MACV[2]) + (I64(mRegisters.FC[2]) - mRegisters.MACV[2]) * mRegisters.IR0;
+		/*[IR1,IR2,IR3] = (([RFC,GFC,BFC] SHL 12) - [MAC1,MAC2,MAC3]) SAR (sf*12)*/
+		I32 IR1 = ((mRegisters.FC[0] << 12) - mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
+		I32 IR2 = ((mRegisters.FC[1] << 12) - mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
+		I32 IR3 = ((mRegisters.FC[2] << 12) - mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
+
+		setIR(1, IR1, false);
+		setIR(2, IR2, false);
+		setIR(3, IR3, false);
+
+		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3])*/
+		MAC1 = (IR1 * mRegisters.IR0) + mRegisters.MACV[0];
+		MAC2 = (IR2 * mRegisters.IR0) + mRegisters.MACV[1];
+		MAC3 = (IR3 * mRegisters.IR0) + mRegisters.MACV[2];
 
 		setMAC(1, MAC1);
 		setMAC(2, MAC2);
 		setMAC(3, MAC3);
 
+		/*[MAC1,MAC2,MAC3] = [MAC1,MAC2,MAC3] SAR (sf*12)*/
 		MAC1 = I64(mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC2 = I64(mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC3 = I64(mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
@@ -217,9 +232,10 @@ namespace esx {
 		setMAC(2, MAC2);
 		setMAC(3, MAC3);
 
-		//COlor FIFO
+		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
 		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
 
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
 		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
 		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
 		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);

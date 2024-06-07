@@ -419,7 +419,7 @@ namespace esx {
 		U32 mCurrentTransferAddress = 0;
 	public:
 		std::mutex mSamplesMutex = {};
-		Array<AudioFrame, 441> mSamples = {}; std::atomic<U32> mFrameCount = 0;
+		Array<AudioFrame, 441 * 64 * 2> mSamples = {}; U32 mSamplesWrite = 0; U32 mSamplesRead = 0; U32 mBufferCount = 0;
 	};
 
 }

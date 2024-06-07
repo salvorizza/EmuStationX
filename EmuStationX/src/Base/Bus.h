@@ -96,11 +96,16 @@ namespace esx {
 			IntervalTreeNode* node = findRangeInIntervalTree(mIntervalTree, address);
 
 			auto& [busRange, device] = node->interval;
-			if (device) {
-				device->store(mName, address & busRange.Mask, value);
-			}
-			else {
+			if (node) {
+				if (device) {
+					device->store(mName, address & busRange.Mask, value);
+				}
+				else {
+					ESX_CORE_LOG_ERROR("Writing Address 0x{:08x}: not found at {} bytes", address, sizeof(T));
+				}
+			} else {
 				ESX_CORE_LOG_ERROR("Writing Address 0x{:08x}: not found at {} bytes", address, sizeof(T));
+
 			}
 		}
 
@@ -117,8 +122,7 @@ namespace esx {
 				else {
 					ESX_CORE_LOG_ERROR("Reading Address 0x{:08x}: not found at {} bytes", address, sizeof(T));
 				}
-			}
-			else {
+			} else {
 				ESX_CORE_LOG_ERROR("Reading Address 0x{:08x}: not found at {} bytes", address, sizeof(T));
 			}
 

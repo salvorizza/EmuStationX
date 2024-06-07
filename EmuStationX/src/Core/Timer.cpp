@@ -55,6 +55,11 @@ namespace esx {
 				break;
 			}
 
+			case 0x1F801104: {
+				output = getCounterMode(counter);
+				break;
+			}
+
 			case 0x1F801108: {
 				output = getTargetValue(counter);
 				break;

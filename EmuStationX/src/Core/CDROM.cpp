@@ -164,33 +164,36 @@ namespace esx {
 			}
 
 			case CommandType::Setloc: {
-				mSeekMinute = popParameter();
-				mSeekSecond = popParameter();
-				mSeekSector = popParameter();
+				U8 minute = popParameter();
+				U8 second = popParameter();
+				U8 sector = popParameter();
+
+				mSeekMinute = ((minute >> 4) & 0xF) * 10 + ((minute >> 0) & 0xF);
+				mSeekSecond = ((second >> 4) & 0xF) * 10 + ((second >> 0) & 0xF);
+				mSeekSector = ((sector >> 4) & 0xF) * 10 + ((sector >> 0) & 0xF);
 
 				ESX_CORE_LOG_INFO("CDROM - Setloc {}:{}:{}", mSeekMinute, mSeekSecond, mSeekSector);
 				break;
 			}
 
 			case CommandType::ReadN: {
-				ESX_CORE_LOG_INFO("CDROM - ReadN");
+				ESX_CORE_LOG_INFO("CDROM - ReadN {}", response.Number);
 
 				response.NumberOfResponses++;
 				if (response.Number > 1) {
-					U8 numSeconds = 1;//mMode.DoubleSpeed ? 2 : 1;
 					Sector& sector = mSectors.emplace();
-					mCD->readWholeSector(&sector, numSeconds);
+					mCD->readSector(&sector);
 					mStat.Read = ESX_TRUE;
 					if (response.Number > 1) {
 						response.Code = INT1;
 					}
-					response.TargetCycle = clocks + CD_READ_DELAY;
+					response.TargetCycle = clocks + (mMode.DoubleSpeed ? CD_READ_DELAY_2X : CD_READ_DELAY);
 				}
 				break;
 			}
 
 			case CommandType::Pause: {
-				ESX_CORE_LOG_INFO("CDROM - Pause");
+				ESX_CORE_LOG_INFO("CDROM - Pause {}", response.Number);
 
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
@@ -205,7 +208,7 @@ namespace esx {
 			}
 
 			case CommandType::Init: {
-				ESX_CORE_LOG_INFO("CDROM - Pause");
+				ESX_CORE_LOG_INFO("CDROM - Init {}", response.Number);
 
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
@@ -221,6 +224,11 @@ namespace esx {
 				break;
 			}
 
+			case CommandType::Demute: {
+				ESX_CORE_LOG_INFO("CDROM - Demute");
+				break;
+			}
+
 			case CommandType::Setmode: {
 				U8 parameter = popParameter();
 				ESX_CORE_LOG_INFO("CDROM - Setmode {:02X}h", parameter);
@@ -232,6 +240,10 @@ namespace esx {
 				ESX_CORE_LOG_INFO("CDROM - SeekL {}", response.Number);
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
+					mStat.Seek = ESX_FALSE;
+					response.Clear();
+					response.Push(getStatus());
+
 					mCD->seek(mSeekMinute, mSeekSecond, mSeekSector);
 					if (mStat.Read) {
 						while (!mResponses.empty()) {
@@ -242,6 +254,9 @@ namespace esx {
 					while (!mSectors.empty()) {
 						mSectors.pop();
 					}
+				} else {
+					mStat.Seek = ESX_TRUE;
+					mStat.Rotating = ESX_TRUE;
 				}
 				break;
 			}
@@ -398,23 +413,23 @@ namespace esx {
 
 	void CDROM::pushParameter(U8 value)
 	{
-		mParameters[mParametersSize++] = value;
+		mParameters.push(value);
 		CDROM_REG0.ParameterFifoEmpty = ESX_FALSE;
-		CDROM_REG0.ParameterFifoFull = mResponseSize == 16 ? ESX_TRUE : ESX_FALSE;
+		CDROM_REG0.ParameterFifoFull = mParameters.size() == 16 ? ESX_TRUE : ESX_FALSE;
 	}
 
 	void CDROM::flushParameters()
 	{
-		mParametersSize = 0;
-		mParametersReadPointer = 0;
+		while (!mParameters.empty()) mParameters.pop();
 		CDROM_REG0.ParameterFifoEmpty = ESX_TRUE;
 		CDROM_REG0.ParameterFifoFull = ESX_FALSE;
 	}
 
 	U8 CDROM::popParameter()
 	{
-		U8 value = mParameters[mParametersReadPointer++];
-		CDROM_REG0.ParameterFifoEmpty = mParametersReadPointer == mParametersSize ? ESX_TRUE : ESX_FALSE;
+		U8 value = mParameters.front();
+		mParameters.pop();
+		CDROM_REG0.ParameterFifoEmpty = mParameters.size() == 0 ? ESX_TRUE : ESX_FALSE;
 		CDROM_REG0.ParameterFifoFull = ESX_FALSE;
 		return value;
 	}
@@ -448,7 +463,6 @@ namespace esx {
 
 		if (mDataReadPointer == mDataSize - 1) {
 			CDROM_REG0.DataFifoEmpty = ESX_TRUE;
-			return value;
 		}
 
 		value = mData[mDataReadPointer++];

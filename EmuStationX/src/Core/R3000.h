@@ -260,6 +260,9 @@ namespace esx {
 			}
 
 			U32 physicalAddress = toPhysicalAddress(address);
+			if (physicalAddress == 0x7ffff0) {
+				ESX_CORE_LOG_TRACE("{:08x}", mCurrentInstruction.Address);
+			}
 			mRootBus->store<T>(physicalAddress, value);
 		}
 

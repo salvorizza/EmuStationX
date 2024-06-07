@@ -182,11 +182,14 @@ namespace esx {
 
 			//sStreams[0].write((char*)&left, 2);
 
-			if (mFrameCount < mSamples.size()) {
-				std::scoped_lock<std::mutex> lc(mSamplesMutex);
-				mSamples[mFrameCount].Left = left;
-				mSamples[mFrameCount].Right = right;
-				mFrameCount.fetch_add(1);
+			std::scoped_lock<std::mutex> lc(mSamplesMutex);
+			mSamples[mSamplesWrite].Left = left;
+			mSamples[mSamplesWrite].Right = right;
+			mSamplesWrite = (mSamplesWrite + 1) % mSamples.size();
+			if (mBufferCount < mSamples.size()) {
+				mBufferCount++;
+			} else {
+				mSamplesRead = (mSamplesRead + 1) % mSamples.size();
 			}
 		}
 	}

@@ -4,12 +4,12 @@ namespace esx {
 
 
 
-	RAM::RAM()
-		: BusDevice(ESX_TEXT("RAM"))
+	RAM::RAM(const StringView& name, U32 startAddress, U32 endAddress, U64 size)
+		: BusDevice(name)
 	{
-		mMemory.resize(KIBI(2048));
+		mMemory.resize(size);
 
-		addRange(ESX_TEXT("Root"), 0x00000000, KIBI(2048), 0x1FFFFF);
+		addRange(ESX_TEXT("Root"), startAddress, endAddress, mMemory.size() - 1);
 	}
 
 	RAM::~RAM()

@@ -132,7 +132,8 @@ public:
 
 		root = MakeShared<Bus>(ESX_TEXT("Root"));
 		cpu = MakeShared<R3000>();
-		mainRAM = MakeShared<RAM>();
+		mainRAM = MakeShared<RAM>("RAM", 0x00000000, MIBI(8), MIBI(2));
+		scratchPad = MakeShared<RAM>("Scratchpad", 0x1F800000, 0x400, KIBI(1));
 		memoryControl = MakeShared<MemoryControl>();
 		interruptControl = MakeShared<InterruptControl>();
 		spu = MakeShared<SPU>();
@@ -159,6 +160,9 @@ public:
 
 		root->connectDevice(mainRAM);
 		mainRAM->connectToBus(root);
+
+		root->connectDevice(scratchPad);
+		scratchPad->connectToBus(root);
 
 		root->connectDevice(memoryControl);
 		memoryControl->connectToBus(root);
@@ -228,6 +232,7 @@ public:
 		InputManager::Init();
 		loopTimer.init();
 
+		mPlayedSamples = mPreRendered.size();
 	}
 
 	static void audioCallback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
@@ -238,12 +243,19 @@ public:
 
 		EmuStationXApp* pApp = (EmuStationXApp*)pDevice->pUserData;
 
-		while (pApp->spu->mFrameCount.load() < frameCount) {
+		std::scoped_lock<std::mutex> lc(pApp->spu->mSamplesMutex);
+		if (pApp->mPlayedSamples == pApp->mPreRendered.size() && pApp->spu->mBufferCount >= pApp->mPreRendered.size()) {
+			std::memcpy(pApp->mPreRendered.data(), pApp->spu->mSamples.data() + pApp->spu->mSamplesRead, pApp->mPreRendered.size() * 2 * sizeof(I16));
+			pApp->spu->mSamplesRead = (pApp->spu->mSamplesRead + pApp->mPreRendered.size()) % pApp->spu->mSamples.size();
+			pApp->spu->mBufferCount -= pApp->mPreRendered.size();
+
+			pApp->mPlayedSamples = 0;
 		}
 
-		std::scoped_lock<std::mutex> lc(pApp->spu->mSamplesMutex);
-		std::memcpy(pOutput, pApp->spu->mSamples.data(), frameCount * 2 * sizeof(I16));
-		pApp->spu->mFrameCount.store(0);
+		if (pApp->mPlayedSamples < pApp->mPreRendered.size()) {
+			std::memcpy(pOutput, pApp->mPreRendered.data() + pApp->mPlayedSamples, frameCount * 2 * sizeof(I16));
+			pApp->mPlayedSamples += frameCount;
+		}
 	}
 
 	virtual void onUpdate() override {
@@ -345,6 +357,7 @@ private:
 	SharedPtr<Bus> root;
 	SharedPtr<R3000> cpu;
 	SharedPtr<RAM> mainRAM;
+	SharedPtr<RAM> scratchPad;
 	SharedPtr<MemoryControl> memoryControl;
 	SharedPtr<InterruptControl> interruptControl;
 	SharedPtr<SPU> spu;
@@ -373,6 +386,8 @@ private:
 	glm::mat4 mProjectionMatrix;
 
 	ma_device mAudioDevice;
+	Array<AudioFrame, 441 * 64> mPreRendered; 
+	U32 mPlayedSamples;
 };
 
 int

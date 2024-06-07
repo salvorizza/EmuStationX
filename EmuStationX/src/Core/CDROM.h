@@ -8,6 +8,7 @@
 namespace esx {
 
 	constexpr size_t CD_READ_DELAY = 33868800 / CD_SECTORS_PER_SECOND;
+	constexpr size_t CD_READ_DELAY_2X = 33868800 / (2 * CD_SECTORS_PER_SECOND);
 
 	using FIFO = Queue<U8>;
 
@@ -51,6 +52,7 @@ namespace esx {
 		ReadN = 0x06,
 		Pause = 0x09,
 		Init = 0x0A,
+		Demute = 0x0C,
 		Setmode = 0x0E,
 		SeekL = 0x15,
 		Test = 0x19,
@@ -149,7 +151,7 @@ namespace esx {
 		U8 CDROM_REG2 = 0x00;
 		U8 CDROM_REG3 = 0x00;
 
-		Array<U8, 16> mParameters; U8 mParametersSize = 0x00, mParametersReadPointer = 0x00;
+		Queue<U8> mParameters;
 
 		Array<U8, 16> mResponse; U8 mResponseSize = 0x00, mResponseReadPointer = 0x00;
 
