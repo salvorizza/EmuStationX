@@ -13,14 +13,17 @@ namespace esx {
 	class Bios : public BusDevice {
 		friend class MemoryEditorPanel;
 	public:
-		Bios(const String& path);
+		Bios(const StringView& path);
 		~Bios();
 
 		virtual void load(const StringView& busName, U32 address, U32& output) override;
 		virtual void load(const StringView& busName, U32 address, U8& output) override;
 
+		virtual void reset();
+
 	private:
 		Vector<U8> mMemory;
+		StringView mPath;
 	};
 
 }

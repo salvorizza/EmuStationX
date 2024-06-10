@@ -26,7 +26,7 @@ namespace esx {
 	bool DisassemblerPanel::breakFunction(U32 address)
 	{
 		if (mBreakpoints.size() > 0) {
-			auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return R3000::toPhysicalAddress(b.Address) == R3000::toPhysicalAddress(address) && b.Enabled; });
+			auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.PhysAddress == R3000::toPhysicalAddress(address) && b.Enabled; });
 			if (it != mBreakpoints.end()) {
 				//disassemble(address - 4 * disassembleRange, 4 * disassembleRange * 2);
 
@@ -96,8 +96,9 @@ namespace esx {
 
 		float availWidth = ImGui::GetContentRegionAvail().x;
 		float oneCharSize = ImGui::CalcTextSize("A").x;
+		float bulletSize = oneCharSize * 3;
 		float addressingSize = oneCharSize * 11;
-		float contentCellsWidth = availWidth - (addressingSize);
+		float contentCellsWidth = availWidth - addressingSize - bulletSize;
 
 		if (mDebugState == DebugState::Idle || mDebugState == DebugState::Breakpoint) {
 			if (ImGui::Button(ICON_FA_PLAY))
@@ -153,7 +154,8 @@ namespace esx {
 
 
 		if (ImGui::BeginChild("##child", ImVec2(0, sizeY * 0.75f))) {
-			if (ImGui::BeginTable("Disassembly Table", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+			if (ImGui::BeginTable("Disassembly Table", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+				ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, bulletSize);
 				ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, addressingSize);
 				ImGui::TableSetupColumn("Mnemonic", ImGuiTableColumnFlags_WidthFixed, contentCellsWidth);
 				ImGui::TableHeadersRow();
@@ -197,6 +199,8 @@ namespace esx {
 						//Instruction instruction = mInstructions[row];
 
 						U32 address = R3000::toPhysicalAddress(instruction.Address);
+						auto breakpointIt = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.PhysAddress == address && b.Enabled; });
+						BIT breakpointFound = breakpointIt != mBreakpoints.end();
 
 						ImGui::TableNextRow();
 						if (mScrollToCurrent && address == mCurrent) {
@@ -208,6 +212,29 @@ namespace esx {
 							ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(230, 100, 120, 125));
 							ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, IM_COL32(180, 50, 70, 125));
 						}
+
+						ImGui::TableNextColumn();
+						ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(0, 0, 0, 0));
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(0, 0, 0, 0));
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(0, 0, 0, 0));
+						ImGui::PushStyleColor(ImGuiCol_Text, breakpointFound ? IM_COL32(255, 0, 0, 255) : IM_COL32(255, 255, 255, 255));
+						ImGui::PushID(address);
+						if (ImGui::Button(ICON_FA_CIRCLE)) {
+							if (breakpointFound) {
+								mBreakpoints.erase(breakpointIt);
+							} else {
+								Breakpoint breakpoint = {};
+								breakpoint.Enabled = ESX_TRUE;
+								breakpoint.Address = address;
+								breakpoint.PhysAddress = address;
+								mBreakpoints.push_back(breakpoint);
+							}
+						}
+						ImGui::PopID();
+						ImGui::PopStyleColor();
+						ImGui::PopStyleColor();
+						ImGui::PopStyleColor();
+						ImGui::PopStyleColor();
 
 						ImGui::TableNextColumn();
 						ImGui::Text("0x%08X", address);
@@ -261,6 +288,7 @@ namespace esx {
 					U32 addr;
 					if (sscanf_s(addressBuffer, "0x%08X", &addr) == 1 || sscanf_s(addressBuffer, "%08X", &addr) == 1) {
 						breakpoint.Address = addr;
+						breakpoint.PhysAddress = R3000::toPhysicalAddress(breakpoint.Address);
 					}
 				}
 				ImGui::PopID();

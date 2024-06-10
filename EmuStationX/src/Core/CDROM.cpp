@@ -9,12 +9,7 @@ namespace esx {
 		: BusDevice("CDROM")
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801800, BYTE(0x4), 0xFFFFFFFF);
-		mShellOpen = ESX_FALSE;
-
-		mStat.ShellOpen = ESX_TRUE;
-		mStat.Rotating = ESX_TRUE;
-
-		mData.resize(CD_SECTOR_SIZE * 2); //To accomodate double speed
+		reset();
 	}
 
 	CDROM::~CDROM()
@@ -38,6 +33,10 @@ namespace esx {
 
 			mResponses.pop();
 
+			if (mResponses.empty()) {
+				CDROM_REG0.CommandTransmissionBusy = ESX_FALSE;
+			}
+
 			if (response.Number < response.NumberOfResponses) {
 				command(response.CommandType, response.Number + 1);
 			}
@@ -58,6 +57,12 @@ namespace esx {
 						command((CommandType)value);
 						break;
 					}
+
+					case 0x3: {
+						mRightCDOutToRightSPUIn = value;
+						break;
+					}
+
 					default: {
 						ESX_CORE_LOG_ERROR("CDROM - Writing to address 0x{:08X} with Index 0x{:02X} not implemented yet", address, CDROM_REG0.Index);
 					}
@@ -71,10 +76,22 @@ namespace esx {
 						pushParameter(value);
 						break;
 					}
+
 					case 0x1: {
 						setInterruptEnableRegister(CDROM_REG2,value);
 						break;
 					}
+
+					case 0x2: {
+						mLeftCDOutToRightSPUIn = value;
+						break;
+					}
+
+					case 0x3: {
+						mRightCDOutToLeftSPUIn = value;
+						break;
+					}
+
 					default: {
 						ESX_CORE_LOG_ERROR("CDROM - Writing to address 0x{:08X} with Index 0x{:02X} not implemented yet", address, CDROM_REG0.Index);
 					}
@@ -91,6 +108,16 @@ namespace esx {
 
 					case 0x1: {
 						setInterruptFlagRegister(CDROM_REG3,value);
+						break;
+					}
+
+					case 0x2: {
+						mLeftCDOutToLeftSPUIn = value;
+						break;
+					}
+
+					case 0x3: {
+						audioVolumeApplyChanges(value);
 						break;
 					}
 
@@ -172,12 +199,19 @@ namespace esx {
 				mSeekSecond = ((second >> 4) & 0xF) * 10 + ((second >> 0) & 0xF);
 				mSeekSector = ((sector >> 4) & 0xF) * 10 + ((sector >> 0) & 0xF);
 
+				mSetLocUnprocessed = ESX_TRUE;
+
 				ESX_CORE_LOG_INFO("CDROM - Setloc {}:{}:{}", mSeekMinute, mSeekSecond, mSeekSector);
 				break;
 			}
 
 			case CommandType::ReadN: {
 				ESX_CORE_LOG_INFO("CDROM - ReadN {}", response.Number);
+
+				if (mSetLocUnprocessed) {
+					mCD->seek(mSeekMinute, mSeekSecond, mSeekSector);
+					mSetLocUnprocessed = ESX_FALSE;
+				}
 
 				response.NumberOfResponses++;
 				if (response.Number > 1) {
@@ -240,9 +274,11 @@ namespace esx {
 				ESX_CORE_LOG_INFO("CDROM - SeekL {}", response.Number);
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
-					mStat.Seek = ESX_FALSE;
+					mStat.Seek = ESX_TRUE;
+					mStat.Rotating = ESX_TRUE;
 					response.Clear();
 					response.Push(getStatus());
+					mStat.Seek = ESX_FALSE;
 
 					mCD->seek(mSeekMinute, mSeekSecond, mSeekSector);
 					if (mStat.Read) {
@@ -254,10 +290,8 @@ namespace esx {
 					while (!mSectors.empty()) {
 						mSectors.pop();
 					}
-				} else {
-					mStat.Seek = ESX_TRUE;
-					mStat.Rotating = ESX_TRUE;
 				}
+				mSetLocUnprocessed = ESX_FALSE;
 				break;
 			}
 
@@ -267,6 +301,7 @@ namespace esx {
 
 				switch (parameter) {
 					case 0x00: {
+						mStat.Rotating = ESX_TRUE;
 						break;
 					}
 
@@ -332,7 +367,24 @@ namespace esx {
 			}
 		}
 
+		CDROM_REG0.CommandTransmissionBusy = ESX_TRUE;
 		mResponses.push(response);
+	}
+
+	void CDROM::audioVolumeApplyChanges(U8 value)
+	{
+		ApplyVolumeRegister reg = {};
+
+		reg.MuteADPCM = (value >> 0) & 0x1;
+		reg.ApplyChanges = (value >> 5) & 0x1;
+
+		if (reg.MuteADPCM) {
+			ESX_CORE_LOG_ERROR("CDROM - Mute ADPCM not implemented yet");
+		}
+
+		if (reg.ApplyChanges) {
+			ESX_CORE_LOG_ERROR("CDROM - Apply changes not implemented yet");
+		}
 	}
 
 	void CDROM::setIndexStatusRegister(U8 value)
@@ -468,6 +520,50 @@ namespace esx {
 		value = mData[mDataReadPointer++];
 
 		return value;
+	}
+
+	void CDROM::reset()
+	{
+		CDROM_REG0 = {};
+		CDROM_REG1 = 0x00;
+		CDROM_REG2 = 0x00;
+		CDROM_REG3 = 0x00;
+
+		mLeftCDOutToLeftSPUIn = 0;
+		mLeftCDOutToRightSPUIn = 0;
+		mRightCDOutToRightSPUIn = 0;
+		mRightCDOutToLeftSPUIn = 0;
+
+		mParameters = {};
+
+		mResponse = {}; 
+		mResponseSize = 0x00; 
+		mResponseReadPointer = 0x00;
+
+		mDataSize = 0x00; 
+		mDataReadPointer = 0x00;
+		mSectors = {};
+
+		mStat = {};
+		mMode = {};
+
+		mResponses = {};
+
+		mShellOpen = ESX_FALSE;
+		mSeekMinute = 0x00;
+		mSeekSecond = 0x00;
+		mSeekSector = 0x00;
+
+		//Init
+		mShellOpen = ESX_FALSE;
+
+		mStat.ShellOpen = ESX_TRUE;
+		mStat.Rotating = ESX_TRUE;
+
+		mData.resize(CD_SECTOR_SIZE * 2);
+		std::fill(mData.begin(), mData.end(), 0x00);
+
+		mSetLocUnprocessed = ESX_FALSE;
 	}
 
 	U8 CDROM::getStatus()

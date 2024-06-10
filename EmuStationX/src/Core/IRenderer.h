@@ -72,6 +72,8 @@ namespace esx {
 		virtual void SetDrawBottomRight(U16 x, U16 y) = 0;
 		virtual void DrawPolygon(Vector<PolygonVertex>& vertices) = 0;
 
+		virtual void Reset() = 0;
+
 		virtual void VRAMWrite(U16 x, U16 y, U16 data) = 0;
 		virtual U16 VRAMRead(U16 x, U16 y) = 0;
 	};

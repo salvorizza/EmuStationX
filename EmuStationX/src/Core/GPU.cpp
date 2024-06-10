@@ -14,10 +14,7 @@ namespace esx {
 			mRenderer(renderer)
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801810, BYTE(0x9), 0xFFFFFFFF);
-		mCurrentCommand.Complete = ESX_TRUE;
-
-		mScanlinesPerFrame = NTSC_SCANLINES_PER_FRAME;
-		mClocksPerScanline = NTSC_CLOCKS_PER_SCANLINE;
+		reset();
 	}
 
 	void GPU::store(const StringView& busName, U32 address, U32 value)
@@ -317,6 +314,65 @@ namespace esx {
 				mFrames++;
 			}
 		}
+	}
+
+	void GPU::reset()
+	{
+		mGPUStat = {};
+		mTexturedRectangleXFlip = ESX_FALSE;
+		mTexturedRectangleYFlip = ESX_FALSE;
+		mTextureWindowMaskX = 0x00;
+		mTextureWindowMaskY = 0x00;
+		mTextureWindowOffsetX = 0x00;
+		mTextureWindowOffsetY = 0x00;
+		mDrawAreaTopLeftX = 0x0000;
+		mDrawAreaTopLeftY = 0x0000;
+		mDrawAreaBottomRightX = 0x0000;
+		mDrawAreaBottomRightY = 0x0000;
+		mDrawOffsetX = 0x0000;
+		mDrawOffsetY = 0x0000;
+		mVRAMStartX = 0x0000;
+		mVRAMStartY = 0x0000;
+		mHorizontalRangeStart = 0x0000;
+		mHorizontalRangeEnd = 0x0000;
+		mVerticalRangeStart = 0x0000;
+		mVerticalRangeEnd = 0x0000;
+
+		mCommandBuffer = {};
+		mCurrentCommand = {};
+
+		mMode = GP0Mode::Command;
+
+		mMemoryTransferX = 0x0000;
+		mMemoryTransferY = 0x0000;
+		mMemoryTransferSourceCoordsX = 0x0000;
+		mMemoryTransferSourceCoordsY = 0x0000;
+		mMemoryTransferDestinationCoordsX = 0x0000;
+		mMemoryTransferDestinationCoordsY = 0x0000;
+		mMemoryTransferWidth = 0x0000;
+		mMemoryTransferHeight = 0x0000;
+		mNumWordsToTransfer = 0x00000000;
+		mCurrentWordNumber = 0x00000000;
+
+		mFrames = 0;
+		mDotClocks = 0;
+		mNumDots = 0;
+		mCurrentScanLine = 0;
+		mVBlank = ESX_FALSE;
+		mFrameAvailable = ESX_FALSE;
+
+		mTimer = {};
+		mInterruptControl = {};
+
+		mScanlinesPerFrame = 0;
+		mClocksPerScanline = 0;
+
+		mCurrentCommand.Complete = ESX_TRUE;
+
+		mScanlinesPerFrame = NTSC_SCANLINES_PER_FRAME;
+		mClocksPerScanline = NTSC_CLOCKS_PER_SCANLINE;
+
+		mRenderer->Reset();
 	}
 
 	Command GPU::gp0MiscCommands(U32 instruction) const

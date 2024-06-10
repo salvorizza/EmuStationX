@@ -9,12 +9,7 @@ namespace esx {
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801080, BYTE(0x75), 0xFFFFFFFF);
 
-		for (U8 port = 0; port < (U8)Port::Max; port++) {
-			mChannels[port].Port = (Port)port;
-		}
-
-		setControlRegister(0x07654321);
-		setInterruptRegister(0);
+		reset();
 	}
 
 	DMA::~DMA()
@@ -23,6 +18,8 @@ namespace esx {
 
 	void DMA::clock(U64 clocks)
 	{
+		if (mRunningDMAs == 0) return;
+
 		for (Port& port : mPriorityPorts) {
 			Channel& channel = mChannels[(U8)port];
 
@@ -111,6 +108,30 @@ namespace esx {
 			}
 		}
 
+	}
+
+	void DMA::reset()
+	{
+		mControlRegister = {};
+		mInterruptRegister = {};
+		mChannels = {};
+		mPriorityPorts = {
+			Port::MDECin,
+			Port::MDECout,
+			Port::GPU,
+			Port::CDROM,
+			Port::SPU,
+			Port::PIO,
+			Port::OTC
+		};
+		mRunningDMAs = 0;
+
+		setControlRegister(0x07654321);
+		setInterruptRegister(0);
+
+		for (U8 port = 0; port < (U8)Port::Max; port++) {
+			mChannels[port].Port = (Port)port;
+		}
 	}
 
 	void DMA::setChannelControl(Port port, U32 channelControl)

@@ -148,6 +148,8 @@ namespace esx {
 
 		BIT getFlag() { return false; }
 
+		void reset();
+
 		void RTPS();
 		void NCLIP();
 		void OP();

@@ -8,11 +8,9 @@
 #include <stdlib.h>
 
 namespace esx {
-
 	#define BYTE(x) x
 	#define KIBI(x) x * BYTE(1024)
 	#define MIBI(x) x * KIBI(1024)
-
 
 	struct DataBuffer {
 		uint8_t* Data;

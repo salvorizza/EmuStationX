@@ -76,6 +76,11 @@ namespace esx {
 		BIT WantData = ESX_FALSE;
 	};
 
+	struct ApplyVolumeRegister {
+		BIT MuteADPCM = ESX_FALSE;
+		BIT ApplyChanges = ESX_FALSE;
+	};
+
 	enum ResponseCode : U8 {
 		INT0  = 0b00000,
 		INT1  = 0b00001,
@@ -117,8 +122,12 @@ namespace esx {
 		void insertCD(const SharedPtr<CompactDisk>& cd) { mCD = cd; }
 
 		U8 popData();
+
+		virtual void reset() override;
 	private:
 		void command(CommandType command, U32 responseNumber = 1);
+
+		void audioVolumeApplyChanges(U8 value);
 
 		void setIndexStatusRegister(U8 value);
 		U8 getIndexStatusRegister();
@@ -151,6 +160,11 @@ namespace esx {
 		U8 CDROM_REG2 = 0x00;
 		U8 CDROM_REG3 = 0x00;
 
+		U8 mLeftCDOutToLeftSPUIn = 0;
+		U8 mLeftCDOutToRightSPUIn = 0;
+		U8 mRightCDOutToRightSPUIn = 0;
+		U8 mRightCDOutToLeftSPUIn = 0;
+
 		Queue<U8> mParameters;
 
 		Array<U8, 16> mResponse; U8 mResponseSize = 0x00, mResponseReadPointer = 0x00;
@@ -166,6 +180,7 @@ namespace esx {
 		BIT mShellOpen = ESX_FALSE;
 		SharedPtr<CompactDisk> mCD;
 		U8 mSeekMinute, mSeekSecond, mSeekSector;
+		BIT mSetLocUnprocessed = ESX_FALSE;
 	};
 
 }

@@ -132,6 +132,12 @@ namespace esx {
 		0x00
 	};
 
+	void GTE::reset()
+	{
+		mRegisters = {};
+		mCurrentCommand = {};
+	}
+
 	void GTE::RTPS() {
 		Internal_RTPS(mRegisters.V0, mCurrentCommand.Saturate, mCurrentCommand.ShiftFraction);
 	}

@@ -103,6 +103,7 @@ namespace esx {
 
 		inline BIT isRunning() const { return mRunningDMAs != 0; }
 
+		virtual void reset() override;
 	private:
 		void setChannelControl(Port port, U32 channelControl);
 		U32 getChannelControl(Port port);

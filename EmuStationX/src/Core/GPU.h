@@ -146,6 +146,7 @@ namespace esx {
 		U32 gpuRead();
 
 		virtual void clock(U64 clocks) override;
+		virtual void reset() override;
 
 		BIT isNewFrameAvailable() { 
 			BIT tempFrame = mFrameAvailable;

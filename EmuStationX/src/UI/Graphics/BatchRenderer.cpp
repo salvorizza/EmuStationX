@@ -170,4 +170,22 @@ namespace esx {
 		return data;
 	}
 
+	void BatchRenderer::Reset()
+	{
+		std::fill(mTriVerticesBase.begin(), mTriVerticesBase.end(), PolygonVertex());
+
+		mFBO->bind();
+		glClearColor(0, 0, 0, 1);
+		glClear(GL_COLOR_BUFFER_BIT);
+		mFBO->unbind();
+
+		mVRAM24.resize(1024 * 512 * 4);
+		std::fill(mVRAM24.begin(), mVRAM24.end(), 0x00);
+
+		mDrawTopLeft = glm::uvec2(0, 0);
+		mDrawBottomRight = glm::uvec2(640, 240);
+
+		glEnable(GL_SCISSOR_TEST);
+	}
+
 }

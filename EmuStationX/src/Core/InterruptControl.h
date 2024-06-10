@@ -35,6 +35,8 @@ namespace esx {
 		virtual void store(const StringView& busName, U32 address, U16 value) override;
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
 
+		virtual void reset() override;
+
 		void requestInterrupt(InterruptType type, BIT prevValue, BIT newValue, U64 delay = 0);
 
 		BIT interruptPending();

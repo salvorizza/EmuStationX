@@ -11,12 +11,7 @@ namespace esx {
 		: BusDevice(ESX_TEXT("Timer"))
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801100, BYTE(0x30), 0xFFFFFFFF);
-
-		U32 i = 0;
-		for (Counter& counter : mCounters) {
-			counter.Number = i;
-			i++;
-		}
+		reset();
 	}
 
 	Timer::~Timer()
@@ -113,6 +108,16 @@ namespace esx {
 				output = getTargetValue(counter);
 				break;
 			}
+		}
+	}
+
+	void Timer::reset()
+	{
+		mCounters = {};
+		U32 i = 0;
+		for (Counter& counter : mCounters) {
+			counter.Number = i;
+			i++;
 		}
 	}
 

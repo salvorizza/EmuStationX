@@ -41,6 +41,8 @@ namespace esx {
 		virtual void store(const StringView& busName, U32 address, U32 value);
 		virtual void load(const StringView& busName, U32 address, U32& output);
 
+		virtual void reset() override;
+
 		virtual void clock(U64 clocks) override;
 		void hblank();
 		void vblank();

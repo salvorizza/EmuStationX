@@ -12,7 +12,7 @@ namespace esx {
 			mID(id)
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801040 + mID * 0x10, BYTE(16), 0xFFFFFFFF);
-		mRX.Data.fill(0x00);
+		reset();
 	}
 
 	SIO::~SIO()
@@ -209,6 +209,27 @@ namespace esx {
 				break;
 			}
 		}
+	}
+
+	void SIO::reset()
+	{
+		mTX = 0xFF;
+		mRX = {};
+		mStatRegister = {};
+		mModeRegister = {};
+		mControlRegister = {};
+		mMiscRegister = {};
+		mBaudRegister = {};
+
+		mSerialClock = ESX_FALSE;
+
+		mLatchedTXEN = ESX_FALSE;
+		mRead = ESX_FALSE;
+
+		mTXShift = {};
+		mRXShift = {};
+
+		mRX.Data.fill(0x00);
 	}
 
 	void SIO::setDataRegister(U32 value)

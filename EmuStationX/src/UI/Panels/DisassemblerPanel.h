@@ -21,6 +21,11 @@ namespace esx {
 
 		void onUpdate();
 
+		void onPlay();
+		void onPause();
+		void onStepForward();
+		void onStepOver();
+
 	protected:
 		virtual void onImGuiRender() override;
 
@@ -33,6 +38,7 @@ namespace esx {
 		struct Breakpoint {
 			bool Enabled = true;
 			U32 Address;
+			U32 PhysAddress;
 		};
 
 		enum class DebugState {
@@ -49,10 +55,6 @@ namespace esx {
 	private:
 		void disassemble(uint32_t startAddress, size_t size);
 
-		void onPlay();
-		void onPause();
-		void onStepForward();
-		void onStepOver();
 
 		void setDebugState(DebugState debugState) { mPrevDebugState = mDebugState; mDebugState = debugState; }
 

@@ -92,12 +92,7 @@ namespace esx {
 		: BusDevice(ESX_TEXT("SPU"))
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801C00, BYTE(640), 0xFFFFFFFF);
-		mRAM.resize(KIBI(512));
-
-		/*for (U32 i = 0; i < 24; i++) {
-			mVoices[i].Number = i;
-			sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
-		}*/
+		reset();
 	}
 
 	SPU::~SPU()
@@ -553,6 +548,45 @@ namespace esx {
 			}
 		} else {
 			ESX_CORE_LOG_ERROR("SPU - Reading from address {:08x} not implemented yet", address);
+		}
+	}
+
+	void SPU::reset()
+	{
+		mVoices = {};
+		mMainVolumeLeft = {};
+		mMainVolumeRight = {};
+		mCurrentMainVolume = {};
+		mCDInputVolume = {};
+		mExternalInputVolume = {};
+		mSPUControl = {};
+		mSPUStatus = {};
+		mDataTransferAddress = 0x0000;
+		mDataTransferControl = {};
+		mUnknown1F801DA0 = 0x0000;
+		mSoundRAMIRQAddress = 0x0000;
+
+		mNoiseTimer = 0;
+		mNoiseLevel = 0;
+
+		mReverb = {};
+		mCurrentBufferAddress = 0x00000000;
+
+		mFIFO = {};
+
+		mCurrentTransferAddress = 0;
+
+		std::scoped_lock lc(mSamplesMutex);
+		mSamples = {}; 
+		mSamplesWrite = 0; 
+		mSamplesRead = 0;
+		mBufferCount = 0;
+
+		mRAM.resize(KIBI(512));
+		std::fill(mRAM.begin(),mRAM.end(),0x00);
+		for (U32 i = 0; i < 24; i++) {
+			mVoices[i].Number = i;
+			//sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
 		}
 	}
 

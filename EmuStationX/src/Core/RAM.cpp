@@ -4,12 +4,13 @@ namespace esx {
 
 
 
-	RAM::RAM(const StringView& name, U32 startAddress, U32 endAddress, U64 size)
+	RAM::RAM(const StringView& name, U32 startAddress, U32 addressingSize, U64 size)
 		: BusDevice(name)
 	{
 		mMemory.resize(size);
+		reset();
 
-		addRange(ESX_TEXT("Root"), startAddress, endAddress, mMemory.size() - 1);
+		addRange(ESX_TEXT("Root"), startAddress, addressingSize, mMemory.size() - 1);
 	}
 
 	RAM::~RAM()
@@ -28,36 +29,26 @@ namespace esx {
 
 	void RAM::store(const StringView& busName, U32 address, U16 value)
 	{
-		for (size_t i = 0; i < sizeof(U16); i++) {
-			mMemory[address + i] = (value & 0xFF);
-			value >>= 8;
-		}
+		*reinterpret_cast<U16*>(&mMemory[address]) = value;
 	}
 
 	void RAM::load(const StringView& busName, U32 address, U16& output)
 	{
-		output = 0;
-		for (size_t i = 0; i < sizeof(U16); i++) {
-			output <<= 8;
-			output |= mMemory[address + (sizeof(U16) - 1 - i)];
-		}
+		output = *reinterpret_cast<U16*>(&mMemory[address]);
 	}
 
 	void RAM::store(const StringView& busName, U32 address, U32 value)
 	{
-		for (size_t i = 0; i < sizeof(U32); i++) {
-			mMemory[address + i] = (value & 0xFF);
-			value >>= 8;
-		}
+		*reinterpret_cast<U32*>(&mMemory[address]) = value;
 	}
 
 	void RAM::load(const StringView& busName, U32 address, U32& output)
 	{
-		output = 0;
-		for (size_t i = 0; i < sizeof(U32); i++) {
-			output <<= 8;
-			output |= mMemory[address + (sizeof(U32) - 1 - i)];
-		}
+		output = *reinterpret_cast<U32*>(&mMemory[address]);
+	}
+
+	void RAM::reset() {
+		std::fill(mMemory.begin(), mMemory.end(), 0x00);
 	}
 
 }

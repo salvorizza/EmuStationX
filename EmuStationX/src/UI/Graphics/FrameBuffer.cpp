@@ -48,7 +48,7 @@ namespace esx {
 	void FrameBuffer::invalidate()
 	{
 		if (mRendererID != 0) {
-			mColorAttachment.reset();
+			//mColorAttachment.reset();
 			mRendererID =  0;
 		}
 

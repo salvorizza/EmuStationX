@@ -14,7 +14,7 @@ namespace esx {
 	public:
 		friend class MemoryEditorPanel;
 
-		RAM(const StringView& name,U32 startAddress, U32 endAddress, U64 size);
+		RAM(const StringView& name,U32 startAddress, U32 addressingSize, U64 size);
 		~RAM();
 
 		virtual void store(const StringView& busName, U32 address, U8 value) override;
@@ -25,6 +25,8 @@ namespace esx {
 
 		virtual void store(const StringView& busName, U32 address, U32 value) override;
 		virtual void load(const StringView& busName, U32 address, U32& output) override;
+
+		virtual void reset() override;
 	private:
 		Vector<U8> mMemory;
 	};

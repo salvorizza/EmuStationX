@@ -220,6 +220,7 @@ namespace esx {
 		void clock();
 		U32 fetch(U32 address);
 		void decode(Instruction& result, U32 instruction, U32 address, BIT suppressException = ESX_FALSE);
+		virtual void reset();
 
 		template<typename T>
 		U32 load(U32 address) {
@@ -260,7 +261,7 @@ namespace esx {
 			}
 
 			U32 physicalAddress = toPhysicalAddress(address);
-			if (physicalAddress == 0x7ffff0) {
+			if (physicalAddress == 0x1cec50) {
 				ESX_CORE_LOG_TRACE("{:08x}", mCurrentInstruction.Address);
 			}
 			mRootBus->store<T>(physicalAddress, value);

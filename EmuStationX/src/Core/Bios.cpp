@@ -4,14 +4,12 @@ namespace esx {
 
 
 
-	Bios::Bios(const String& path)
-		: BusDevice(ESX_TEXT("Bios"))
+	Bios::Bios(const StringView& path)
+		:	BusDevice(ESX_TEXT("Bios")),
+			mPath(path)
 	{
-		std::ifstream input(path, std::ios::binary);
-		mMemory = Vector<U8>(std::istreambuf_iterator<char>(input), {});
-		input.close();
-
 		addRange(ESX_TEXT("Root"), 0x1FC00000, KIBI(512), 0x7FFFF);
+		reset();
 	}
 
 	Bios::~Bios()
@@ -25,12 +23,13 @@ namespace esx {
 
 	void Bios::load(const StringView& busName, U32 address, U32& output)
 	{
-		output = 0;
-
-		for (size_t i = 0; i < sizeof(U32); i++) {
-			output <<= 8;
-			output |= mMemory[address + (sizeof(U32) - 1 - i)];
-		}
+		output = *reinterpret_cast<U32*>(&mMemory[address]);
 	}
 
+	void Bios::reset()
+	{
+		std::ifstream input(mPath.data(), std::ios::binary);
+		mMemory = Vector<U8>(std::istreambuf_iterator<char>(input), {});
+		input.close();
+	}
 }

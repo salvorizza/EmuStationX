@@ -156,6 +156,8 @@ namespace esx {
 		virtual void load(const StringView& busName, U32 address, U8& output) override;
 
 		inline void plugDevice(SerialPort port, const SharedPtr<SerialDevice>& device) { mPorts[port][(U8)device->getDeviceType()] = device; }
+
+		virtual void reset();
 	private:
 		void setDataRegister(U32 value);
 		U32 getDataRegister(U8 dataAccess);

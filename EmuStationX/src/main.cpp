@@ -120,7 +120,7 @@ public:
 
 		//mLogger->SetLogLevel(LogType::Error);
 
-		SharedPtr<CDRWIN> cdrwin = MakeShared<CDRWIN>("C:/Users/salvatore.rizza/Downloads/MediEvil (USA)/MediEvil (USA).cue");
+		SharedPtr<CDRWIN> cdrwin = MakeShared<CDRWIN>("C:/Users/salvo/Downloads/MediEvil (USA)/MediEvil (USA).cue");
 
 		mCPUStatusPanel = MakeShared<CPUStatusPanel>();
 		mDisassemblerPanel = MakeShared<DisassemblerPanel>();
@@ -324,9 +324,15 @@ public:
 
 			if (ImGui::BeginMenu("Emulation"))
 			{
-				ImGui::MenuItem("Play");
-				ImGui::MenuItem("Stop");
-				ImGui::MenuItem("Pause");
+				if (ImGui::MenuItem("Play")) mDisassemblerPanel->onPlay();
+				if (ImGui::MenuItem("Pause")) mDisassemblerPanel->onPause();
+				if (ImGui::MenuItem("Hard Reset")) hardReset();
+
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::BeginMenu("Memory Card"))
+			{
 				if (ImGui::MenuItem("Save Memory Card 1")) memoryCard->Save();
 				if (ImGui::MenuItem("Save Memory Card 2")) memoryCard2->Save();
 
@@ -351,6 +357,24 @@ public:
 		mViewportPanel->render(pManager);
 		mKernelTablesPanel->render(pManager);
 		mSPUStatusPanel->render(pManager);
+	}
+
+	void hardReset() {
+		cpu->reset();
+		mainRAM->reset();
+		scratchPad->reset();
+		memoryControl->reset();
+		interruptControl->reset();
+		spu->reset();
+		pio->reset();
+		bios->reset();
+		timer->reset();
+		dma->reset();
+		gpu->reset();
+		cdrom->reset();
+		sio0->reset();
+		sio1->reset();
+		mConsolePanel->getInternalConsole().System().Items().clear();
 	}
 
 private:

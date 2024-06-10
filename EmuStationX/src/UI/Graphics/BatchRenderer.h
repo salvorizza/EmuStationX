@@ -32,6 +32,8 @@ namespace esx {
 
 		const SharedPtr<FrameBuffer>& getPreviousFrame() { return mFBO; }
 
+		virtual void Reset() override;
+
 	public:
 		static const size_t QUAD_VERTEX_SIZE = sizeof(PolygonVertex);
 		static const size_t TRI_SIZE = QUAD_VERTEX_SIZE * 3;

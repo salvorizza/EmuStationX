@@ -17,18 +17,9 @@
 namespace esx {
 
 	R3000::R3000()
-		:	BusDevice(ESX_TEXT("R3000")),
-			mRegisters(),
-			mCP0Registers(),
-			mPC(0xBFC00000)
+		:	BusDevice(ESX_TEXT("R3000"))
 	{
-		mNextPC = mPC + 4;
-		setCP0Register(COP0Register::PRId, 0x00000002);
-		resetPendingLoad();
-
-		mMemoryLoad = std::make_pair<RegisterIndex, U32>(RegisterIndex(0), 0);
-		mPendingLoad = std::make_pair<RegisterIndex, U32>(RegisterIndex(0), 0);
-		mWriteBack = std::make_pair<RegisterIndex, U32>(RegisterIndex(0), 0);
+		reset();
 
 	}
 
@@ -188,6 +179,46 @@ namespace esx {
 		} else {
 			result.Execute = primaryOpCodeDecode[primaryOpCode];
 		}
+	}
+
+	void R3000::reset()
+	{
+		mRootBus = {};
+
+		mRegisters = {};
+		mCP0Registers = {};
+		mGTE.reset();
+
+		mPendingLoad = {};
+		mMemoryLoad = {};
+		mWriteBack = {};
+
+		mPC = 0;
+		mNextPC = 0;
+		mCurrentPC = 0;
+		mCallPC = 0;
+		mHI = 0;
+		mLO = 0;
+		mICache = {};
+		mStall = ESX_FALSE;
+
+		mBranch = ESX_FALSE;
+		mBranchSlot = ESX_FALSE;
+		mTookBranch = ESX_FALSE;
+		mTookBranchSlot = ESX_FALSE;
+
+		mGPUClock = 0;
+
+		mCycles = 0;
+
+		mPC = 0xBFC00000;
+		mNextPC = mPC + 4;
+		setCP0Register(COP0Register::PRId, 0x00000002);
+		resetPendingLoad();
+
+		mMemoryLoad = std::make_pair<RegisterIndex, U32>(RegisterIndex(0), 0);
+		mPendingLoad = std::make_pair<RegisterIndex, U32>(RegisterIndex(0), 0);
+		mWriteBack = std::make_pair<RegisterIndex, U32>(RegisterIndex(0), 0);
 	}
 
 	void R3000::ADD()

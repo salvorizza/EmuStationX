@@ -45,6 +45,8 @@ namespace esx {
 		virtual void store(const StringView& busName, U32 address, U8 value) { ESX_CORE_LOG_ERROR("Device {} does not implement store8", mName); }
 		virtual void load(const StringView& busName, U32 address, U8& output) { ESX_CORE_LOG_ERROR("Device {} does not implement load8", mName); }
 
+		virtual void reset() {}
+
 		const StringView& getName() const { return mName; }
 
 		void connectToBus(const SharedPtr<Bus>& pBus);

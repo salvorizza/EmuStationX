@@ -11,7 +11,7 @@ namespace esx {
 	{
 		addRange(ESX_TEXT("Root"), I_STAT_ADDRESS, BYTE(4), 0xFFFFFFFF);
 		addRange(ESX_TEXT("Root"), I_MASK_ADDRESS, BYTE(4), 0xFFFFFFFF);
-
+		reset();
 	}
 
 	InterruptControl::~InterruptControl()
@@ -86,6 +86,13 @@ namespace esx {
 				break;
 			}
 		}
+	}
+
+	void InterruptControl::reset()
+	{
+		mInterruptMask = 0;
+		mInterruptStatus = 0;
+		mDelayedInterrupts = {};
 	}
 
 	void InterruptControl::requestInterrupt(InterruptType type, BIT prevValue, BIT newValue, U64 delay)
