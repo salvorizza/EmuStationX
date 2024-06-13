@@ -27,17 +27,22 @@ namespace esx {
 	{
 	}
 
+	void R3000::init()
+	{
+
+		mRootBus = getBus(ESX_TEXT("Root"));
+		mTimer = getBus("Root")->getDevice<Timer>("Timer");
+		mCDROM = getBus("Root")->getDevice<CDROM>("CDROM");
+		mGPU = getBus("Root")->getDevice<GPU>("GPU");
+		mSIO0 = getBus("Root")->getDevice<SIO>("SIO0");
+		mSIO1 = getBus("Root")->getDevice<SIO>("SIO1");
+		mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+		mDMA = getBus("Root")->getDevice<DMA>("DMA");
+		mSPU = getBus("Root")->getDevice<SPU>("SPU");
+	}
+
 	void R3000::clock()
 	{
-		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
-		if (!mCDROM) mCDROM = getBus("Root")->getDevice<CDROM>("CDROM");
-		if (!mGPU) mGPU = getBus("Root")->getDevice<GPU>("GPU");
-		if (!mSIO0) mSIO0 = getBus("Root")->getDevice<SIO>("SIO0");
-		if (!mSIO1) mSIO1 = getBus("Root")->getDevice<SIO>("SIO1");
-		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-		if (!mDMA) mDMA = getBus("Root")->getDevice<DMA>("DMA");
-		if (!mSPU) mSPU = getBus("Root")->getDevice<SPU>("SPU");
-
 		if (!mStall) {
 			U32 opcode = fetch(mPC);
 
@@ -385,7 +390,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated load from {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache isolated LW from {:08x} not handled", m);
 			return;
 		}
 
@@ -403,7 +408,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated load from {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache isolated LH from {:08x} not handled", m);
 			return;
 		}
 
@@ -422,7 +427,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated load from {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache isolated LHU from {:08x} not handled", m);
 			return;
 		}
 
@@ -440,7 +445,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated load from {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache isolated LB from {:08x} not handled", m);
 			return;
 		}
 
@@ -459,7 +464,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated load from {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache isolated LBU from {:08x} not handled", m);
 			return;
 		}
 
@@ -478,7 +483,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated load from {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache isolated LWL from {:08x} not handled", m);
 			return;
 		}
 
@@ -501,7 +506,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated load from {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache isolated SWL from {:08x} not handled", m);
 			return;
 		}
 
@@ -525,7 +530,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated load from {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache isolated LWR from {:08x} not handled", m);
 			return;
 		}
 
@@ -548,7 +553,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated store to {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache isolated SWR to {:08x} not handled", m);
 			return;
 		}
 
@@ -571,7 +576,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated store to {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache SB store to {:08x} not handled", m);
 			return;
 		}
 		
@@ -588,7 +593,7 @@ namespace esx {
 		U32 m = a + b;
 
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated store to {:08x} not handled", m);
+			ESX_CORE_LOG_WARNING("Cache SH store to {:08x} not handled", m);
 			return;
 		}
 
@@ -603,12 +608,13 @@ namespace esx {
 
 		U32 m = a + b;
 
+		U32 v = getRegister(mCurrentInstruction.RegisterTarget());
+
 		if ((sr & 0x10000) != 0) {
-			ESX_CORE_LOG_WARNING("Cache isolated store to {:08x} not handled", m);
+			iCacheStore(m, v);
 			return;
 		}
 
-		U32 v = getRegister(mCurrentInstruction.RegisterTarget());
 
 		store<U32>(m, v);
 	}
@@ -1579,6 +1585,16 @@ namespace esx {
 
 	void R3000::BiosC0(U32 callPC)
 	{
+	}
+
+	void R3000::iCacheStore(U32 address, U32 value)
+	{
+		U32 cacheLineNumber = address / 16;
+		U32 wordAddress = (address & 0xF) / 4;
+
+		InstructionCache& instruction = mICache.CacheLines[cacheLineNumber].Instructions[wordAddress];
+		instruction.Word = value;
+		instruction.Valid = ESX_FALSE;
 	}
 
 	void R3000::handleInterrupts()

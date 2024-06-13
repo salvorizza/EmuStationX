@@ -9,6 +9,17 @@
 
 namespace esx {
 
+	enum class DebugState {
+		None,
+		Idle,
+		Start,
+		Running,
+		Breakpoint,
+		Step,
+		StepOver,
+		Stop
+	};
+
 	class DisassemblerPanel : public Panel {
 	public:
 		DisassemblerPanel();
@@ -26,6 +37,8 @@ namespace esx {
 		void onStepForward();
 		void onStepOver();
 
+		DebugState getDebugState() const { return mDebugState; }
+
 	protected:
 		virtual void onImGuiRender() override;
 
@@ -39,17 +52,6 @@ namespace esx {
 			bool Enabled = true;
 			U32 Address;
 			U32 PhysAddress;
-		};
-
-		enum class DebugState {
-			None,
-			Idle,
-			Start,
-			Running,
-			Breakpoint,
-			Step,
-			StepOver,
-			Stop
 		};
 
 	private:

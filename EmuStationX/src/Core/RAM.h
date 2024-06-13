@@ -9,6 +9,7 @@
 
 namespace esx {
 	class MemoryEditorPanel;
+	class MemoryControl;
 
 	class RAM : public BusDevice {
 	public:
@@ -16,6 +17,8 @@ namespace esx {
 
 		RAM(const StringView& name,U32 startAddress, U32 addressingSize, U64 size);
 		~RAM();
+
+		virtual void init() override;
 
 		virtual void store(const StringView& busName, U32 address, U8 value) override;
 		virtual void load(const StringView& busName, U32 address, U8& output) override;
@@ -27,8 +30,13 @@ namespace esx {
 		virtual void load(const StringView& busName, U32 address, U32& output) override;
 
 		virtual void reset() override;
+
+	private:
+		void checkLocked(U32 address);
+		BIT isHiZ(U32 address);
 	private:
 		Vector<U8> mMemory;
+		SharedPtr<MemoryControl> mMemoryControl;
 	};
 
 }

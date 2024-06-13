@@ -217,6 +217,7 @@ namespace esx {
 		R3000();
 		~R3000();
 
+		virtual void init() override;
 		void clock();
 		U32 fetch(U32 address);
 		void decode(Instruction& result, U32 instruction, U32 address, BIT suppressException = ESX_FALSE);
@@ -233,36 +234,27 @@ namespace esx {
 				mStall = ESX_TRUE;
 			}
 
-			if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
-			if (!mDMA) mDMA = getBus("Root")->getDevice<DMA>("DMA");
-
-			if (mDMA->isRunning()) {
-				mStall = ESX_TRUE;
-			}
-
 			U32 physicalAddress = toPhysicalAddress(address);
+			if (physicalAddress == 0x1D0328) {
+				//ESX_CORE_LOG_TRACE("Load {:08x}", mCurrentInstruction.Address);
+			}
 			return mRootBus->load<T>(physicalAddress);
 		}
 
 		template<typename T>
 		void store(U32 address, U32 value) {
-			
-
 			if (ADDRESS_UNALIGNED(address, T)) {
 				raiseException(ExceptionType::AddressErrorStore);
 				return;
 			}
-
-			if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
-			if (!mDMA) mDMA = getBus("Root")->getDevice<DMA>("DMA");
 
 			if (mDMA->isRunning()) {
 				mStall = ESX_TRUE;
 			}
 
 			U32 physicalAddress = toPhysicalAddress(address);
-			if (physicalAddress == 0x1cec50) {
-				ESX_CORE_LOG_TRACE("{:08x}", mCurrentInstruction.Address);
+			if (physicalAddress == 0x1cec48) {
+				//ESX_CORE_LOG_TRACE("Store {:08x} value {:08x}h", mCurrentInstruction.Address, value);
 			}
 			mRootBus->store<T>(physicalAddress, value);
 		}
@@ -392,6 +384,8 @@ namespace esx {
 		void BiosA0(U32 callPC);
 		void BiosB0(U32 callPC);
 		void BiosC0(U32 callPC);
+
+		void iCacheStore(U32 address, U32 value);
 	private:
 		SharedPtr<Bus> mRootBus;
 

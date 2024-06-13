@@ -21,6 +21,9 @@ namespace esx {
 	void Bus::sortRanges()
 	{
 		mIntervalTree = buildIntervalTree(mRanges);
+		for (const auto& [name, device] : mDevices) {
+			device->init();
+		}
 	}
 
 	void Bus::connectDevice(const SharedPtr<BusDevice>& device) {

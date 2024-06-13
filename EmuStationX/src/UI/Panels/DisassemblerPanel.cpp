@@ -118,22 +118,22 @@ namespace esx {
 		
 		switch (mDebugState)
 		{
-			case esx::DisassemblerPanel::DebugState::Idle:
+			case DebugState::Idle:
 				ImGui::TextUnformatted("State: Idle");
 				break;
-			case esx::DisassemblerPanel::DebugState::Start:
+			case DebugState::Start:
 				ImGui::TextUnformatted("State: Start");
 				break;
-			case esx::DisassemblerPanel::DebugState::Running:
+			case DebugState::Running:
 				ImGui::TextUnformatted("State: Running");
 				break;
-			case esx::DisassemblerPanel::DebugState::Breakpoint:
+			case DebugState::Breakpoint:
 				ImGui::TextUnformatted("State: Breakpoint");
 				break;
-			case esx::DisassemblerPanel::DebugState::Step:
+			case DebugState::Step:
 				ImGui::TextUnformatted("State: Step");
 				break;
-			case esx::DisassemblerPanel::DebugState::Stop:
+			case DebugState::Stop:
 				ImGui::TextUnformatted("State: Stop");
 				break;
 			default:

@@ -211,6 +211,7 @@ namespace esx {
 				if (mSetLocUnprocessed) {
 					mCD->seek(mSeekMinute, mSeekSecond, mSeekSector);
 					mSetLocUnprocessed = ESX_FALSE;
+					mSectors = {};
 				}
 
 				response.NumberOfResponses++;
@@ -287,9 +288,7 @@ namespace esx {
 						}
 						mStat.Read = ESX_FALSE;
 					}
-					while (!mSectors.empty()) {
-						mSectors.pop();
-					}
+					mSectors = {};
 				}
 				mSetLocUnprocessed = ESX_FALSE;
 				break;

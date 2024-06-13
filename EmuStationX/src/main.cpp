@@ -120,7 +120,7 @@ public:
 
 		//mLogger->SetLogLevel(LogType::Error);
 
-		SharedPtr<CDRWIN> cdrwin = MakeShared<CDRWIN>("C:/Users/salvo/Downloads/MediEvil (USA)/MediEvil (USA).cue");
+		SharedPtr<CDRWIN> cdrwin = MakeShared<CDRWIN>("C:/Users/salvatore.rizza/Downloads/MediEvil (USA)/MediEvil (USA).cue");
 
 		mCPUStatusPanel = MakeShared<CPUStatusPanel>();
 		mDisassemblerPanel = MakeShared<DisassemblerPanel>();
@@ -375,6 +375,9 @@ public:
 		sio0->reset();
 		sio1->reset();
 		mConsolePanel->getInternalConsole().System().Items().clear();
+		if (mDisassemblerPanel->getDebugState() == DebugState::Breakpoint) {
+			mDisassemblerPanel->onPlay();
+		}
 	}
 
 private:

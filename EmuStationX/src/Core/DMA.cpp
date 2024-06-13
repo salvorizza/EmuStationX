@@ -387,7 +387,6 @@ namespace esx {
 					}
 				}
 
-
 				ram->store(ESX_TEXT("Root"), currentAddress, valueToWrite);
 				break;
 			}

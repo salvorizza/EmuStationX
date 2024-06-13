@@ -32,7 +32,9 @@ namespace esx {
 		BusDevice(const StringView& name) : mName(name) {}
 		virtual ~BusDevice() = default;
 
-		virtual void clock(U64 clocks) {};
+		virtual void init() {}
+
+		virtual void clock(U64 clocks) {}
 
 		virtual void writeLine(const StringView& busName, const StringView& lineName, BIT value) {}
 
