@@ -67,6 +67,56 @@ namespace esx {
 		}
 	}
 
+	void MemoryControl::load(const StringView& busName, U32 address, U32& output)
+	{
+		switch (address) {
+			case 0x1F801000: {
+				output = getBaseAddress(mExpansion1BaseAddress);
+				break;
+			}
+			case 0x1F801004: {
+				output = getBaseAddress(mExpansion2BaseAddress);
+				break;
+			}
+			case 0x1F801008: {
+				output = getDelaySizeRegister(mExpansion1DelaySize);
+				break;
+			}
+			case 0x1F80100C: {
+				output = getDelaySizeRegister(mExpansion3DelaySize);
+				break;
+			}
+			case 0x1F801010: {
+				output = getDelaySizeRegister(mBIOSROMDelaySize);
+				break;
+			}
+			case 0x1F801014: {
+				output = getDelaySizeRegister(mSPUDelaySize);
+				break;
+			}
+			case 0x1F801018: {
+				output = getDelaySizeRegister(mCDROMDelaySize);
+				break;
+			}
+			case 0x1F80101C: {
+				output = getDelaySizeRegister(mExpansion2DelaySize);
+				break;
+			}
+			case 0x1F801020: {
+				output = getCommonDelayRegister();
+				break;
+			}
+			case 0x1F801060: {
+				output = getRAMSizeRegister();
+				break;
+			}
+			case 0xFFFE0130: {
+				output = getCacheControlRegister();
+				break;
+			}
+		}
+	}
+
 	void MemoryControl::reset()
 	{
 		mExpansion1BaseAddress = 0x00;

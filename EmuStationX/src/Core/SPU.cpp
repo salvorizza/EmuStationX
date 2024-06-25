@@ -25,8 +25,6 @@ namespace esx {
 
 	static void setVolume(Volume& volume, U16 value)
 	{
-		#define SIGNEXT16(x) (((x) & 0x4000) ? ((x) | 0x8000) : (x))
-
 		volume.VolumeMode = (VolumeMode)((value >> 15) & 0x1);
 
 		if (volume.VolumeMode == VolumeMode::Volume) {

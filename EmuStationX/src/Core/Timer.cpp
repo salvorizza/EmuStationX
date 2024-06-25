@@ -265,6 +265,15 @@ namespace esx {
 		}
 
 		if ((modeRegister.IRQCounterEqualTargetEnable && reachedTargetValue) || (modeRegister.IRQCounterEqualMaxEnable && reachedMaxValue)) {
+
+			if (!modeRegister.IRQRepeat) {
+				ESX_CORE_LOG_WARNING("Timer {} one-shot mode not implemented yet", timer.Number);
+			}
+
+			if (!modeRegister.IRQToggle) {
+				ESX_CORE_LOG_WARNING("Timer {} pulse mode not implemented yet", timer.Number);
+			}
+
 			//TODO: this is Repeat mode do pulse and toggle
 			BIT newInterruptRequest = !modeRegister.InterruptRequest;
 

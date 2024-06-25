@@ -90,6 +90,9 @@
     <ClInclude Include="src\Core\CD\CompactDisk.h">
       <Filter>src\Core\CD</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\CD\EXE.h">
+      <Filter>src\Core\CD</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\CDROM.h">
       <Filter>src\Core</Filter>
     </ClInclude>
@@ -180,6 +183,9 @@
     <ClInclude Include="src\UI\Panels\DisassemblerPanel.h">
       <Filter>src\UI\Panels</Filter>
     </ClInclude>
+    <ClInclude Include="src\UI\Panels\FileDialogPanel.h">
+      <Filter>src\UI\Panels</Filter>
+    </ClInclude>
     <ClInclude Include="src\UI\Panels\KernelTables.h">
       <Filter>src\UI\Panels</Filter>
     </ClInclude>
@@ -193,6 +199,9 @@
       <Filter>src\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\SPUStatusPanel.h">
+      <Filter>src\UI\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Panels\TTYPanel.h">
       <Filter>src\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Panels\ViewportPanel.h">
@@ -225,6 +234,9 @@
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\CD\CDRWIN.cpp">
+      <Filter>src\Core\CD</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\CD\EXE.cpp">
       <Filter>src\Core\CD</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\CDROM.cpp">
@@ -308,6 +320,9 @@
     <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp">
       <Filter>src\UI\Panels</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI\Panels\FileDialogPanel.cpp">
+      <Filter>src\UI\Panels</Filter>
+    </ClCompile>
     <ClCompile Include="src\UI\Panels\KernelTables.cpp">
       <Filter>src\UI\Panels</Filter>
     </ClCompile>
@@ -318,6 +333,9 @@
       <Filter>src\UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\SPUStatusPanel.cpp">
+      <Filter>src\UI\Panels</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Panels\TTYPanel.cpp">
       <Filter>src\UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\ViewportPanel.cpp">

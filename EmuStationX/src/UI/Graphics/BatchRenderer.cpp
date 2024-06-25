@@ -173,6 +173,7 @@ namespace esx {
 	void BatchRenderer::Reset()
 	{
 		std::fill(mTriVerticesBase.begin(), mTriVerticesBase.end(), PolygonVertex());
+		mTriCurrentVertex = mTriVerticesBase.begin();
 
 		mFBO->bind();
 		glClearColor(0, 0, 0, 1);

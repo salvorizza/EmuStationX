@@ -277,14 +277,14 @@ namespace esx {
 		U64 gpuClocks = (clocks * 11) / 7;
 		gpuClocks -= (mFrames * mScanlinesPerFrame * mClocksPerScanline);
 
-		if (gpuClocks > ((mNumDots + 1) * dotClocks)) {
+		if ((gpuClocks - (mCurrentScanLine * mClocksPerScanline)) >= (mNumDots + 1) * dotClocks) {
 			mNumDots++;
 			mTimer->dot();
 		}
 
 		if (gpuClocks >= ((mCurrentScanLine + 1) * mClocksPerScanline)) {
 			mCurrentScanLine++;
-
+			mNumDots = 0;
 			mTimer->hblank();
 
 			if (mGPUStat.VerticalResolution == VerticalResolution::V240) {

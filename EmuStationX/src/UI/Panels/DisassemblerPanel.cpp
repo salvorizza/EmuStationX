@@ -55,6 +55,9 @@ namespace esx {
 						break;
 					} else {
 						mInstance->clock();
+						if (mInstance->mPC == 0x80030000 && mEXE) {
+							sideLoad();
+						}
 					}
 				} while (!mGPU->isNewFrameAvailable());
 				break;
@@ -89,6 +92,11 @@ namespace esx {
 				setDebugState(DebugState::Idle);
 				break;
 		}
+	}
+
+	void DisassemblerPanel::loadEXE(const std::filesystem::path& exePath)
+	{
+		mEXE = MakeShared<EXE>(exePath);
 	}
 
 	void DisassemblerPanel::onImGuiRender()
@@ -258,65 +266,66 @@ namespace esx {
 			ImGui::EndTabBar();
 		}
 
+		if (ImGui::Button(ICON_FA_PLUS)) {
+			mBreakpoints.emplace(mBreakpoints.begin());
+		}
+
 		sizeY = ImGui::GetContentRegionAvail().y;
-		contentCellsWidth = availWidth - (oneCharSize * 11);
-		if (ImGui::BeginTable("Breakpoints Table", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders, ImVec2(0, sizeY))) {
-			ImGui::TableSetupColumn("Break", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHeaderLabel, oneCharSize * 3);
-			ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, contentCellsWidth);
-			ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHeaderLabel, oneCharSize * 3);
-			ImGui::TableHeadersRow();
+		contentCellsWidth = availWidth - (oneCharSize * 13);
+		if (ImGui::BeginChild("##childbr", ImVec2(0, sizeY))) {
+			if (ImGui::BeginTable("Breakpoints Table", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders, ImVec2(0, sizeY))) {
+				ImGui::TableSetupColumn("Break", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHeaderLabel, oneCharSize * 3);
+				ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, contentCellsWidth);
+				ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHeaderLabel, oneCharSize * 3);
+				ImGui::TableHeadersRow();
 
-			I64 indexToDelete = -1;
-			int i = 0;
-			static char addressBuffer[32];
-			for (auto& breakpoint : mBreakpoints) {
-				ImGui::TableNextRow();
+				I64 indexToDelete = -1;
+				int i = 0;
+				static char addressBuffer[32];
+				for (auto& breakpoint : mBreakpoints) {
+					ImGui::TableNextRow();
 
-				ImGui::TableNextColumn();
-				if (breakpoint.Enabled) {
-					if (ImGui::Button(ICON_FA_EYE)) breakpoint.Enabled = false;
-				} else {
-					if (ImGui::Button(ICON_FA_EYE_SLASH)) breakpoint.Enabled = true;
-				}
-
-				ImGui::TableNextColumn();
-				sprintf_s(addressBuffer, 32, "0x%08X", breakpoint.Address);
-				ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(1, 1, 1, 0));
-				ImGui::PushID(i);
-				if (ImGui::InputText("##goto", addressBuffer, IM_ARRAYSIZE(addressBuffer), ImGuiInputTextFlags_CharsHexadecimal))
-				{
-					U32 addr;
-					if (sscanf_s(addressBuffer, "0x%08X", &addr) == 1 || sscanf_s(addressBuffer, "%08X", &addr) == 1) {
-						breakpoint.Address = addr;
-						breakpoint.PhysAddress = R3000::toPhysicalAddress(breakpoint.Address);
+					ImGui::TableNextColumn();
+					if (breakpoint.Enabled) {
+						if (ImGui::Button(ICON_FA_EYE)) breakpoint.Enabled = false;
 					}
+					else {
+						if (ImGui::Button(ICON_FA_EYE_SLASH)) breakpoint.Enabled = true;
+					}
+
+					ImGui::TableNextColumn();
+					sprintf_s(addressBuffer, 32, "0x%08X", breakpoint.Address);
+					ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(1, 1, 1, 0));
+					ImGui::PushID(i);
+					if (ImGui::InputText("##goto", addressBuffer, IM_ARRAYSIZE(addressBuffer), ImGuiInputTextFlags_CharsHexadecimal))
+					{
+						U32 addr;
+						if (sscanf_s(addressBuffer, "0x%08X", &addr) == 1 || sscanf_s(addressBuffer, "%08X", &addr) == 1) {
+							breakpoint.Address = addr;
+							breakpoint.PhysAddress = R3000::toPhysicalAddress(breakpoint.Address);
+						}
+					}
+					ImGui::PopID();
+					ImGui::PopStyleColor(1);
+
+					ImGui::TableNextColumn();
+					ImGui::PushID(i);
+					if (ImGui::Button(ICON_FA_TRASH)) {
+						indexToDelete = i;
+					}
+					ImGui::PopID();
+
+					i++;
 				}
-				ImGui::PopID();
-				ImGui::PopStyleColor(1);
 
-				ImGui::TableNextColumn();
-				ImGui::PushID(i);
-				if (ImGui::Button(ICON_FA_TRASH)) {
-					indexToDelete = i;
+
+				if (indexToDelete != -1) {
+					mBreakpoints.erase(mBreakpoints.begin() + indexToDelete);
 				}
-				ImGui::PopID();
 
-				i++;
+				ImGui::EndTable();
 			}
-
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			ImGui::TableNextColumn();
-			ImGui::TableNextColumn();
-			if (ImGui::Button(ICON_FA_PLUS)) {
-				mBreakpoints.push_back(Breakpoint());
-			}
-
-			if (indexToDelete != -1) {
-				mBreakpoints.erase(mBreakpoints.begin() + indexToDelete);
-			}
-
-			ImGui::EndTable();
+			ImGui::EndChild();
 		}
 	}
 
@@ -338,6 +347,35 @@ namespace esx {
 				mInstructions.push_back(instruction);
 			}
 
+		}
+	}
+
+	void DisassemblerPanel::sideLoad()
+	{
+		SharedPtr<RAM> pRAM = mBus->getDevice<RAM>("RAM");
+		Sector headerSector = {};
+		mEXE->seek(0, 0, 0);
+		mEXE->readSector(&headerSector);
+
+		EXEHeader* pExeHeader = reinterpret_cast<EXEHeader*>(headerSector.UserData.data());
+
+		mInstance->mPC = pExeHeader->InitialPC;
+		mInstance->mNextPC = mInstance->mPC + 4;
+		if(pExeHeader->InitialGP != 0) mInstance->mRegisters[(U8)GPRRegister::gp] = pExeHeader->InitialGP;
+		if (pExeHeader->InitialSP_FP_Base != 0) {
+			mInstance->mRegisters[(U8)GPRRegister::sp] = pExeHeader->InitialSP_FP_Base + pExeHeader->InitialSP_FP_Offset;
+			mInstance->mRegisters[(U8)GPRRegister::fp] = pExeHeader->InitialSP_FP_Base + pExeHeader->InitialSP_FP_Offset;
+		}
+
+		U32 numSectors = pExeHeader->FileSize / 0x800;
+		U32 currentRAMAddress = R3000::toPhysicalAddress(pExeHeader->DestinationAddressInRAM);
+		for (I32 i = 0; i < numSectors; i++) {
+			Sector currentSector = {};
+			mEXE->readSector(&currentSector);
+
+			std::memcpy(&pRAM->mMemory[currentRAMAddress & (pRAM->mMemory.size() - 1)], currentSector.UserData.data(), currentSector.UserData.size());
+
+			currentRAMAddress += 0x800;
 		}
 	}
 

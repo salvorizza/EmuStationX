@@ -124,6 +124,8 @@ namespace esx {
 		U8 popData();
 
 		virtual void reset() override;
+
+		constexpr static U8 fromBCD(U8 bcd) { return ((bcd >> 4) & 0xF) * 10 + ((bcd >> 0) & 0xF); }
 	private:
 		void command(CommandType command, U32 responseNumber = 1);
 

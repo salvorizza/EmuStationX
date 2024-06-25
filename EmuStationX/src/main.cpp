@@ -7,6 +7,8 @@
 #include "UI/Panels/ConsolePanel.h"
 #include "UI/Panels/KernelTables.h"
 #include "UI/Panels/SPUStatusPanel.h"
+#include "UI/Panels/TTYPanel.h"
+#include "UI/Panels/FileDialogPanel.h"
 
 #include "UI/Graphics/BatchRenderer.h"
 #include "UI/Window/FontAwesome5.h"
@@ -120,8 +122,6 @@ public:
 
 		//mLogger->SetLogLevel(LogType::Error);
 
-		SharedPtr<CDRWIN> cdrwin = MakeShared<CDRWIN>("C:/Users/salvatore.rizza/Downloads/MediEvil (USA)/MediEvil (USA).cue");
-
 		mCPUStatusPanel = MakeShared<CPUStatusPanel>();
 		mDisassemblerPanel = MakeShared<DisassemblerPanel>();
 		mMemoryEditorPanel = MakeShared<MemoryEditorPanel>();
@@ -129,6 +129,11 @@ public:
 		mViewportPanel = MakeShared<ViewportPanel>();
 		mKernelTablesPanel = MakeShared<KernelTables>();
 		mSPUStatusPanel = MakeShared<SPUStatusPanel>();
+		mTTYPanel = MakeShared<TTYPanel>();
+		mFileDialogPanel = MakeShared<FileDialogPanel>();
+
+		mFileDialogPanel->setCurrentPath("commons/games");
+		mFileDialogPanel->setOnFileSelectedCallback(std::bind(&EmuStationXApp::onFileSelected, this, std::placeholders::_1));
 
 		root = MakeShared<Bus>(ESX_TEXT("Root"));
 		cpu = MakeShared<R3000>();
@@ -138,7 +143,7 @@ public:
 		interruptControl = MakeShared<InterruptControl>();
 		spu = MakeShared<SPU>();
 		pio = MakeShared<PIO>();
-		bios = MakeShared<Bios>(ESX_TEXT("scph1001.bin"));
+		bios = MakeShared<Bios>("commons/bios/scph1001.bin");
 		timer = MakeShared<Timer>();
 		dma = MakeShared<DMA>();
 		gpu = MakeShared<GPU>(mBatchRenderer);
@@ -203,16 +208,16 @@ public:
 		sio0->plugDevice(SerialPort::Port2, memoryCard2);
 		memoryCard2->setMaster(sio0);
 
-		cdrom->insertCD(cdrwin);
-
 		root->sortRanges();
 
 		mCPUStatusPanel->setInstance(cpu);
 		mDisassemblerPanel->setInstance(cpu);
 		mDisassemblerPanel->setGPU(gpu);
+		mDisassemblerPanel->setBus(root);
 		mMemoryEditorPanel->setInstance(root);
 		mKernelTablesPanel->setInstance(root);
 		mSPUStatusPanel->setInstance(spu);
+		mTTYPanel->setInstance(cpu);
 
 		mBatchRenderer->Begin();
 
@@ -233,6 +238,16 @@ public:
 		loopTimer.init();
 
 		mPlayedSamples = mPreRendered.size();
+	}
+
+	void onFileSelected(const std::filesystem::path& filePath) {
+		if (filePath.extension().string().find("exe") != std::string::npos) {
+			mDisassemblerPanel->loadEXE(filePath);
+		} else {
+			SharedPtr<CDRWIN> cdrwin = MakeShared<CDRWIN>(filePath);
+			cdrom->insertCD(cdrwin);
+		}
+		hardReset();
 	}
 
 	static void audioCallback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
@@ -286,9 +301,11 @@ public:
 		ma_device_uninit(&mAudioDevice);
 	}
 
-
 	virtual void onImGuiRender(const SharedPtr<ImGuiManager>& pManager, const SharedPtr<Window>& pWindow) override {
 		static bool p_open = true;
+
+		mFileDialogPanel->setIconForExtension(".*", pManager->LoadIconResource("commons/icons/file.png"), "FILE");
+		mFileDialogPanel->setFolderIcon(pManager->LoadIconResource("commons/icons/folder.png"));
 
 		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_MenuBar;
 		const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -357,6 +374,8 @@ public:
 		mViewportPanel->render(pManager);
 		mKernelTablesPanel->render(pManager);
 		mSPUStatusPanel->render(pManager);
+		mTTYPanel->render(pManager);
+		mFileDialogPanel->render(pManager);
 	}
 
 	void hardReset() {
@@ -410,6 +429,8 @@ private:
 	SharedPtr<ViewportPanel> mViewportPanel;
 	SharedPtr<KernelTables> mKernelTablesPanel;
 	SharedPtr<SPUStatusPanel> mSPUStatusPanel;
+	SharedPtr<TTYPanel> mTTYPanel;
+	SharedPtr<FileDialogPanel> mFileDialogPanel;
 	glm::mat4 mProjectionMatrix;
 
 	ma_device mAudioDevice;

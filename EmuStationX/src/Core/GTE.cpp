@@ -165,7 +165,78 @@ namespace esx {
 	}
 
 	void GTE::MVMVA() {
-		ESX_CORE_LOG_ERROR("GTE::MVMVA not implemented yet");
+		Array<I32, 3>* T = nullptr;
+		Array<I16, 3>* V = nullptr;
+		Array<I16, 9>* M = nullptr;
+		Array<I16, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
+		I64 MAC1, MAC2, MAC3;
+
+		switch (mCurrentCommand.MultiplyMatrix) {
+			case MultiplyMatrix::Rotation: {
+				M = &mRegisters.RT;
+				break;
+			}
+			case MultiplyMatrix::Light: {
+				M = &mRegisters.LLM;
+				break;
+			}
+			case MultiplyMatrix::Color: {
+				M = &mRegisters.LCM;
+				break;
+			}
+		}
+
+		switch (mCurrentCommand.MultiplyVector) {
+			case MultiplyVector::V0: {
+				V = &mRegisters.V0;
+				break;
+			}
+			case MultiplyVector::V1: {
+				V = &mRegisters.V1;
+				break;
+			}
+			case MultiplyVector::V2: {
+				V = &mRegisters.V2;
+				break;
+			}
+			case MultiplyVector::IR_Long: {
+				V = &IR;
+				break;
+			}
+		}
+
+		switch (mCurrentCommand.TranslationVector) {
+			case TranslationVector::TR: {
+				T = &mRegisters.TR;
+				break;
+			}
+			case TranslationVector::BK: {
+				T = &mRegisters.BK;
+				break;
+			}
+			case TranslationVector::FC_Bugged: {
+				T = &mRegisters.FC;
+				break;
+			}
+		}
+
+		if (mCurrentCommand.TranslationVector == TranslationVector::None) {
+			Multiply(*V, *M, MAC1, MAC2, MAC3);
+		} else {
+			Multiply(*T, *V, *M, MAC1, MAC2, MAC3);
+		}
+
+		MAC1 >>= (mCurrentCommand.ShiftFraction * 12);
+		MAC2 >>= (mCurrentCommand.ShiftFraction * 12);
+		MAC3 >>= (mCurrentCommand.ShiftFraction * 12);
+
+		setMAC(1, MAC1);
+		setMAC(2, MAC2);
+		setMAC(3, MAC3);
+
+		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::NCDS() {

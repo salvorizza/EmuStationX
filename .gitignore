@@ -399,3 +399,6 @@ FodyWeavers.xsd
 
 bin/
 bin-int/
+
+EmuStationX/commons/games/**
+EmuStationX/commons/bios/**

@@ -191,13 +191,13 @@ namespace esx {
 			}
 
 			case CommandType::Setloc: {
-				U8 minute = popParameter();
-				U8 second = popParameter();
-				U8 sector = popParameter();
+				U8 minuteBCD = popParameter();
+				U8 secondBCD = popParameter();
+				U8 sectorBCD = popParameter();
 
-				mSeekMinute = ((minute >> 4) & 0xF) * 10 + ((minute >> 0) & 0xF);
-				mSeekSecond = ((second >> 4) & 0xF) * 10 + ((second >> 0) & 0xF);
-				mSeekSector = ((sector >> 4) & 0xF) * 10 + ((sector >> 0) & 0xF);
+				mSeekMinute = fromBCD(minuteBCD);
+				mSeekSecond = fromBCD(secondBCD);
+				mSeekSector = fromBCD(sectorBCD);
 
 				mSetLocUnprocessed = ESX_TRUE;
 
@@ -212,13 +212,19 @@ namespace esx {
 					mCD->seek(mSeekMinute, mSeekSecond, mSeekSector);
 					mSetLocUnprocessed = ESX_FALSE;
 					mSectors = {};
+
+					mStat.Seek = ESX_TRUE;
+					response.Clear();
+					response.Push(getStatus());
+					mStat.Seek = ESX_FALSE;
 				}
+
+				mStat.Read = ESX_TRUE;
 
 				response.NumberOfResponses++;
 				if (response.Number > 1) {
 					Sector& sector = mSectors.emplace();
 					mCD->readSector(&sector);
-					mStat.Read = ESX_TRUE;
 					if (response.Number > 1) {
 						response.Code = INT1;
 					}
@@ -233,9 +239,7 @@ namespace esx {
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
 					if (mStat.Read) {
-						while (!mResponses.empty()) {
-							mResponses.pop();
-						}
+						mResponses = {};
 						mStat.Read = ESX_FALSE;
 					}
 				}
@@ -252,9 +256,7 @@ namespace esx {
 					setMode(0x20);
 
 					//Abort all commands
-					while (!mResponses.empty()) {
-						mResponses.pop();
-					}
+					mResponses = {};
 				}
 				break;
 			}
@@ -283,9 +285,7 @@ namespace esx {
 
 					mCD->seek(mSeekMinute, mSeekSecond, mSeekSector);
 					if (mStat.Read) {
-						while (!mResponses.empty()) {
-							mResponses.pop();
-						}
+						mResponses = {};
 						mStat.Read = ESX_FALSE;
 					}
 					mSectors = {};

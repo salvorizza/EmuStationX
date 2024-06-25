@@ -160,6 +160,7 @@
     <ClInclude Include="src\Core\Bios.h" />
     <ClInclude Include="src\Core\CD\CDRWIN.h" />
     <ClInclude Include="src\Core\CD\CompactDisk.h" />
+    <ClInclude Include="src\Core\CD\EXE.h" />
     <ClInclude Include="src\Core\CDROM.h" />
     <ClInclude Include="src\Core\Controller.h" />
     <ClInclude Include="src\Core\DMA.h" />
@@ -190,11 +191,13 @@
     <ClInclude Include="src\UI\Panels\CPUStatusPanel.h" />
     <ClInclude Include="src\UI\Panels\ConsolePanel.h" />
     <ClInclude Include="src\UI\Panels\DisassemblerPanel.h" />
+    <ClInclude Include="src\UI\Panels\FileDialogPanel.h" />
     <ClInclude Include="src\UI\Panels\KernelTables.h" />
     <ClInclude Include="src\UI\Panels\MemoryEditor.h" />
     <ClInclude Include="src\UI\Panels\MemoryEditorPanel.h" />
     <ClInclude Include="src\UI\Panels\Panel.h" />
     <ClInclude Include="src\UI\Panels\SPUStatusPanel.h" />
+    <ClInclude Include="src\UI\Panels\TTYPanel.h" />
     <ClInclude Include="src\UI\Panels\ViewportPanel.h" />
     <ClInclude Include="src\UI\Utils.h" />
     <ClInclude Include="src\UI\Window\FontAwesome5.h" />
@@ -207,6 +210,7 @@
     <ClCompile Include="src\Base\Bus.cpp" />
     <ClCompile Include="src\Core\Bios.cpp" />
     <ClCompile Include="src\Core\CD\CDRWIN.cpp" />
+    <ClCompile Include="src\Core\CD\EXE.cpp" />
     <ClCompile Include="src\Core\CDROM.cpp" />
     <ClCompile Include="src\Core\Controller.cpp" />
     <ClCompile Include="src\Core\DMA.cpp" />
@@ -234,10 +238,12 @@
     <ClCompile Include="src\UI\Panels\CPUStatusPanel.cpp" />
     <ClCompile Include="src\UI\Panels\ConsolePanel.cpp" />
     <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp" />
+    <ClCompile Include="src\UI\Panels\FileDialogPanel.cpp" />
     <ClCompile Include="src\UI\Panels\KernelTables.cpp" />
     <ClCompile Include="src\UI\Panels\MemoryEditorPanel.cpp" />
     <ClCompile Include="src\UI\Panels\Panel.cpp" />
     <ClCompile Include="src\UI\Panels\SPUStatusPanel.cpp" />
+    <ClCompile Include="src\UI\Panels\TTYPanel.cpp" />
     <ClCompile Include="src\UI\Panels\ViewportPanel.cpp" />
     <ClCompile Include="src\UI\Utils.cpp" />
     <ClCompile Include="src\UI\Window\ImGuiManager.cpp" />

@@ -3,6 +3,7 @@
 #include <UI/Panels/Panel.h>
 #include <Core/R3000.h>
 #include <Core/GPU.h>
+#include <Core/CD/EXE.h>
 
 #include <map>
 #include <vector>
@@ -27,6 +28,7 @@ namespace esx {
 
 		void setInstance(const SharedPtr<R3000>& pInstance) { mInstance = pInstance;}
 		void setGPU(const SharedPtr<GPU>& pGPU) { mGPU = pGPU; }
+		void setBus(const SharedPtr<Bus>& pBus) { mBus = pBus; }
 
 		bool breakFunction(U32 address);
 
@@ -38,6 +40,8 @@ namespace esx {
 		void onStepOver();
 
 		DebugState getDebugState() const { return mDebugState; }
+
+		void loadEXE(const std::filesystem::path& exePath);
 
 	protected:
 		virtual void onImGuiRender() override;
@@ -57,11 +61,15 @@ namespace esx {
 	private:
 		void disassemble(uint32_t startAddress, size_t size);
 
-
 		void setDebugState(DebugState debugState) { mPrevDebugState = mDebugState; mDebugState = debugState; }
+
+		void sideLoad();
 
 		SharedPtr<R3000> mInstance;
 		SharedPtr<GPU> mGPU;
+		SharedPtr<Bus> mBus;
+
+		SharedPtr<EXE> mEXE;
 
 		std::vector<Instruction> mInstructions;
 		std::vector<Breakpoint> mBreakpoints;
@@ -73,6 +81,8 @@ namespace esx {
 		U32 mNextPC;
 
 		static const size_t disassembleRange = 10;
+
+
 	};
 
 }

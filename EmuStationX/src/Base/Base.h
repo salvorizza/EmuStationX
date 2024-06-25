@@ -48,6 +48,8 @@ namespace esx {
 	typedef std::wstreambuf StreamBuffer;
 	typedef std::wstring String;
 	typedef std::wstring_view StringView;
+	typedef std::iwstringstream InputStringStream;
+	typedef std::wstringstream StringStream;
 	typedef wchar_t Char;
 	#define ESX_TEXT(x) L##x
 	#define ESX_CONSOLE_OUT std::wcout
@@ -61,6 +63,7 @@ namespace esx {
 	typedef std::string String;
 	typedef std::string_view StringView;
 	typedef std::istringstream InputStringStream;
+	typedef std::stringstream StringStream;
 	typedef char Char;
 	#define ESX_TEXT(x) x
 	#define ESX_CONSOLE_OUT std::cout

@@ -19,13 +19,13 @@ namespace esx {
 	#define CO_N(x) (((x) >> 26) & 0x3)
 	#define COP_FUNC(x) ((x) & 0x1F)
 
-	#define SIGNEXT8(x) (((x) & 0x80) ? (x) | 0xFFFFFF00 : (x))
-	#define SIGNEXT16(x) (((x) & 0x8000) ? (x) | 0xFFFF0000 : (x))
-	#define EXCEPTION_HANDLER_ADDRESS 0x80000080
-	#define BREAKPOINT_EXCEPTION_HANDLER_ADDRESS 0x80000040
+	constexpr U32 EXCEPTION_HANDLER_ADDRESS = 0x80000080;
+	constexpr U32 BREAKPOINT_EXCEPTION_HANDLER_ADDRESS = 0x80000040;
 	#define ADDRESS_UNALIGNED(x,type) (((x) & (sizeof(type) - 1)) != 0x0)
 	#define OVERFLOW_ADD32(a,b,s) (~(((a) & 0x80000000) ^ ((b) & 0x80000000)) & (((a) & 0x80000000) ^ ((s) & 0x80000000)))
 	#define OVERFLOW_SUB32(a,b,s) (((a) & 0x80000000) ^ ((b) & 0x80000000)) & (((a) & 0x80000000) ^ ((s) & 0x80000000))
+
+	#define ESX_CORE_BIOS_LOG_TRACE(x,...)
 
 
 	constexpr std::array<U32, 8> SEGS_MASKS = {
@@ -213,6 +213,7 @@ namespace esx {
 	public:
 		friend class CPUStatusPanel;
 		friend class DisassemblerPanel;
+		friend class TTYPanel;
 
 		R3000();
 		~R3000();
@@ -235,7 +236,7 @@ namespace esx {
 			}
 
 			U32 physicalAddress = toPhysicalAddress(address);
-			if (physicalAddress == 0x1D0328) {
+			if (physicalAddress == 0x1CED68) {
 				//ESX_CORE_LOG_TRACE("Load {:08x}", mCurrentInstruction.Address);
 			}
 			return mRootBus->load<T>(physicalAddress);
@@ -253,8 +254,8 @@ namespace esx {
 			}
 
 			U32 physicalAddress = toPhysicalAddress(address);
-			if (physicalAddress == 0x1cec48) {
-				//ESX_CORE_LOG_TRACE("Store {:08x} value {:08x}h", mCurrentInstruction.Address, value);
+			if (physicalAddress == 0x1CED68) {
+				ESX_CORE_LOG_TRACE("Store {:08x} value {:08x}h", mCurrentInstruction.Address, value);
 			}
 			mRootBus->store<T>(physicalAddress, value);
 		}
@@ -370,6 +371,8 @@ namespace esx {
 		Instruction mCurrentInstruction;
 
 		U32 getRegister(RegisterIndex index);
+
+		void BiosPutChar(char c);
 	private:
 		inline void addPendingLoad(RegisterIndex index, U32 value);
 		inline void resetPendingLoad();
@@ -388,6 +391,7 @@ namespace esx {
 		void iCacheStore(U32 address, U32 value);
 	private:
 		SharedPtr<Bus> mRootBus;
+		StringStream mTTY = {};
 
 		Array<U32, 32> mRegisters;
 		Array<U32, 64> mCP0Registers;
