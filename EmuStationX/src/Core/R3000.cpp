@@ -501,7 +501,7 @@ namespace esx {
 		U32 u = m & (0x3);
 		U32 r = (c & (0x00FFFFFF >> (u * 8))) | (aw << (24 - (u * 8)));
 
-		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
+		setRegister(mCurrentInstruction.RegisterTarget(), r);
 	}
 
 	void R3000::SWL()
@@ -548,7 +548,7 @@ namespace esx {
 		U32 u = m & 0x3;
 		U32 r = (c & (0xFFFFFF00 << ((0x3 - u) * 8))) | (aw >> (u * 8));
 
-		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
+		setRegister(mCurrentInstruction.RegisterTarget(), r);
 	}
 
 	void R3000::SWR()
@@ -1280,6 +1280,18 @@ namespace esx {
 		mTTY << c;
 	}
 
+	void R3000::BiosPuts(U32 src)
+	{
+		while (true) {
+			U8 c = load<U8>(src);
+			if (c == '\0') {
+				break;
+			}
+			BiosPutChar(c);
+			src++;
+		};
+	}
+
 	void R3000::setCP0Register(RegisterIndex index, U32 value)
 	{
 		mCP0Registers[index.Value] = value;
@@ -1377,7 +1389,7 @@ namespace esx {
 			case 0x3B: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - getchar()",callPC); break;
 			case 0x3C: BiosPutChar((char)mRegisters[4]); break; //ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - putchar('{}')",callPC,(char)mRegisters[4]); break;
 			case 0x3D: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - gets(dst)",callPC); break;
-			case 0x3E: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - puts(src)",callPC); break;
+			case 0x3E: BiosPuts(mRegisters[4]); break;// ESX_CORE_LOG_TRACE("0x{:08X} - puts(src)", callPC); break;
 			case 0x3F: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - printf(txt,param1,param2,etc.)",callPC); break;
 			case 0x40: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - SystemErrorUnresolvedException()",callPC); break;
 			case 0x41: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - LoadTest(filename,headerbuf)",callPC); break;
@@ -1562,7 +1574,7 @@ namespace esx {
 			case 0x3C: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - getchar()", callPC); break;
 			case 0x3D: BiosPutChar((char)mRegisters[4]); break; //ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - putchar('{}')",callPC,(char)mRegisters[4]); break;
 			case 0x3E: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - gets(dst)", callPC); break;
-			case 0x3F: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - puts(src)", callPC); break;
+			case 0x3F: BiosPuts(mRegisters[4]); break;// ESX_CORE_LOG_TRACE("0x{:08X} - puts(src)", callPC); break;
 			case 0x40: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - cd(name)", callPC); break;
 			case 0x41: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - format(devicename)", callPC); break;
 			case 0x42: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - firstfile2(filename,direntry)", callPC); break;

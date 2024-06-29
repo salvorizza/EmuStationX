@@ -17,7 +17,7 @@ namespace esx {
 	{
 		if (ImGui::BeginChild("Log")) {
 			ImGui::TextUnformatted(mInstance->mTTY.str().data());
-			ImGui::SetScrollHereY(1.0f);
+			//ImGui::SetScrollHereY(1.0f);
 			ImGui::EndChild();
 		}
 	}

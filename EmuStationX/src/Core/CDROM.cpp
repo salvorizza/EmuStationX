@@ -176,7 +176,7 @@ namespace esx {
 		Response response = {};
 		response.Push(getStatus());
 		response.Code = (responseNumber == 1) ? INT3 : ((responseNumber == 2) ? INT2 : INT1);
-		response.TargetCycle = clocks + 800;
+		response.TargetCycle = clocks + 0xc4e1;
 		response.CommandType = command;
 		response.Number = responseNumber;
 		response.NumberOfResponses = responseNumber;
@@ -201,7 +201,7 @@ namespace esx {
 
 				mSetLocUnprocessed = ESX_TRUE;
 
-				ESX_CORE_LOG_INFO("CDROM - Setloc {}:{}:{}", mSeekMinute, mSeekSecond, mSeekSector);
+				ESX_CORE_LOG_INFO("CDROM - Setloc {}:{}:{} - {:08x}h", mSeekMinute, mSeekSecond, mSeekSector, CompactDisk::calculateBinaryPosition(mSeekMinute, mSeekSecond - 2, mSeekSector));
 				break;
 			}
 
@@ -243,6 +243,9 @@ namespace esx {
 						mStat.Read = ESX_FALSE;
 					}
 				}
+				else {
+					//response.TargetCycle = clocks + (mMode.DoubleSpeed ? 0x10bd93 : 0x21181c);
+				}
 				break;
 			}
 
@@ -257,6 +260,8 @@ namespace esx {
 
 					//Abort all commands
 					mResponses = {};
+
+					response.TargetCycle = clocks + 0x13cce;
 				}
 				break;
 			}
@@ -337,9 +342,8 @@ namespace esx {
 					response.Push('C');
 					response.Push('E');
 					response.Push('A');
-				}
-				else {
-					response.TargetCycle = clocks + 20480;
+
+					response.TargetCycle = clocks + 0x4a00;
 				}
 				break;
 			}
@@ -415,19 +419,19 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 		if (requestRegister.WantData) {
-			if (mSectors.empty()) {
-				ESX_CORE_LOG_TRACE("Hello");
-			}
 			if (mMode.WholeSector) {
-				std::memcpy(mData.data(), &(mSectors.front().Header), sizeof(Sector) - 12);
-				mDataSize = sizeof(Sector) - 12;
+				std::memcpy(mData.data() + mDataSize, &(mSectors.front().Header), sizeof(Sector) - 12);
+				mDataSize += sizeof(Sector) - 12;
 			} else {
-				std::memcpy(mData.data(), &(mSectors.front().UserData), CD_SECTOR_DATA_SIZE);
-				mDataSize = CD_SECTOR_DATA_SIZE;
+				std::memcpy(mData.data() + mDataSize, &(mSectors.front().UserData), CD_SECTOR_DATA_SIZE);
+				mDataSize += CD_SECTOR_DATA_SIZE;
 			}
-			mDataReadPointer = 0;
+			//mDataReadPointer = 0;
 			mSectors.pop();
 			CDROM_REG0.DataFifoEmpty = ESX_FALSE;
+		} else {
+			mDataSize = 0;
+			mDataReadPointer = 0;
 		}
 	}
 
@@ -525,7 +529,7 @@ namespace esx {
 	{
 		CDROM_REG0 = {};
 		CDROM_REG1 = 0x00;
-		CDROM_REG2 = 0x00;
+		CDROM_REG2 = 0x1F;
 		CDROM_REG3 = 0x00;
 
 		mLeftCDOutToLeftSPUIn = 0;

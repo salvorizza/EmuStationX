@@ -117,7 +117,7 @@ namespace esx {
 		U8 TexturePageYBase2 = 0;
 		HorizontalResolution HorizontalResolution = HorizontalResolution::H256;
 		VerticalResolution VerticalResolution = VerticalResolution::V240;
-		VideoMode VideoMode = VideoMode::PAL;
+		VideoMode VideoMode = VideoMode::NTSC;
 		ColorDepth ColorDepth = ColorDepth::C15Bit;
 		BIT VerticalInterlace = ESX_FALSE;
 		BIT DisplayEnable = ESX_FALSE;

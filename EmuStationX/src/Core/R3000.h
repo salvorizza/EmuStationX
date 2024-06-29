@@ -254,7 +254,7 @@ namespace esx {
 			}
 
 			U32 physicalAddress = toPhysicalAddress(address);
-			if (physicalAddress == 0x1CED68) {
+			if (physicalAddress == 0x61378) {
 				ESX_CORE_LOG_TRACE("Store {:08x} value {:08x}h", mCurrentInstruction.Address, value);
 			}
 			mRootBus->store<T>(physicalAddress, value);
@@ -373,6 +373,8 @@ namespace esx {
 		U32 getRegister(RegisterIndex index);
 
 		void BiosPutChar(char c);
+		void BiosPuts(U32 src);
+
 	private:
 		inline void addPendingLoad(RegisterIndex index, U32 value);
 		inline void resetPendingLoad();
