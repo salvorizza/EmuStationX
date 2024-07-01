@@ -86,6 +86,9 @@ namespace esx {
 	using Queue = std::queue<T>;
 
 	template<typename T>
+	using Deque = std::deque<T>;
+
+	template<typename T>
 	using Vector = std::vector<T>;
 
 	template<typename T, size_t Size>

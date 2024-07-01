@@ -311,10 +311,10 @@ namespace esx {
 
 	void R3000::MULT()
 	{
-		I64 a = getRegister(mCurrentInstruction.RegisterSource());
-		I64 b = getRegister(mCurrentInstruction.RegisterTarget());
+		I64 a = static_cast<I64>(static_cast<I32>(getRegister(mCurrentInstruction.RegisterSource())));
+		I64 b = static_cast<I64>(static_cast<I32>(getRegister(mCurrentInstruction.RegisterTarget())));
 
-		I64 r = a * b;
+		U64 r = static_cast<U64>(a * b);
 
 		mHI = (r >> 32) & 0xFFFFFFFF;
 		mLO = r & 0xFFFFFFFF;

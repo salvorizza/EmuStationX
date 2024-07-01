@@ -3,6 +3,7 @@
 #include <UI/Panels/Panel.h>
 #include <Core/R3000.h>
 #include <Core/GPU.h>
+#include <Core/RAM.h>
 #include <Core/CD/EXE.h>
 
 #include <map>

@@ -114,6 +114,9 @@
     <ClInclude Include="src\Core\InterruptControl.h">
       <Filter>src\Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\MDEC.h">
+      <Filter>src\Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\MemoryCard.h">
       <Filter>src\Core</Filter>
     </ClInclude>
@@ -255,6 +258,9 @@
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\InterruptControl.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\MDEC.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\MemoryCard.cpp">

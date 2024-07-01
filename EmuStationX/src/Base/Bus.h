@@ -38,14 +38,14 @@ namespace esx {
 
 		virtual void writeLine(const StringView& busName, const StringView& lineName, BIT value) {}
 
-		virtual void store(const StringView& busName, U32 address, U32 value) { ESX_CORE_LOG_ERROR("Device {} does not implement store32", mName); }
-		virtual void load(const StringView& busName, U32 address, U32& output) { ESX_CORE_LOG_ERROR("Device {} does not implement load32", mName); }
+		virtual void store(const StringView& busName, U32 address, U32 value) { ESX_CORE_LOG_ERROR("Device {} does not implement store32 at address {:08x}h", mName, address); }
+		virtual void load(const StringView& busName, U32 address, U32& output) { ESX_CORE_LOG_ERROR("Device {} does not implement load32 at address {:08x}h", mName, address); }
 
-		virtual void store(const StringView& busName, U32 address, U16 value) { ESX_CORE_LOG_ERROR("Device {} does not implement store16", mName); }
-		virtual void load(const StringView& busName, U32 address, U16& output) { ESX_CORE_LOG_ERROR("Device {} does not implement load16", mName); }
+		virtual void store(const StringView& busName, U32 address, U16 value) { ESX_CORE_LOG_ERROR("Device {} does not implement store16 at address {:08x}h", mName, address); }
+		virtual void load(const StringView& busName, U32 address, U16& output) { ESX_CORE_LOG_ERROR("Device {} does not implement load16 at address {:08x}h", mName, address); }
 
-		virtual void store(const StringView& busName, U32 address, U8 value) { ESX_CORE_LOG_ERROR("Device {} does not implement store8", mName); }
-		virtual void load(const StringView& busName, U32 address, U8& output) { ESX_CORE_LOG_ERROR("Device {} does not implement load8", mName); }
+		virtual void store(const StringView& busName, U32 address, U8 value) { ESX_CORE_LOG_ERROR("Device {} does not implement store8 at address {:08x}h", mName, address); }
+		virtual void load(const StringView& busName, U32 address, U8& output) { ESX_CORE_LOG_ERROR("Device {} does not implement load8 at address {:08x}h", mName, address); }
 
 		virtual void reset() {}
 

@@ -33,6 +33,7 @@
 #include "Core/SIO.h"
 #include "Core/Controller.h"
 #include "Core/MemoryCard.h"
+#include "Core/MDEC.h"
 
 
 #ifdef ESX_PLATFORM_WINDOWS
@@ -68,10 +69,10 @@ public:
 	virtual void Log(LogType type, const StringView& message) override {
 		if ((I32)type < mLogLevel) return;
 
-		/*auto& items = mConsolePanel->getInternalConsole().System().Items();
+		auto& items = mConsolePanel->getInternalConsole().System().Items();
 		if (items.size() > 1000) {
 			items.erase(items.begin());
-		}*/
+		}
 
 		if (mConsolePanel) {
 			switch (type)
@@ -153,6 +154,7 @@ public:
 		controller = MakeShared<Controller>(ControllerType::DigitalPad);
 		memoryCard = MakeShared<MemoryCard>(0);
 		memoryCard2 = MakeShared<MemoryCard>(1);
+		mdec = MakeShared<MDEC>();
 
 		memoryCard->LoadFromFile("commons/memory_cards/0.mcr");
 		memoryCard2->LoadFromFile("commons/memory_cards/1.mcr");
@@ -198,6 +200,9 @@ public:
 
 		root->connectDevice(sio1);
 		sio1->connectToBus(root);
+
+		root->connectDevice(mdec);
+		mdec->connectToBus(root);
 
 		sio0->plugDevice(SerialPort::Port1, controller);
 		controller->setMaster(sio0);
@@ -417,6 +422,7 @@ private:
 	SharedPtr<SIO> sio1;
 	SharedPtr<Controller> controller;
 	SharedPtr<MemoryCard> memoryCard, memoryCard2;
+	SharedPtr<MDEC> mdec;
 	LoopTimer loopTimer;
 
 

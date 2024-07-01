@@ -1,13 +1,17 @@
 #include "DMA.h"
 
-#include "InterruptControl.h"
+#include "Core/InterruptControl.h"
+#include "Core/RAM.h"
+#include "Core/GPU.h"
+#include "Core/CDROM.h"
+#include "Core/MDEC.h"
 
 namespace esx {
 
 	DMA::DMA()
 		: BusDevice(ESX_TEXT("DMA"))
 	{
-		addRange(ESX_TEXT("Root"), 0x1F801080, BYTE(0x75), 0xFFFFFFFF);
+		addRange(ESX_TEXT("Root"), 0x1F801080, BYTE(0x7F), 0xFFFFFFFF);
 
 		reset();
 	}
@@ -43,10 +47,19 @@ namespace esx {
 	{
 		switch (address & (~0xF)) {
 			case 0x1F8010F0: {
-				if (address == 0x1F8010F0) {
-					setControlRegister(value);
-				} else {
-					setInterruptRegister(value);
+				switch (address) {
+					case 0x1F8010F0: {
+						setControlRegister(value);
+						break;
+					}
+					case 0x1F8010F4: {
+						setInterruptRegister(value);
+						break;
+					}
+					default: {
+						ESX_CORE_LOG_WARNING("DMA - Reading from address {:08x} not implemented yet", address);
+						break;
+					}
 				}
 				break;
 			}
@@ -80,11 +93,19 @@ namespace esx {
 
 		switch (address & (~0xF)) {
 			case 0x1F8010F0: {
-				if (address == 0x1F8010F0) {
-					output = getControlRegister();
-				}
-				else {
-					output = getInterruptRegister();
+				switch (address) {
+					case 0x1F8010F0: {
+						output = getControlRegister();
+						break;
+					}
+					case 0x1F8010F4: {
+						output = getInterruptRegister();
+						break;
+					}
+					default: {
+						ESX_CORE_LOG_WARNING("DMA - Reading from address {:08x} not implemented yet", address);
+						break;
+					}
 				}
 				break;
 			}
@@ -108,6 +129,28 @@ namespace esx {
 			}
 		}
 
+	}
+
+	void DMA::store(const StringView& busName, U32 address, U8 value)
+	{
+		U32 alignedAddress = address & ~0x3;
+		U8 align = address & 0x3;
+
+		U32 word = static_cast<U32>(value << (align * 8));
+
+		store(busName, alignedAddress, word);
+	}
+
+	void DMA::load(const StringView& busName, U32 address, U8& output)
+	{
+		U32 wordOutput = 0;
+
+		U32 alignedAddress = address & ~0x3;
+		U8 align = address & 0x3;
+
+		load(busName, alignedAddress, wordOutput);
+
+		output = static_cast<U8>((wordOutput >> (align * 8)) & 0xFF);
 	}
 
 	void DMA::reset()
@@ -220,19 +263,23 @@ namespace esx {
 
 	void DMA::setInterruptRegister(U32 value)
 	{
-		mInterruptRegister.Dummy = (value >> 0) & 0x1F;
-		mInterruptRegister.ForceIRQ = (value >> 15) & 0x1;
+		U8 IRQResetMask = ~((value >> 24) & 0x7F);
+
+		mInterruptRegister.IRQCompletionInterrupt = (value >> 0) & 0x7F;
+		mInterruptRegister.Unused = (value >> 7) & 0xFF;
+		mInterruptRegister.BusErrorFlag = (value >> 15) & 0x1;
 		mInterruptRegister.IRQEnable = (value >> 16) & 0x7F;
 		mInterruptRegister.IRQMasterEnable = (value >> 23) & 0x1;
-		mInterruptRegister.IRQFlags &= ~((value >> 24) & 0x7F);
+		mInterruptRegister.IRQFlags &= IRQResetMask;
 	}
 
 	U32 DMA::getInterruptRegister()
 	{
 		U32 result = 0;
 
-		result |= mInterruptRegister.Dummy << 0;
-		result |= mInterruptRegister.ForceIRQ << 15;
+		result |= mInterruptRegister.IRQCompletionInterrupt << 0;
+		result |= mInterruptRegister.Unused << 7;
+		result |= mInterruptRegister.BusErrorFlag << 15;
 		result |= mInterruptRegister.IRQEnable << 16;
 		result |= mInterruptRegister.IRQMasterEnable << 23;
 		result |= mInterruptRegister.IRQFlags << 24;
@@ -348,6 +395,7 @@ namespace esx {
 		SharedPtr<RAM> ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
 		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
 		SharedPtr<CDROM> cdrom = bus->getDevice<CDROM>(ESX_TEXT("CDROM"));
+		SharedPtr<MDEC> mdec = bus->getDevice<MDEC>(ESX_TEXT("MDEC"));
 
 		U32 currentAddress = channel.TransferStatus.BlockCurrentAddress & 0x1FFFFC;
 
@@ -356,6 +404,11 @@ namespace esx {
 				U32 valueToWrite = 0;
 
 				switch (channel.Port) {
+					case Port::MDECout: {
+						valueToWrite = mdec->channelOut();
+						break;
+					}
+
 					case Port::OTC: {
 						if (channel.TransferStatus.BlockRemainingSize == 1) {
 							valueToWrite = 0xFFFFFF;
@@ -395,6 +448,10 @@ namespace esx {
 				ram->load(ESX_TEXT("Root"), currentAddress, value);
 
 				switch (channel.Port) {
+					case Port::MDECin: {
+						mdec->channelIn(value);
+						break;
+					}
 					case Port::GPU: {
 						gpu->gp0(value);
 						break;

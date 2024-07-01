@@ -3,10 +3,6 @@
 #include "Base/Base.h"
 #include "Base/Bus.h"
 
-#include "Core/RAM.h"
-#include "Core/GPU.h"
-#include "Core/CDROM.h"
-
 namespace esx {
 
 	enum class Port : U8 {
@@ -80,14 +76,15 @@ namespace esx {
 	};
 
 	struct InterruptRegister {
-		U8 Dummy = 0;
-		BIT ForceIRQ = ESX_FALSE;
+		U8 IRQCompletionInterrupt = 0;
+		U8 Unused = 0;
+		BIT BusErrorFlag = ESX_FALSE;
 		U8 IRQEnable = 0;
 		BIT IRQMasterEnable = ESX_FALSE;
 		U8 IRQFlags = 0;
 
 		BIT IRQMasterFlag() {
-			return (ForceIRQ || (IRQMasterEnable && ((IRQEnable & IRQFlags) > 0))) ? ESX_TRUE : ESX_FALSE;
+			return (BusErrorFlag || (IRQMasterEnable && ((IRQEnable & IRQFlags) > 0))) ? ESX_TRUE : ESX_FALSE;
 		}
 	};
 
@@ -100,6 +97,9 @@ namespace esx {
 		
 		virtual void store(const StringView& busName, U32 address, U32 value) override;
 		virtual void load(const StringView& busName, U32 address, U32& output) override;
+
+		virtual void store(const StringView& busName, U32 address, U8 value) override;
+		virtual void load(const StringView& busName, U32 address, U8& output) override;
 
 		inline BIT isRunning() const { return mRunningDMAs != 0; }
 

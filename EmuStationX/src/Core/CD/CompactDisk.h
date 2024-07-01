@@ -9,11 +9,12 @@ namespace esx {
 
 	struct Sector {
 		Array<U8, 12> SyncBytes;
-		Array<U8, 4> Header;
+		Array<U8, 3> Header;
+		U8 Mode;
 		Array<U8, 8> Subheader;
 		Array<U8, CD_SECTOR_DATA_SIZE> UserData;
-		Array<U8, 276> ECC;
 		Array<U8, 4> EDC;
+		Array<U8, 276> ECC;
 	};
 
 	constexpr U32 CD_SECTOR_SIZE = sizeof(Sector);

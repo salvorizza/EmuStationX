@@ -171,7 +171,8 @@ namespace esx {
 
 	void CDROM::command(CommandType command, U32 responseNumber)
 	{
-		U64 clocks = getBus("Root")->getDevice<R3000>("R3000")->getClocks();
+		auto cpu = getBus("Root")->getDevice<R3000>("R3000");
+		U64 clocks = cpu->getClocks();
 
 		Response response = {};
 		response.Push(getStatus());
@@ -201,12 +202,18 @@ namespace esx {
 
 				mSetLocUnprocessed = ESX_TRUE;
 
-				ESX_CORE_LOG_INFO("CDROM - Setloc {}:{}:{} - {:08x}h", mSeekMinute, mSeekSecond, mSeekSector, CompactDisk::calculateBinaryPosition(mSeekMinute, mSeekSecond - 2, mSeekSector));
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Setloc {:02d}:{:02d}:{:02d} - {:08x}h", cpu->mCurrentInstruction.Address, mSeekMinute, mSeekSecond, mSeekSector, CompactDisk::calculateBinaryPosition(mSeekMinute, mSeekSecond - 2, mSeekSector));
 				break;
 			}
-
+			
+			case CommandType::ReadS:
 			case CommandType::ReadN: {
-				ESX_CORE_LOG_INFO("CDROM - ReadN {}", response.Number);
+
+				if (command == CommandType::ReadS) {
+					ESX_CORE_LOG_INFO("{:08x}h - CDROM - ReadS {}", cpu->mCurrentInstruction.Address, response.Number);
+				} else if (command == CommandType::ReadN) {
+					ESX_CORE_LOG_INFO("{:08x}h - CDROM - ReadN {}", cpu->mCurrentInstruction.Address, response.Number);
+				}
 
 				if (mSetLocUnprocessed) {
 					mCD->seek(mSeekMinute, mSeekSecond, mSeekSector);
@@ -223,7 +230,7 @@ namespace esx {
 
 				response.NumberOfResponses++;
 				if (response.Number > 1) {
-					Sector& sector = mSectors.emplace();
+					Sector& sector = mSectors.emplace_back();
 					mCD->readSector(&sector);
 					if (response.Number > 1) {
 						response.Code = INT1;
@@ -234,7 +241,7 @@ namespace esx {
 			}
 
 			case CommandType::Pause: {
-				ESX_CORE_LOG_INFO("CDROM - Pause {}", response.Number);
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Pause {}", cpu->mCurrentInstruction.Address, response.Number);
 
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
@@ -250,7 +257,7 @@ namespace esx {
 			}
 
 			case CommandType::Init: {
-				ESX_CORE_LOG_INFO("CDROM - Init {}", response.Number);
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Init {}", cpu->mCurrentInstruction.Address, response.Number);
 
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
@@ -266,20 +273,25 @@ namespace esx {
 				break;
 			}
 
+			case CommandType::Mute: {
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Mute", cpu->mCurrentInstruction.Address);
+				break;
+			}
+
 			case CommandType::Demute: {
-				ESX_CORE_LOG_INFO("CDROM - Demute");
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Demute", cpu->mCurrentInstruction.Address);
 				break;
 			}
 
 			case CommandType::Setmode: {
 				U8 parameter = popParameter();
-				ESX_CORE_LOG_INFO("CDROM - Setmode {:02X}h", parameter);
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Setmode {:02X}h", cpu->mCurrentInstruction.Address, parameter);
 				setMode(parameter);
 				break;
 			}
 
 			case CommandType::SeekL: {
-				ESX_CORE_LOG_INFO("CDROM - SeekL {}", response.Number);
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - SeekL {}", cpu->mCurrentInstruction.Address, response.Number);
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
 					mStat.Seek = ESX_TRUE;
@@ -301,7 +313,7 @@ namespace esx {
 
 			case CommandType::Test: {
 				U8 parameter = popParameter();
-				ESX_CORE_LOG_INFO("CDROM - Test {:02X}h", parameter);
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Test {:02X}h", cpu->mCurrentInstruction.Address, parameter);
 
 				switch (parameter) {
 					case 0x00: {
@@ -319,7 +331,7 @@ namespace esx {
 					}
 
 					default: {
-						ESX_CORE_LOG_ERROR("CDROM - Test {:02X}h not handled yet", parameter);
+						ESX_CORE_LOG_ERROR("{:08x}h - CDROM - Test {:02X}h not handled yet", cpu->mCurrentInstruction.Address, parameter);
 						break;
 					}
 				}
@@ -328,7 +340,7 @@ namespace esx {
 			}
 
 			case CommandType::GetID: {
-				ESX_CORE_LOG_INFO("CDROM - GetID {}", response.Number);
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetID {}", cpu->mCurrentInstruction.Address, response.Number);
 
 				response.NumberOfResponses = 2;
 				if (responseNumber == 2) {
@@ -349,7 +361,7 @@ namespace esx {
 			}
 
 			case CommandType::ReadTOC: {
-				ESX_CORE_LOG_INFO("CDROM - ReadTOC {}", response.Number);
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - ReadTOC {}", cpu->mCurrentInstruction.Address, response.Number);
 
 				response.NumberOfResponses = 2;
 				if (responseNumber == 2) {
@@ -365,7 +377,7 @@ namespace esx {
 			}
 
 			default: {
-				ESX_CORE_LOG_ERROR("CDROM - Unsupported command {:02X}h", (U8)command);
+				ESX_CORE_LOG_ERROR("{:08x}h - CDROM - Unsupported command {:02X}h", cpu->mCurrentInstruction.Address, (U8)command);
 				break;
 			}
 		}
@@ -419,25 +431,26 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 		if (requestRegister.WantData) {
-			if (mMode.WholeSector) {
-				std::memcpy(mData.data() + mDataSize, &(mSectors.front().Header), sizeof(Sector) - 12);
-				mDataSize += sizeof(Sector) - 12;
-			} else {
-				std::memcpy(mData.data() + mDataSize, &(mSectors.front().UserData), CD_SECTOR_DATA_SIZE);
-				mDataSize += CD_SECTOR_DATA_SIZE;
+			U8* sector = reinterpret_cast<U8*>(mMode.WholeSector ? ((void*)&(mSectors.front().Header)) : ((void*)&(mSectors.front().UserData)));
+			U32 dataToCopy = mMode.WholeSector ? (sizeof(Sector) - sizeof(Sector::SyncBytes)) : CD_SECTOR_DATA_SIZE;
+
+			for (I32 i = 0; i < dataToCopy; i++) {
+				mData.push_back(sector[i]);
 			}
-			//mDataReadPointer = 0;
-			mSectors.pop();
+
+			mSectors.pop_front();
 			CDROM_REG0.DataFifoEmpty = ESX_FALSE;
 		} else {
-			mDataSize = 0;
-			mDataReadPointer = 0;
+			mData.clear();
 		}
 	}
 
 	void CDROM::setInterruptEnableRegister(U8& REG, U8 value)
 	{
 		REG = value & 0x1F;
+		if ((CDROM_REG3 & CDROM_REG2) == CDROM_REG3) {
+			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
+		}
 	}
 
 	U8 CDROM::getInterruptEnableRegister(U8 REG)
@@ -516,11 +529,12 @@ namespace esx {
 	{
 		U8 value = 0;
 
-		if (mDataReadPointer == mDataSize - 1) {
+		value = mData.front();
+		mData.pop_front();
+
+		if (mData.size() == 0) {
 			CDROM_REG0.DataFifoEmpty = ESX_TRUE;
 		}
-
-		value = mData[mDataReadPointer++];
 
 		return value;
 	}
@@ -529,7 +543,7 @@ namespace esx {
 	{
 		CDROM_REG0 = {};
 		CDROM_REG1 = 0x00;
-		CDROM_REG2 = 0x1F;
+		CDROM_REG2 = 0x00;
 		CDROM_REG3 = 0x00;
 
 		mLeftCDOutToLeftSPUIn = 0;
@@ -543,8 +557,6 @@ namespace esx {
 		mResponseSize = 0x00; 
 		mResponseReadPointer = 0x00;
 
-		mDataSize = 0x00; 
-		mDataReadPointer = 0x00;
 		mSectors = {};
 
 		mStat = {};

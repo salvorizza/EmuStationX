@@ -52,6 +52,19 @@ namespace esx {
 	{
 		mStatusRegister = {};
 		mControlRegister = {};
+		mCurrentCommand = MDECCommand::None;
+		mDataIn.clear();
+		mDataOut.clear();
+	}
+
+	void MDEC::channelIn(U32 word)
+	{
+		setCommandOrParameters(word);
+	}
+
+	U32 MDEC::channelOut()
+	{
+		return 0;
 	}
 
 	U32 MDEC::getStatusRegister()
@@ -95,16 +108,105 @@ namespace esx {
 		if (mControlRegister.Reset) {
 			ESX_CORE_LOG_TRACE("TODO: MDEC Abort commands");
 			setStatusRegister(0x80040000);
+			mDataIn.clear();
+			mDataOut.clear();
 		}
 	}
 
 	U32 MDEC::getDataOrResponse()
 	{
+		ESX_CORE_LOG_ERROR("TODO: MDEC Data");
+
 		return U32();
 	}
 
 	void MDEC::setCommandOrParameters(U32 value)
 	{
+		if (mStatusRegister.NumberOfParameterWords == 0xFFFF || mCurrentCommand == MDECCommand::NoFunction || mCurrentCommand == MDECCommand::None) {
+			U8 command = (value >> 29) & 0x7;
+
+			mStatusRegister.DataOutputBit15Set = (value >> 25) & 0x1;
+			mStatusRegister.DataOutputSigned = (value >> 26) & 0x1;
+			mStatusRegister.DataOutputDepth = (MDECOutputDepth)((value >> 27) & 0x3);
+
+			mCurrentCommand = (command >= 1 && command <= 3) ? (MDECCommand)command : MDECCommand::NoFunction;
+			switch (mCurrentCommand) {
+				case MDECCommand::DecodeMacroblock: {
+					mStatusRegister.NumberOfParameterWords = (value & 0xFFFF) - 1;
+					break;
+				}
+
+				case MDECCommand::SetQuantTable: {
+					BIT Color = (value >> 0) & 0x1;
+					mStatusRegister.NumberOfParameterWords = (16 + (Color ? 16 : 0)) - 1;
+					break;
+				}
+
+				case MDECCommand::SetScaleTable: {
+					mStatusRegister.NumberOfParameterWords = 32 - 1;
+					break;
+				}
+
+				case MDECCommand::NoFunction: {
+					mStatusRegister.NumberOfParameterWords = value & 0xFFFF;
+					mStatusRegister.DataInFIFOFull = ESX_TRUE;
+					break;
+				}
+			}
+
+			mStatusRegister.DataInFIFOFull = ESX_FALSE;
+			mStatusRegister.CommandBusy = ESX_TRUE;
+
+			ESX_CORE_LOG_TRACE("MDEC - Command {} {}", command, mStatusRegister.NumberOfParameterWords);
+		} else {
+			//ESX_CORE_LOG_TRACE("MDEC - Parameter {:08x}h", value);
+			mDataIn.push_back(value);
+
+			mStatusRegister.NumberOfParameterWords--;
+			if (mStatusRegister.NumberOfParameterWords == 0xFFFF) {
+				mStatusRegister.DataInFIFOFull = ESX_TRUE;
+				
+				switch (mCurrentCommand) {
+					case MDECCommand::DecodeMacroblock: {
+						ESX_CORE_LOG_ERROR("MDEC::DecodeMacroblock not implemented yet");
+						break;
+					}
+
+					case MDECCommand::SetQuantTable: {
+						setQuantTable();
+						break;
+					}
+
+					case MDECCommand::SetScaleTable: {
+						setScaleTable();
+						break;
+					}
+				}
+
+				mStatusRegister.CommandBusy = ESX_FALSE;
+			}
+		}
+
+	}
+
+	void MDEC::setQuantTable()
+	{
+		for (I32 i = 0; i < 32; i++) {
+			mQuantTableLuminance[i] = reinterpret_cast<U8*>(mDataIn.data())[i];
+		}
+
+		if (mDataIn.size() > 16) {
+			for (I32 i = 0; i < 32; i++) {
+				mQuantTableColor[i] = reinterpret_cast<U8*>(mDataIn.data())[32 + i];
+			}
+		}
+	}
+
+	void MDEC::setScaleTable()
+	{
+		for (I32 i = 0; i < 64; i++) {
+			mScaleTable[i] = reinterpret_cast<I16*>(mDataIn.data())[i];
+		}
 	}
 
 }

@@ -379,11 +379,63 @@ namespace esx {
 	}
 
 	void GTE::GPF() {
-		ESX_CORE_LOG_ERROR("GTE::GPF not implemented yet");
+		I64 MAC1, MAC2, MAC3;
+
+		/*[MAC1,MAC2,MAC3] = [0,0,0]*/
+		MAC1 = 0;
+		MAC2 = 0;
+		MAC3 = 0;
+
+		setMAC(1, MAC1);
+		setMAC(2, MAC2);
+		setMAC(3, MAC3);
+
+		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3]) SAR (sf*12)*/
+		MAC1 = ((mRegisters.IR1 * mRegisters.IR0) + mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
+		MAC2 = ((mRegisters.IR2 * mRegisters.IR0) + mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
+		MAC3 = ((mRegisters.IR3 * mRegisters.IR0) + mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
+
+		setMAC(1, MAC1);
+		setMAC(2, MAC2);
+		setMAC(3, MAC3);
+
+		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
+		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
+		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::GPL() {
-		ESX_CORE_LOG_ERROR("GTE::GPL not implemented yet");
+		I64 MAC1, MAC2, MAC3;
+
+		/*[MAC1,MAC2,MAC3] = [MAC1,MAC2,MAC3] SHL (sf*12)*/
+		MAC1 = (I64)mRegisters.MACV[0] << (mCurrentCommand.ShiftFraction * 12);
+		MAC2 = (I64)mRegisters.MACV[1] << (mCurrentCommand.ShiftFraction * 12);
+		MAC3 = (I64)mRegisters.MACV[2] << (mCurrentCommand.ShiftFraction * 12);
+
+		setMAC(1, MAC1);
+		setMAC(2, MAC2);
+		setMAC(3, MAC3);
+
+		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3]) SAR (sf*12)*/
+		MAC1 = ((mRegisters.IR1 * mRegisters.IR0) + mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
+		MAC2 = ((mRegisters.IR2 * mRegisters.IR0) + mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
+		MAC3 = ((mRegisters.IR3 * mRegisters.IR0) + mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
+
+		setMAC(1, MAC1);
+		setMAC(2, MAC2);
+		setMAC(3, MAC3);
+
+		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
+		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
+		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::NCCT() {
