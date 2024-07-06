@@ -17,7 +17,9 @@ namespace esx {
 		~Bios();
 
 		virtual void load(const StringView& busName, U32 address, U32& output) override;
+		virtual void load(const StringView& busName, U32 address, U16& output) override;
 		virtual void load(const StringView& busName, U32 address, U8& output) override;
+
 
 		virtual void reset();
 

@@ -37,6 +37,7 @@ namespace esx {
 		void getPixels(void** pixels);
 		void updatePixels(void* pixels);
 		void setPixel(U32 x,U32 y, const void* pixelData);
+		void setPixels(U32 x, U32 y, U32 width, U32 height, const void* pixelData);
 		void getPixel(U32 x, U32 y, void** pixelData);
 
 		U32 getRendererID() const { return mRendererID; }

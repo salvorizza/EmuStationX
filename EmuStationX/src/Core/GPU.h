@@ -122,9 +122,9 @@ namespace esx {
 		BIT VerticalInterlace = ESX_FALSE;
 		BIT DisplayEnable = ESX_FALSE;
 		BIT InterruptRequest = ESX_FALSE;
-		BIT ReadyCmdWord = ESX_FALSE;
-		BIT ReadySendVRAMToCPU = ESX_FALSE;
-		BIT ReadyToReceiveDMABlock = ESX_FALSE;
+		BIT ReadyCmdWord = ESX_TRUE;
+		BIT ReadySendVRAMToCPU = ESX_TRUE;
+		BIT ReadyToReceiveDMABlock = ESX_TRUE;
 		DMADirection DMADirection = DMADirection::Off;
 		BIT DrawOddLines = ESX_FALSE;
 	};
@@ -257,6 +257,8 @@ namespace esx {
 		U16 mMemoryTransferDestinationCoordsY = 0x0000;
 		U16 mMemoryTransferWidth = 0x0000;
 		U16 mMemoryTransferHeight = 0x0000;
+		U16 mMemoryTransferVRAMToCPU = 0x0000;
+		Vector<VRAMColor> mPixelsToTransfer = {};
 		U32 mNumWordsToTransfer = 0x00000000;
 		U32 mCurrentWordNumber = 0x00000000;
 

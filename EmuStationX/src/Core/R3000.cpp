@@ -161,7 +161,21 @@ namespace esx {
 		&R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA, &R3000::NA
 	};
 
-	static const Array<ExecuteFunction, 4> branchOpCodeDecode = {
+	static const Array<ExecuteFunction, 18> branchOpCodeDecode = {
+		&R3000::BLTZ,
+		&R3000::BGEZ,
+		&R3000::BLTZ,
+		&R3000::BGEZ,
+		&R3000::BLTZ,
+		&R3000::BGEZ,
+		&R3000::BLTZ,
+		&R3000::BGEZ,
+		&R3000::BLTZ,
+		&R3000::BGEZ,
+		&R3000::BLTZ,
+		&R3000::BGEZ,
+		&R3000::BLTZ,
+		&R3000::BGEZ,
 		&R3000::BLTZ,
 		&R3000::BGEZ,
 		&R3000::BLTZAL,
@@ -391,6 +405,8 @@ namespace esx {
 
 	void R3000::LW()
 	{
+		BIT exception = ESX_FALSE;
+
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
@@ -402,13 +418,18 @@ namespace esx {
 			return;
 		}
 
-		U32 r = load<U32>(m);
+		U32 r = load<U32>(m, exception);
+		if (exception) {
+			r = getRegister(mCurrentInstruction.RegisterTarget());
+		}
 
 		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
 	}
 
 	void R3000::LH()
 	{
+		BIT exception = ESX_FALSE;
+
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
@@ -420,14 +441,20 @@ namespace esx {
 			return;
 		}
 
-		U32 r = load<U16>(m);
-		r = static_cast<U32>(static_cast<I16>(static_cast<U16>(r)));
+		U32 r = load<U16>(m, exception);
+		if (exception) {
+			r = getRegister(mCurrentInstruction.RegisterTarget());
+		} else {
+			r = static_cast<U32>(static_cast<I32>(static_cast<I16>(static_cast<U16>(r))));
+		}
 
 		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
 	}
 
 	void R3000::LHU()
 	{
+		BIT exception = ESX_FALSE;
+
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
@@ -439,13 +466,18 @@ namespace esx {
 			return;
 		}
 
-		U32 r = load<U16>(m);
+		U32 r = load<U16>(m, exception);
+		if (exception) {
+			r = getRegister(mCurrentInstruction.RegisterTarget());
+		}
 
 		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
 	}
 
 	void R3000::LB()
 	{
+		BIT exception = ESX_FALSE;
+
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
@@ -457,14 +489,16 @@ namespace esx {
 			return;
 		}
 
-		U32 r = load<U8>(m);
-		r = static_cast<U32>(static_cast<I8>(static_cast<U8>(r)));
+		U32 r = load<U8>(m, exception);
+		r = static_cast<U32>(static_cast<I32>(static_cast<I8>(static_cast<U8>(r))));
 
 		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
 	}
 
 	void R3000::LBU()
 	{
+		BIT exception = ESX_FALSE;
+
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
@@ -476,13 +510,15 @@ namespace esx {
 			return;
 		}
 
-		U32 r = load<U8>(m);
+		U32 r = load<U8>(m, exception);
 
 		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
 	}
 
 	void R3000::LWL()
 	{
+		BIT exception = ESX_FALSE;
+
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
@@ -496,7 +532,7 @@ namespace esx {
 		}
 
 		U32 am = m & ~(0x3);
-		U32 aw = load<U32>(am);
+		U32 aw = load<U32>(am, exception);
 
 		U32 u = m & (0x3);
 		U32 r = (c & (0x00FFFFFF >> (u * 8))) | (aw << (24 - (u * 8)));
@@ -506,6 +542,8 @@ namespace esx {
 
 	void R3000::SWL()
 	{
+		BIT exception = ESX_FALSE;
+
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
@@ -519,7 +557,7 @@ namespace esx {
 		}
 
 		U32 am = m & ~(0x3);
-		U32 aw = load<U32>(am);
+		U32 aw = load<U32>(am, exception);
 
 		U32 u = (m & 0x3) * 8;
 		U32 mr = (aw & (0xFFFFFF00 << u)) | (c >> (24 - u));
@@ -530,6 +568,8 @@ namespace esx {
 
 	void R3000::LWR()
 	{
+		BIT exception = ESX_FALSE;
+
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
@@ -543,7 +583,7 @@ namespace esx {
 		}
 
 		U32 am = m & ~(0x3);
-		U32 aw = load<U32>(am);
+		U32 aw = load<U32>(am, exception);
 
 		U32 u = m & 0x3;
 		U32 r = (c & (0xFFFFFF00 << ((0x3 - u) * 8))) | (aw >> (u * 8));
@@ -553,6 +593,8 @@ namespace esx {
 
 	void R3000::SWR()
 	{
+		BIT exception = ESX_FALSE;
+
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
@@ -566,7 +608,7 @@ namespace esx {
 		}
 
 		U32 am = m & ~(0x3);
-		U32 aw = load<U32>(am);
+		U32 aw = load<U32>(am, exception);
 
 		U32 u = m & 0x3;
 		U32 mr = (aw & (0x00FFFFFF >> ((0x3 - u) * 8))) | (c << (u * 8));
@@ -805,6 +847,8 @@ namespace esx {
 
 	void R3000::BEQ()
 	{
+		//ESX_CORE_LOG_TRACE("BEQ {:08x}h", mCurrentInstruction.Address);
+
 		mBranch = ESX_TRUE;
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = getRegister(mCurrentInstruction.RegisterTarget());
@@ -819,6 +863,8 @@ namespace esx {
 
 	void R3000::BNE()
 	{
+		//ESX_CORE_LOG_TRACE("BNE {:08x}h", mCurrentInstruction.Address);
+
 		mBranch = ESX_TRUE;
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = getRegister(mCurrentInstruction.RegisterTarget());
@@ -846,10 +892,12 @@ namespace esx {
 
 	void R3000::BLTZAL()
 	{
+
+		ESX_CORE_LOG_TRACE("BLTZAL {:08x}h {} => {:08x}h", mCurrentInstruction.Address, mCurrentInstruction.RegisterSource().Value, getRegister(mCurrentInstruction.RegisterSource()));
+
 		mBranch = ESX_TRUE;
 		I32 a = getRegister(mCurrentInstruction.RegisterSource());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
-
 		if (a < 0) {
 			setRegister(GPRRegister::ra, mNextPC);
 			mNextPC += o;
@@ -1193,6 +1241,8 @@ namespace esx {
 
 	void R3000::LWC2()
 	{
+		BIT exception = ESX_FALSE;
+
 		U32 sr = getCP0Register(COP0Register::SR);
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
@@ -1204,7 +1254,7 @@ namespace esx {
 			return;
 		}
 
-		U32 r = load<U32>(m);
+		U32 r = load<U32>(m, exception);
 
 		mGTE.setRegister(mCurrentInstruction.RegisterTarget().Value, r);
 	}
@@ -1282,8 +1332,9 @@ namespace esx {
 
 	void R3000::BiosPuts(U32 src)
 	{
+		BIT exception = ESX_FALSE;
 		while (true) {
-			U8 c = load<U8>(src);
+			U8 c = load<U8>(src, exception);
 			if (c == '\0') {
 				break;
 			}

@@ -82,12 +82,21 @@ namespace esx {
 					mCurrentCommand = gp0EnvironmentCommands(instruction);
 					break;
 			}
+
+			if (mCurrentCommand.Function == &GPU::gp0DrawLinePrimitiveCommand || mCurrentCommand.Function == &GPU::gp0DrawPolygonPrimitiveCommand) {
+				mGPUStat.ReadyToReceiveDMABlock = ESX_FALSE;
+			}
+
+			mGPUStat.ReadyCmdWord = ESX_FALSE;
 			
 			mCommandBuffer.clear();
 		}
 
 		if (mCurrentCommand.RemainingParameters > 0) {
 			mCurrentCommand.RemainingParameters--;
+			if (mCurrentCommand.RemainingParameters == 0) {
+				mGPUStat.ReadyToReceiveDMABlock = ESX_FALSE;
+			}
 		}
 
 		switch (mMode) {
@@ -103,42 +112,16 @@ namespace esx {
 				break;
 			}
 
-			case GP0Mode::VRAMtoVRAM: {
-				U16 pixel = mRenderer->VRAMRead(mMemoryTransferSourceCoordsX + mMemoryTransferX, mMemoryTransferSourceCoordsY + mMemoryTransferY);
-				mRenderer->VRAMWrite(mMemoryTransferDestinationCoordsX + mMemoryTransferX, mMemoryTransferDestinationCoordsY + mMemoryTransferY, pixel);
-
-				mMemoryTransferX++;
-				if (mMemoryTransferX >= mMemoryTransferWidth) {
-					mMemoryTransferX = 0;
-					mMemoryTransferY++;
-				}
-
-				if (mCurrentCommand.IsComplete(instruction)) {
-					mCurrentCommand.Complete = ESX_TRUE;
-					mMode = GP0Mode::Command;
-				}
-				break;
-			}
-
 			case GP0Mode::CPUtoVRAM: {
 				U16 pixel1 = (instruction >> 16) & 0xFFFF;
 				U16 pixel2 = (instruction >> 0) & 0xFFFF;
-
-				mRenderer->VRAMWrite(mMemoryTransferDestinationCoordsX + mMemoryTransferX, mMemoryTransferDestinationCoordsY + mMemoryTransferY, pixel2);
-				mMemoryTransferX++;
-				if (mMemoryTransferX >= mMemoryTransferWidth) {
-					mMemoryTransferX = 0;
-					mMemoryTransferY++;
-				}
-
-				mRenderer->VRAMWrite(mMemoryTransferDestinationCoordsX + mMemoryTransferX, mMemoryTransferDestinationCoordsY + mMemoryTransferY, pixel1);
-				mMemoryTransferX++;
-				if (mMemoryTransferX >= mMemoryTransferWidth) {
-					mMemoryTransferX = 0;
-					mMemoryTransferY++;
-				}
+				
+				mPixelsToTransfer.emplace_back(IRenderer::fromU16(pixel2));
+				mPixelsToTransfer.emplace_back(IRenderer::fromU16(pixel1));
 
 				if (mCurrentCommand.IsComplete(instruction)) {
+					mRenderer->VRAMWriteFull(mMemoryTransferDestinationCoordsX, mMemoryTransferDestinationCoordsY, mMemoryTransferWidth, mMemoryTransferHeight, mPixelsToTransfer);
+
 					mMemoryTransferX = mMemoryTransferY = 0;
 
 					mCurrentCommand.Complete = ESX_TRUE;
@@ -156,6 +139,10 @@ namespace esx {
 			}
 		}
 		
+		if (mCurrentCommand.Complete) {
+			mGPUStat.ReadyToReceiveDMABlock = ESX_TRUE;
+			mGPUStat.ReadyCmdWord = ESX_TRUE;
+		}
 	}
 
 	void GPU::gp1(U32 instruction)
@@ -237,28 +224,19 @@ namespace esx {
 		U32 numHalfWords = mMemoryTransferWidth * mMemoryTransferHeight;
 		BIT isOdd = numHalfWords % 2;
 
-		U16 pixel2 = mRenderer->VRAMRead(mMemoryTransferSourceCoordsX + mMemoryTransferX, mMemoryTransferSourceCoordsY + mMemoryTransferY);
-		mMemoryTransferX++;
-		if (mMemoryTransferX >= mMemoryTransferWidth) {
-			mMemoryTransferX = 0;
-			mMemoryTransferY++;
+		if (mPixelsToTransfer.size() == 0 || mMemoryTransferVRAMToCPU >= numHalfWords) {
+			return 0;
 		}
 
-		U16 pixel1 = 0;
-		if(mMemoryTransferY == (mMemoryTransferHeight - 1) && mMemoryTransferX == (mMemoryTransferWidth - 1) && isOdd) {
-			pixel1 = 0;
-		} else {
-			pixel1 = mRenderer->VRAMRead(mMemoryTransferSourceCoordsX + mMemoryTransferX, mMemoryTransferSourceCoordsY + mMemoryTransferY);
-			mMemoryTransferX++;
-			if (mMemoryTransferX >= mMemoryTransferWidth) {
-				mMemoryTransferX = 0;
-				mMemoryTransferY++;
-			}
-		}
+		U16 pixel2 = IRenderer::toU16(mPixelsToTransfer[mMemoryTransferVRAMToCPU]);
+		mMemoryTransferVRAMToCPU++;
 
-		U32 packet = pixel1 << 16 | pixel2;
+		U16 pixel1 = (mMemoryTransferVRAMToCPU == (numHalfWords - 1) && isOdd) ? 0 : IRenderer::toU16(mPixelsToTransfer[mMemoryTransferVRAMToCPU]);
+		mMemoryTransferVRAMToCPU++;
 
-		if (mMemoryTransferX == 0 && mMemoryTransferY == mMemoryTransferHeight) {
+		U32 packet = (pixel1 << 16) | pixel2;
+
+		if (mMemoryTransferVRAMToCPU == numHalfWords) {
 			mGPUStat.ReadySendVRAMToCPU = ESX_FALSE;
 		}
 
@@ -345,6 +323,7 @@ namespace esx {
 
 		mMemoryTransferX = 0x0000;
 		mMemoryTransferY = 0x0000;
+		mMemoryTransferVRAMToCPU = 0x0000;
 		mMemoryTransferSourceCoordsX = 0x0000;
 		mMemoryTransferSourceCoordsY = 0x0000;
 		mMemoryTransferDestinationCoordsX = 0x0000;
@@ -353,6 +332,7 @@ namespace esx {
 		mMemoryTransferHeight = 0x0000;
 		mNumWordsToTransfer = 0x00000000;
 		mCurrentWordNumber = 0x00000000;
+		mPixelsToTransfer = {};
 
 		mFrames = 0;
 		mDotClocks = 0;
@@ -509,6 +489,7 @@ namespace esx {
 			vertices[i].vertex = unpackVertex(mCommandBuffer.pop());
 			vertices[i].color = gourad ? unpackColor(mCommandBuffer.pop()) : flatColor;
 			vertices[i].textured = textured;
+			vertices[i].dither = mGPUStat.DitherEnabled && !textured;
 		}
 
 		if (textured) {
@@ -519,6 +500,11 @@ namespace esx {
 
 			U16 cy = (clut >> 6) & 0x1FF;
 			U16 cx = (clut & 0x3F) * 16;
+
+			mGPUStat.TexturePageX = tx;
+			mGPUStat.TexturePageYBase1 = ty;
+			mGPUStat.SemiTransparency = semiTransparency;
+			mGPUStat.TexturePageColors = texturePageColors;
 
 
 			for (PolygonVertex& vertex : vertices) {
@@ -667,7 +653,6 @@ namespace esx {
 
 		mMemoryTransferWidth = (size >> 0) & 0xFFFF;
 		mMemoryTransferHeight = (size >> 16) & 0xFFFF;
-		mCurrentCommand.RemainingParameters = mMemoryTransferWidth * mMemoryTransferHeight;
 		mMemoryTransferDestinationCoordsX = (destinationCoords >> 0) & 0xFFFF;
 		mMemoryTransferDestinationCoordsY = (destinationCoords >> 16) & 0xFFFF;
 		mMemoryTransferSourceCoordsX = (sourceCoords >> 0) & 0xFFFF;
@@ -675,7 +660,12 @@ namespace esx {
 		mMemoryTransferX = 0;
 		mMemoryTransferY = 0;
 
-		mMode = GP0Mode::VRAMtoVRAM;
+		mPixelsToTransfer.reserve(mMemoryTransferWidth * mMemoryTransferHeight);
+		mPixelsToTransfer.resize(0);
+		mPixelsToTransfer.clear();
+
+		mRenderer->VRAMReadFull(mMemoryTransferSourceCoordsX, mMemoryTransferSourceCoordsY, mMemoryTransferWidth, mMemoryTransferHeight, mPixelsToTransfer);
+		mRenderer->VRAMWriteFull(mMemoryTransferDestinationCoordsX, mMemoryTransferDestinationCoordsY, mMemoryTransferWidth, mMemoryTransferHeight, mPixelsToTransfer);
 	}
 
 	Command GPU::gp0CPUtoVRAMBlitCommands(U32 instruction) const
@@ -704,6 +694,10 @@ namespace esx {
 		mMemoryTransferX = 0;
 		mMemoryTransferY = 0;
 
+		mPixelsToTransfer.reserve(mMemoryTransferWidth * mMemoryTransferHeight);
+		mPixelsToTransfer.resize(0);
+		mPixelsToTransfer.clear();
+
 		mMode = GP0Mode::CPUtoVRAM;
 	}
 
@@ -727,7 +721,13 @@ namespace esx {
 		mMemoryTransferSourceCoordsY = (sourceCoord >> 16) & 0xFFFF;
 		mMemoryTransferX = 0;
 		mMemoryTransferY = 0;
+		mMemoryTransferVRAMToCPU = 0;
 
+		mPixelsToTransfer.reserve(mMemoryTransferWidth * mMemoryTransferHeight);
+		mPixelsToTransfer.resize(0);
+		mPixelsToTransfer.clear();
+
+		mRenderer->VRAMReadFull(mMemoryTransferSourceCoordsX, mMemoryTransferSourceCoordsY, mMemoryTransferWidth, mMemoryTransferHeight, mPixelsToTransfer);
 
 		mGPUStat.ReadySendVRAMToCPU = ESX_TRUE;
 
@@ -978,11 +978,6 @@ namespace esx {
 				dataRequest = mGPUStat.ReadySendVRAMToCPU;
 				break;
 		}
-
-		//TODO: Da togliere
-		mGPUStat.ReadyCmdWord = ESX_TRUE;
-		mGPUStat.ReadySendVRAMToCPU = ESX_TRUE;
-		mGPUStat.ReadyToReceiveDMABlock = ESX_TRUE;
 
 		result |= (mGPUStat.TexturePageX & 0x0F) << 0;
 		result |= (mGPUStat.TexturePageYBase1 & 0x1) << 4;

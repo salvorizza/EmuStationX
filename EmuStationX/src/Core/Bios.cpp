@@ -26,6 +26,11 @@ namespace esx {
 		output = *reinterpret_cast<U32*>(&mMemory[address]);
 	}
 
+	void Bios::load(const StringView& busName, U32 address, U16& output)
+	{
+		output = *reinterpret_cast<U16*>(&mMemory[address]);
+	}
+
 	void Bios::reset()
 	{
 		std::ifstream input(mPath.data(), std::ios::binary);

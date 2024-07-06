@@ -5,6 +5,7 @@
 #include "Core/GPU.h"
 #include "Core/CDROM.h"
 #include "Core/MDEC.h"
+#include "Core/SPU.h"
 
 namespace esx {
 
@@ -369,8 +370,6 @@ namespace esx {
 
 	void DMA::startBlockTransfer(Channel& channel)
 	{
-		ESX_CORE_ASSERT(channel.Port != Port::SPU, "DMA Block Transfer Port {} not supported yet", (U8)channel.Port);
-
 		U32 transferSize = 0;
 		switch (channel.SyncMode)
 		{
@@ -396,6 +395,7 @@ namespace esx {
 		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
 		SharedPtr<CDROM> cdrom = bus->getDevice<CDROM>(ESX_TEXT("CDROM"));
 		SharedPtr<MDEC> mdec = bus->getDevice<MDEC>(ESX_TEXT("MDEC"));
+		SharedPtr<SPU> spu = bus->getDevice<SPU>(ESX_TEXT("SPU"));
 
 		U32 currentAddress = channel.TransferStatus.BlockCurrentAddress & 0x1FFFFC;
 
@@ -450,6 +450,10 @@ namespace esx {
 				switch (channel.Port) {
 					case Port::MDECin: {
 						mdec->channelIn(value);
+						break;
+					}
+					case Port::SPU: {
+						spu->writeToRAM(value);
 						break;
 					}
 					case Port::GPU: {

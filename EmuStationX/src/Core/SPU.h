@@ -256,6 +256,10 @@ namespace esx {
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
 
 		virtual void reset() override;
+
+		void writeToRAM(U16 value);
+		void writeToRAM(U32 value);
+
 	private:
 		ADPCMBlock readADPCMBlock(U16 address);
 		void decodeBlock(Voice& voice, const ADPCMBlock& block);

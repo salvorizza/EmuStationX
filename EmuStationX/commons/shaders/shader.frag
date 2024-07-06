@@ -6,6 +6,7 @@ flat in uint oTextured;
 in vec2 oClutUV;
 flat in uint oBPP;
 flat in uint oSemiTransparency;
+flat in uint oDither;
 
 layout(binding=0) uniform sampler2D uVRAM;   
 
@@ -19,6 +20,13 @@ out vec4 fragColor;
 #define BPlusF 1u
 #define BMinusF 2u
 #define BPlusF4 3u
+
+const mat4 dither = mat4(
+    vec4(-4,+0,-3,+1),
+    vec4(+2,-2,+3,-1),
+    vec4(-3,+1,-4,+0),
+    vec4(+3,-1,+2,-2)
+);
 
 vec4 from_15bit(uint data) {
     vec4 color;
@@ -128,6 +136,23 @@ void main() {
         /*uvec4 paletteColor = texelFetch(uVRAM16, uvColor,0);
         if(paletteColor.r == 0u) discard;
         color = from_15bit(paletteColor.r);*/
+    } else {
+        ivec4 color8 = ivec4(color * 255);
+
+        if(oDither == 1u) {
+            int x = int(mod(gl_FragCoord.x,4));
+            int y = int(mod(gl_FragCoord.y,4));
+            color8 += int(dither[x][y]);
+        }
+
+        color8.r = clamp(color8.r,0,255) >> 3;
+        color8.g = clamp(color8.g,0,255) >> 3;
+        color8.b = clamp(color8.b,0,255) >> 3;
+
+        color.r = color8.r / 31.0;
+        color.g = color8.g / 31.0;
+        color.b = color8.b / 31.0;
+
     }
 
     fragColor = color;

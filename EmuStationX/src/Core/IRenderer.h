@@ -59,6 +59,14 @@ namespace esx {
 		UV clutUV;
 		U8 bpp = 0x00;
 		U8 semiTransparency = 0x00;
+		U8 dither = 0x00;
+	};
+
+	struct VRAMColor {
+		U8 r = 0;
+		U8 g = 0;
+		U8 b = 0;
+		U8 a = 0;
 	};
 
 	class IRenderer {
@@ -75,6 +83,24 @@ namespace esx {
 		virtual void Reset() = 0;
 
 		virtual void VRAMWrite(U16 x, U16 y, U16 data) = 0;
+		virtual void VRAMWriteFull(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels) = 0;
 		virtual U16 VRAMRead(U16 x, U16 y) = 0;
+		virtual void VRAMReadFull(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels) = 0;
+
+		static VRAMColor fromU16(U16 value) {
+			VRAMColor color = {
+				.r = U8(((value >> 0) & 0x1F) << 3),
+				.g = U8(((value >> 5) & 0x1F) << 3),
+				.b = U8(((value >> 10) & 0x1F) << 3),
+				.a = U8((value >> 15) != 0 ? 255 : 0)
+			};
+			return color;
+
+		}
+
+		static U16 toU16(const VRAMColor& color) {
+			return ((color.a == 255 ? 1 : 0) << 15) | ((color.b >> 3) << 10) | ((color.g >> 3) << 5) | (color.r >> 3);
+		}
+
 	};
 }

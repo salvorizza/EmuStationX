@@ -105,6 +105,25 @@ namespace esx {
 		}
 	}
 
+	void SIO::load(const StringView& busName, U32 address, U32& output)
+	{
+		if (mID == 1) {
+			address -= 0x10;
+		}
+
+		switch (address) {
+			case 0x1F801040: {
+				output = getDataRegister(32);
+				break;
+			}
+
+			case 0x1F801044: {
+				output = getStatRegister();
+				break;
+			}
+		}
+	}
+
 	void SIO::store(const StringView& busName, U32 address, U16 value)
 	{
 		if (mID == 1) {

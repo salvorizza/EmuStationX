@@ -43,7 +43,9 @@ namespace esx {
 		
 		uint64_t textureID = mFrame->getColorAttachment()->getRendererID();
 		ImGui::SetCursorPos(cursorPos + offset);
+		drawList->AddCallback([](const ImDrawList* parent_list, const ImDrawCmd* cmd) { glDisable(GL_BLEND); },nullptr);
 		ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ imageSize.x, imageSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+		drawList->AddCallback([](const ImDrawList* parent_list, const ImDrawCmd* cmd) { glEnable(GL_BLEND); }, nullptr);
 	}
 
 }

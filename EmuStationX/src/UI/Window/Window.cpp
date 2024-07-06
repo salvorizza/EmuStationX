@@ -7,7 +7,7 @@ namespace esx {
 	static void APIENTRY debugCallbackOpenGL(GLenum source​, GLenum type​, GLuint id​, GLenum severity​, GLsizei length​, const GLchar* message​, const void* userParam​) {
 		switch (type​) {
 			case GL_DEBUG_TYPE_ERROR: {
-				//ESX_CORE_LOG_ERROR("{}​", message​);
+				ESX_CORE_LOG_ERROR("{}​", message​);
 				break;
 			}
 			default: {

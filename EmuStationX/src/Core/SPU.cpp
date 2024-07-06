@@ -105,8 +105,7 @@ namespace esx {
 		if (clocks % 16 == 0) {
 			if (mSPUStatus.TransferMode == TransferMode::ManualWrite && !mFIFO.empty()) {
 				U16 value = mFIFO.front();
-				mRAM[mCurrentTransferAddress++] = (U8)(value & 0xFF);
-				mRAM[mCurrentTransferAddress++] = (U8)((value >> 8) & 0xFF);
+				writeToRAM(value);
 				mFIFO.pop();
 				mSPUStatus.DataTransferBusyFlag = !mFIFO.empty();
 			}
@@ -586,6 +585,18 @@ namespace esx {
 			mVoices[i].Number = i;
 			//sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
 		}
+	}
+
+	void SPU::writeToRAM(U16 value)
+	{
+		*reinterpret_cast<U16*>(&mRAM[mCurrentTransferAddress]) = value;
+		mCurrentTransferAddress += 2;
+	}
+
+	void SPU::writeToRAM(U32 value)
+	{
+		*reinterpret_cast<U32*>(&mRAM[mCurrentTransferAddress]) = value;
+		mCurrentTransferAddress += 2;
 	}
 
 	Pair<I16, I16> SPU::reverb(I16 LeftInput, I16 RightInput)

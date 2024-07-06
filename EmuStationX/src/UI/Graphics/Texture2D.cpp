@@ -92,6 +92,11 @@ namespace esx {
 		glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, 1, 1, fromDataFormat(mDataFormat), fromDataType(mDataType), pixelData);
 	}
 
+	void Texture2D::setPixels(U32 x, U32 y, U32 width, U32 height, const void* pixelData)
+	{
+		glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, fromDataFormat(mDataFormat), fromDataType(mDataType), pixelData);
+	}
+
 	void Texture2D::getPixel(U32 x, U32 y, void** pixelData)
 	{
 		glGetTexImage(GL_TEXTURE_2D, 0, fromDataFormat(mDataFormat), fromDataType(mDataType), *pixelData);

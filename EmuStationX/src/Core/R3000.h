@@ -173,8 +173,8 @@ namespace esx {
 			return (binaryInstruction & 0xFFFF);
 		}
 
-		U32 ImmediateSE() const {
-			return (((binaryInstruction & 0xFFFF) & 0x8000) ? Immediate() | 0xFFFF0000 : Immediate());
+		I32 ImmediateSE() const {
+			return static_cast<I32>(static_cast<I16>(Immediate()));
 		}
 
 		U32 Code() const {
@@ -225,9 +225,10 @@ namespace esx {
 		virtual void reset();
 
 		template<typename T>
-		U32 load(U32 address) {
+		U32 load(U32 address, BIT& exception) {
 			if (ADDRESS_UNALIGNED(address,T)) {
 				raiseException(ExceptionType::AddressErrorLoad);
+				exception = ESX_TRUE;
 				return 0;
 			}
 
@@ -427,6 +428,7 @@ namespace esx {
 		SharedPtr<SPU> mSPU;
 
 		U64 mCycles = 0;
+		U64 mCyclesToWait = 0;
 	};
 
 }
