@@ -398,6 +398,7 @@ public:
 		cdrom->reset();
 		sio0->reset();
 		sio1->reset();
+		mdec->reset();
 		mConsolePanel->getInternalConsole().System().Items().clear();
 		if (mDisassemblerPanel->getDebugState() == DebugState::Breakpoint) {
 			mDisassemblerPanel->onPlay();

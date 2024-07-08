@@ -184,6 +184,8 @@ namespace esx {
 				}
 
 				mStatusRegister.CommandBusy = ESX_FALSE;
+				mDataIn.clear();
+				mStatusRegister.DataInFIFOFull = ESX_FALSE;
 			}
 		}
 

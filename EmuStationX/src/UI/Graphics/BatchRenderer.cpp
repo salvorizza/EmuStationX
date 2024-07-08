@@ -82,11 +82,6 @@ namespace esx {
 			mFBO->getColorAttachment()->unbind();
 			mShader->stop();
 			mFBO->unbind();
-
-			void* pixels = mVRAM24.data();
-			mFBO->getColorAttachment()->bind();
-			mFBO->getColorAttachment()->getPixels(&pixels);
-			mFBO->getColorAttachment()->unbind();
 		}
 	}
 
@@ -111,6 +106,15 @@ namespace esx {
 		mDrawBottomRight.y = y;
 
 		//ESX_CORE_LOG_TRACE("BatchRenderer::SetDrawBottomRight({},{})", mDrawBottomRight.x, mDrawBottomRight.y);
+	}
+
+	void BatchRenderer::Clear(U16 x, U16 y, U16 w, U16 h, Color& color)
+	{
+		mFBO->bind();
+		glScissor(x, 511 - y - h, w, h);
+		glClearColor(floorf(color.r / 8) / 31.0, floorf(color.g / 8) / 31.0, floorf(color.b / 8) / 31.0, 0);
+		glClear(GL_COLOR_BUFFER_BIT);
+		mFBO->unbind();
 	}
 
 	void BatchRenderer::DrawPolygon(Vector<PolygonVertex>& vertices)
@@ -162,6 +166,11 @@ namespace esx {
 		Flush();
 		Begin();
 
+		void* data = mVRAM24.data();
+		mFBO->getColorAttachment()->bind();
+		mFBO->getColorAttachment()->getPixels(&data);
+		mFBO->getColorAttachment()->unbind();
+
 		mFBO->getColorAttachment()->bind();
 		for (I32 yOff = 0; yOff < height; yOff++) {
 			for (I32 xOff = 0; xOff < width; xOff++) {
@@ -200,6 +209,11 @@ namespace esx {
 	{
 		Flush();
 		Begin();
+
+		void* data = mVRAM24.data();
+		mFBO->getColorAttachment()->bind();
+		mFBO->getColorAttachment()->getPixels(&data);
+		mFBO->getColorAttachment()->unbind();
 
 		for (I32 yOff = 0; yOff < height; yOff++) {
 			for (I32 xOff = 0; xOff < width; xOff++) {

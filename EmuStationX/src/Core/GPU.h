@@ -233,6 +233,7 @@ namespace esx {
 		U8 mTextureWindowOffsetY = 0x00;
 		U16 mDrawAreaTopLeftX = 0x0000;
 		U16 mDrawAreaTopLeftY = 0x0000;
+
 		U16 mDrawAreaBottomRightX = 0x0000;
 		U16 mDrawAreaBottomRightY = 0x0000;
 		I16 mDrawOffsetX = 0x0000;
@@ -243,6 +244,8 @@ namespace esx {
 		U16 mHorizontalRangeEnd = 0x0000;
 		U16 mVerticalRangeStart = 0x0000;
 		U16 mVerticalRangeEnd = 0x0000;
+		BIT mAllow2MBVRAM = ESX_FALSE;
+		U32 mGPURead = 0;
 
 		CommandBuffer mCommandBuffer = {};
 		Command mCurrentCommand = {};

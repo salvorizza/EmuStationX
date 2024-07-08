@@ -78,6 +78,7 @@ namespace esx {
 		virtual void SetDrawOffset(I16 offsetX, I16 offsetY) = 0;
 		virtual void SetDrawTopLeft(U16 x, U16 y) = 0;
 		virtual void SetDrawBottomRight(U16 x, U16 y) = 0;
+		virtual void Clear(U16 x, U16 y, U16 w, U16 h, Color& color) = 0;
 		virtual void DrawPolygon(Vector<PolygonVertex>& vertices) = 0;
 
 		virtual void Reset() = 0;

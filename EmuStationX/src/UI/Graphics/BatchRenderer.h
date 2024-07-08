@@ -26,6 +26,7 @@ namespace esx {
 		void SetDrawOffset(I16 offsetX, I16 offsetY) override;
 		void SetDrawTopLeft(U16 x, U16 y) override;
 		void SetDrawBottomRight(U16 x, U16 y) override;
+		void Clear(U16 x, U16 y, U16 w, U16 h, Color& color) override;
 		void DrawPolygon(Vector<PolygonVertex>& vertices) override;
 		void VRAMWrite(U16 x, U16 y, U16 data) override;
 		void VRAMWriteFull(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels) override;

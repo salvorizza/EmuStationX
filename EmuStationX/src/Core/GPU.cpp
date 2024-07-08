@@ -221,26 +221,30 @@ namespace esx {
 
 	U32 GPU::gpuRead()
 	{
-		U32 numHalfWords = mMemoryTransferWidth * mMemoryTransferHeight;
-		BIT isOdd = numHalfWords % 2;
+		if (mGPUStat.ReadySendVRAMToCPU) {
+			U32 numHalfWords = mMemoryTransferWidth * mMemoryTransferHeight;
+			BIT isOdd = numHalfWords % 2;
 
-		if (mPixelsToTransfer.size() == 0 || mMemoryTransferVRAMToCPU >= numHalfWords) {
-			return 0;
+			if (mPixelsToTransfer.size() == 0 || mMemoryTransferVRAMToCPU >= numHalfWords) {
+				return 0;
+			}
+
+			U16 pixel2 = IRenderer::toU16(mPixelsToTransfer[mMemoryTransferVRAMToCPU]);
+			mMemoryTransferVRAMToCPU++;
+
+			U16 pixel1 = (mMemoryTransferVRAMToCPU == (numHalfWords - 1) && isOdd) ? 0 : IRenderer::toU16(mPixelsToTransfer[mMemoryTransferVRAMToCPU]);
+			mMemoryTransferVRAMToCPU++;
+
+			U32 packet = (pixel1 << 16) | pixel2;
+
+			if (mMemoryTransferVRAMToCPU == numHalfWords) {
+				mGPUStat.ReadySendVRAMToCPU = ESX_FALSE;
+			}
+
+			mGPURead = packet;
 		}
 
-		U16 pixel2 = IRenderer::toU16(mPixelsToTransfer[mMemoryTransferVRAMToCPU]);
-		mMemoryTransferVRAMToCPU++;
-
-		U16 pixel1 = (mMemoryTransferVRAMToCPU == (numHalfWords - 1) && isOdd) ? 0 : IRenderer::toU16(mPixelsToTransfer[mMemoryTransferVRAMToCPU]);
-		mMemoryTransferVRAMToCPU++;
-
-		U32 packet = (pixel1 << 16) | pixel2;
-
-		if (mMemoryTransferVRAMToCPU == numHalfWords) {
-			mGPUStat.ReadySendVRAMToCPU = ESX_FALSE;
-		}
-
-		return packet;
+		return mGPURead;
 	}
 
 	
@@ -315,6 +319,8 @@ namespace esx {
 		mHorizontalRangeEnd = 0x0000;
 		mVerticalRangeStart = 0x0000;
 		mVerticalRangeEnd = 0x0000;
+		mAllow2MBVRAM = ESX_FALSE;
+		mGPURead = 0;
 
 		mCommandBuffer = {};
 		mCurrentCommand = {};
@@ -420,18 +426,8 @@ namespace esx {
 
 		Color color = unpackColor(command & 0xFFFFFF);
 
-		Vector<PolygonVertex> vertices(4);
-		for (PolygonVertex& vertex : vertices) {
-			vertex.color = color;
-		}
-
-		vertices[0].vertex = Vertex(XPos + XSiz,	YPos + YSiz);
-		vertices[1].vertex = Vertex(XPos,			YPos + YSiz);
-		vertices[2].vertex = Vertex(XPos + XSiz,	YPos);
-		vertices[3].vertex = Vertex(XPos,			YPos);
-
-		//ESX_CORE_LOG_TRACE("GPU::gp0QuickRectangleFillCommand");
-		mRenderer->DrawPolygon(vertices);
+		ESX_CORE_LOG_TRACE("GPU::gp0QuickRectangleFillCommand");
+		mRenderer->Clear(XPos, YPos, XSiz, YSiz, color);
 	}
 
 	void GPU::gp0InterruptRequest()
@@ -490,6 +486,7 @@ namespace esx {
 			vertices[i].color = gourad ? unpackColor(mCommandBuffer.pop()) : flatColor;
 			vertices[i].textured = textured;
 			vertices[i].dither = mGPUStat.DitherEnabled && !textured;
+			vertices[i].semiTransparency = semiTransparent ? (U8)mGPUStat.SemiTransparency : 255;
 		}
 
 		if (textured) {
@@ -497,12 +494,14 @@ namespace esx {
 			U16 ty = (page >> 4) & 0x1;
 			SemiTransparency semiTransparency = (SemiTransparency)((page >> 5) & 0x3);
 			TexturePageColors texturePageColors = (TexturePageColors)((page >> 7) & 0x3);
+			U16 ty2 = (page >> 11) & 0x1;
 
 			U16 cy = (clut >> 6) & 0x1FF;
 			U16 cx = (clut & 0x3F) * 16;
 
 			mGPUStat.TexturePageX = tx;
 			mGPUStat.TexturePageYBase1 = ty;
+			mGPUStat.TexturePageYBase2 = mAllow2MBVRAM ? ty2 : 0;
 			mGPUStat.SemiTransparency = semiTransparency;
 			mGPUStat.TexturePageColors = texturePageColors;
 
@@ -511,10 +510,12 @@ namespace esx {
 				switch (texturePageColors) {
 					case TexturePageColors::T4Bit: vertex.bpp = 4; break;
 					case TexturePageColors::T8Bit: vertex.bpp = 8; break;
+
+					case TexturePageColors::Reserved:
 					case TexturePageColors::T15Bit: vertex.bpp = 16; break;
 				}
 
-				vertex.semiTransparency = (U8)semiTransparency;
+				vertex.semiTransparency = semiTransparent ? (U8)semiTransparency : 255;
 
 				transformUV(vertex.uv, tx, ty, vertex.bpp);
 				vertex.clutUV = UV(cx, cy);
@@ -522,7 +523,7 @@ namespace esx {
 			}
 		}
 
-		//ESX_CORE_LOG_TRACE("GPU::gp0DrawPolygonPrimitiveCommand");
+		ESX_CORE_LOG_TRACE("GPU::gp0DrawPolygonPrimitiveCommand");
 		mRenderer->DrawPolygon(vertices);
 	}
 
@@ -613,7 +614,7 @@ namespace esx {
 			vertex.textured = textured;
 			vertex.clutUV = clutUV;
 			vertex.bpp = bpp;
-			vertex.semiTransparency = semiTransparent;
+			vertex.semiTransparency = semiTransparent ? (U8)mGPUStat.SemiTransparency : 255;
 		}
 		
 		vertices[0].vertex = Vertex(vertex.x + width, vertex.y + height);
@@ -633,7 +634,7 @@ namespace esx {
 		}
 
 
-		//ESX_CORE_LOG_TRACE("GPU::gp0DrawRectanglePrimitiveCommand");
+		ESX_CORE_LOG_TRACE("GPU::gp0DrawRectanglePrimitiveCommand");
 		mRenderer->DrawPolygon(vertices);
 	}
 
@@ -792,7 +793,7 @@ namespace esx {
 		mGPUStat.TexturePageColors = (TexturePageColors)((instruction >> 7) & 0x3);
 		mGPUStat.DitherEnabled = (instruction >> 9) & 0x1;
 		mGPUStat.DrawToDisplay = (instruction >> 10) & 0x1;
-		mGPUStat.TexturePageYBase2 = (instruction >> 11) & 0x1;
+		mGPUStat.TexturePageYBase2 = mAllow2MBVRAM ? (instruction >> 11) & 0x1 : 0;
 		mTexturedRectangleXFlip = (instruction >> 12) & 0x1;
 		mTexturedRectangleYFlip = (instruction >> 13) & 0x1;
 	}
@@ -841,7 +842,7 @@ namespace esx {
 	{
 		U32 instruction = mCommandBuffer.pop();
 		mGPUStat.SetMaskWhenDrawingPixels = (instruction >> 0) & 0x1;
-		mGPUStat.DrawPixels = (instruction >> 0) & 0x1;
+		mGPUStat.DrawPixels = (instruction >> 1) & 0x1;
 	}
 
 	void GPU::gp1Reset()
@@ -934,7 +935,7 @@ namespace esx {
 
 	void GPU::gp1SetTextureDisable(U32 instruction)
 	{
-		mGPUStat.TexturePageYBase2 = instruction & 0x1;
+		mAllow2MBVRAM = instruction & 0x1;
 	}
 
 	void GPU::gp1Unknown(U32 instruction)
@@ -943,14 +944,44 @@ namespace esx {
 
 	void GPU::gp1GetGPUInfo(U32 instruction)
 	{
+		U32 registerIndex = instruction & 0xFFFFFF;
+		switch (registerIndex & 0xF) {
+			case 0x02:
+				mGPURead = (mTextureWindowMaskX) | (mTextureWindowMaskY << 5) | (mTextureWindowOffsetX << 10) | (mTextureWindowOffsetY << 15);
+				break;
+
+			case 0x03:
+				mGPURead = (mDrawAreaTopLeftX << 0) | (mDrawAreaTopLeftY << 10);
+				break;
+
+			case 0x04:
+				mGPURead = (mDrawAreaBottomRightX << 0) | (mDrawAreaBottomRightY << 10);
+				break;
+
+			case 0x05:
+				mGPURead = (mDrawOffsetX << 0) | (mDrawOffsetY << 11);
+				break;
+
+			case 0x07:
+				mGPURead = 2;
+				break;
+
+			case 0x08:
+				mGPURead = 0;
+				break;
+
+			default:
+				break;
+		}
+		ESX_CORE_LOG_INFO("Get GPU Info {:02x}h {:02x}h", registerIndex & 0xF, mGPURead);
 	}
 
 	void GPU::gp1SetTextureDisableSpecial(U32 instruction){
 		U32 x = instruction & 0xFFFFFF;
 		if (x == 0x501) {
-			mGPUStat.TexturePageYBase2 = 1;
+			mAllow2MBVRAM = ESX_FALSE;
 		} else if (x == 0x504) {
-			mGPUStat.TexturePageYBase2 = 0;
+			mAllow2MBVRAM = ESX_TRUE;
 		}
 	}
 

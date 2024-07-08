@@ -128,11 +128,10 @@ void main() {
 
         color = sample_vram(uvColor);
         if(color.rgb == vec3(0,0,0)) discard;
+
         color = (color * vec4(oColor,1.0)) / (128.0 / 255.0);
         color.a = 1.0;
 
-
-        
         /*uvec4 paletteColor = texelFetch(uVRAM16, uvColor,0);
         if(paletteColor.r == 0u) discard;
         color = from_15bit(paletteColor.r);*/
@@ -152,7 +151,29 @@ void main() {
         color.r = color8.r / 31.0;
         color.g = color8.g / 31.0;
         color.b = color8.b / 31.0;
+    }
 
+    vec4 previousColor = texelFetch(uVRAM,ivec2(gl_FragCoord.xy),0);
+    switch(oSemiTransparency) {
+        case B2PlusF2: {
+            color = 0.5 * previousColor + 0.5 * color;
+            break;
+        }
+
+        case BPlusF: {
+            color = 1.0 * previousColor + 1.0 * color;
+            break;
+        }
+
+        case BMinusF: {
+            color = 1.0 * previousColor - 1.0 * color;
+            break;
+        }
+
+        case BPlusF4: {
+            color = 1.0 * previousColor + 0.25 * color;
+            break;
+        }
     }
 
     fragColor = color;

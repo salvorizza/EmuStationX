@@ -58,7 +58,7 @@ namespace esx {
 			case 59:
 			case 61:
 			case 62: {
-				mRegisters.Registers[index] = static_cast<I32>(static_cast<U16>(value));
+				mRegisters.Registers[index] = static_cast<I32>(static_cast<I16>(static_cast<U16>(value)));
 				break;
 			}
 
