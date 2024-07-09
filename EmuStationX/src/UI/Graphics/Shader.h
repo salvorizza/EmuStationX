@@ -26,6 +26,7 @@ namespace esx {
 		void uploadUniform(const char* uniformName, const glm::ivec2& vec);
 		void uploadUniform(const char* uniformName, const glm::mat4& mat);
 		void uploadUniform(const char* uniformName, float value);
+		void uploadUniform(const char* uniformName, int value);
 
 
 		static std::shared_ptr<Shader> LoadFromFile(const char* vertexPath, const char* fragmentPath);

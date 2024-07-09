@@ -65,9 +65,13 @@ namespace esx {
 		if (numIndices > 0) {
 			mFBO->bind();
 			glViewport(0, 0, mFBO->width(), mFBO->height());
-			glScissor(mDrawTopLeft.x, 512 - mDrawBottomRight.y, mDrawBottomRight.x - mDrawTopLeft.x, mDrawBottomRight.y - mDrawTopLeft.y);
+			glScissor(mDrawTopLeft.x, 511 - mDrawBottomRight.y, (mDrawBottomRight.x - mDrawTopLeft.x) + 1, (mDrawBottomRight.y - mDrawTopLeft.y) + 1);
 
 			mShader->start();
+
+			mShader->uploadUniform("uCheckMask", mCheckMask);
+			mShader->uploadUniform("uForceAlpha", mForceAlpha);
+
 			mFBO->getColorAttachment()->bind();
 
 			mTriVBO->bind();
@@ -94,6 +98,9 @@ namespace esx {
 
 	void BatchRenderer::SetDrawTopLeft(U16 x, U16 y)
 	{
+		Flush();
+		Begin();
+
 		mDrawTopLeft.x = x;
 		mDrawTopLeft.y = y;
 
@@ -102,10 +109,30 @@ namespace esx {
 
 	void BatchRenderer::SetDrawBottomRight(U16 x, U16 y)
 	{
+		Flush();
+		Begin();
+
 		mDrawBottomRight.x = x;
 		mDrawBottomRight.y = y;
 
+
 		//ESX_CORE_LOG_TRACE("BatchRenderer::SetDrawBottomRight({},{})", mDrawBottomRight.x, mDrawBottomRight.y);
+	}
+
+	void BatchRenderer::SetForceAlpha(BIT value)
+	{
+		Flush();
+		Begin();
+
+		mForceAlpha = value;
+	}
+
+	void BatchRenderer::SetCheckMask(BIT value)
+	{
+		Flush();
+		Begin();
+
+		mCheckMask = value;
 	}
 
 	void BatchRenderer::Clear(U16 x, U16 y, U16 w, U16 h, Color& color)
@@ -120,7 +147,7 @@ namespace esx {
 	void BatchRenderer::DrawPolygon(Vector<PolygonVertex>& vertices)
 	{
 		ptrdiff_t numIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
-		if ((numIndices + vertices.size()) >= TRI_MAX_VERTICES) {
+		if ((numIndices + vertices.size()) >= TRI_MAX_VERTICES || (numIndices > 0 && vertices.at(0).semiTransparency != 255)) {
 			Flush();
 			Begin();
 		}
@@ -180,7 +207,11 @@ namespace esx {
 				xImage &= 1023;
 				yImage &= 511;
 
-				auto& color = pixels.at(yOff * width + xOff);
+				VRAMColor color = pixels.at(yOff * width + xOff);
+
+				if (mCheckMask && mVRAM24[yImage * 1024 + xImage].a == 255) continue;
+				if (mForceAlpha) color.a = 255;
+
 				mFBO->getColorAttachment()->setPixel(xImage, yImage, &color);
 				mVRAM24[yImage * 1024 + xImage] = color;
 			}
@@ -245,6 +276,8 @@ namespace esx {
 
 		mDrawTopLeft = glm::uvec2(0, 0);
 		mDrawBottomRight = glm::uvec2(640, 240);
+		mForceAlpha = ESX_FALSE;
+		mCheckMask = ESX_FALSE;
 
 		glEnable(GL_SCISSOR_TEST);
 	}

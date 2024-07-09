@@ -10,6 +10,9 @@ flat in uint oDither;
 
 layout(binding=0) uniform sampler2D uVRAM;   
 
+uniform int uCheckMask;
+uniform int uForceAlpha;
+
 out vec4 fragColor;
 
 #define BPP_4 4u
@@ -27,43 +30,6 @@ const mat4 dither = mat4(
     vec4(-3,+1,-4,+0),
     vec4(+3,-1,+2,-2)
 );
-
-vec4 from_15bit(uint data) {
-    vec4 color;
-    color.r = ((data << 3) & 0xf8) / 255.0;
-    color.g = ((data >> 2) & 0xf8) / 255.0;
-    color.b = ((data >> 7) & 0xf8) / 255.0;
-
-    if(data >= 0x8000u && (data >> 15) == 1u) {
-        vec4 previousColor = texelFetch(uVRAM,ivec2(gl_FragCoord.xy),0);
-
-        switch(oSemiTransparency) {
-            case B2PlusF2: {
-                color = 0.5 * previousColor + 0.5 * color;
-                break;
-            }
-
-            case BPlusF: {
-                color = 1.0 * previousColor + 1.0 * color;
-                break;
-            }
-
-            case BMinusF: {
-                color = 1.0 * previousColor - 1.0 * color;
-                break;
-            }
-
-            case BPlusF4: {
-                color = 1.0 * previousColor + 0.25 * color;
-                break;
-            }
-        }
-    }
-
-    color.a = 1.0;
-
-    return color;
-}
 
 int float_5bit(float value) {
     return int(round(value * 31.0 + 0.5));
@@ -105,7 +71,10 @@ int texel_4bit(ivec2 coords) {
 
 void main() {
     vec4 color = vec4(oColor,1.0);
-   
+    vec4 previousColor = texelFetch(uVRAM,ivec2(gl_FragCoord.xy),0);
+
+    if(uCheckMask == 1 && previousColor.a == 1) discard;
+
     if(oTextured == 1) {
         ivec2 uvColor = ivec2(0,0);
 
@@ -128,13 +97,7 @@ void main() {
 
         color = sample_vram(uvColor);
         if(color.rgb == vec3(0,0,0)) discard;
-
         color = (color * vec4(oColor,1.0)) / (128.0 / 255.0);
-        color.a = 1.0;
-
-        /*uvec4 paletteColor = texelFetch(uVRAM16, uvColor,0);
-        if(paletteColor.r == 0u) discard;
-        color = from_15bit(paletteColor.r);*/
     } else {
         ivec4 color8 = ivec4(color * 255);
 
@@ -151,9 +114,9 @@ void main() {
         color.r = color8.r / 31.0;
         color.g = color8.g / 31.0;
         color.b = color8.b / 31.0;
+        color.a = 0;
     }
 
-    vec4 previousColor = texelFetch(uVRAM,ivec2(gl_FragCoord.xy),0);
     switch(oSemiTransparency) {
         case B2PlusF2: {
             color = 0.5 * previousColor + 0.5 * color;
@@ -174,6 +137,10 @@ void main() {
             color = 1.0 * previousColor + 0.25 * color;
             break;
         }
+    }
+
+    if(uForceAlpha == 1) {
+        color.a = 1;
     }
 
     fragColor = color;

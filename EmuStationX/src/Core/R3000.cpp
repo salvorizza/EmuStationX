@@ -57,7 +57,7 @@ namespace esx {
 			mBranchSlot = mBranch;
 			mTookBranchSlot = mTookBranch;
 			mBranch = ESX_FALSE;
-			mTookBranchSlot = ESX_FALSE;
+			mTookBranch = ESX_FALSE;
 
 			if (opcode != 0 && mCurrentInstruction.Execute) {
 				(this->*mCurrentInstruction.Execute)();
@@ -110,12 +110,12 @@ namespace esx {
 
 	U32 R3000::fetch(U32 address)
 	{
-		if (isCacheActive(address)) {
-			if (ADDRESS_UNALIGNED(address, U32)) {
-				raiseException(ExceptionType::AddressErrorLoad);
-				return 0;
-			}
+		if (ADDRESS_UNALIGNED(address, U32)) {
+			raiseException(ExceptionType::AddressErrorLoad);
+			return 0;
+		}
 
+		if (isCacheActive(address)) {
 			U32 index = (address >> 2) & 0x3;
 			U32 cacheLineNumber = (address >> 4) & 0xFF;
 			U32 tag = address >> 12;
@@ -523,6 +523,9 @@ namespace esx {
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
 		U32 c = getRegister(mCurrentInstruction.RegisterTarget());
+		if (mMemoryLoad.first == mCurrentInstruction.RegisterTarget()) {
+			c = mMemoryLoad.second;
+		}
 
 		U32 m = a + b;
 
@@ -534,10 +537,10 @@ namespace esx {
 		U32 am = m & ~(0x3);
 		U32 aw = load<U32>(am, exception);
 
-		U32 u = m & (0x3);
+		U32 u = m & 0x3;
 		U32 r = (c & (0x00FFFFFF >> (u * 8))) | (aw << (24 - (u * 8)));
 
-		setRegister(mCurrentInstruction.RegisterTarget(), r);
+		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
 	}
 
 	void R3000::SWL()
@@ -574,6 +577,9 @@ namespace esx {
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = mCurrentInstruction.ImmediateSE();
 		U32 c = getRegister(mCurrentInstruction.RegisterTarget());
+		if (mMemoryLoad.first == mCurrentInstruction.RegisterTarget()) {
+			c = mMemoryLoad.second;
+		}
 
 		U32 m = a + b;
 
@@ -588,7 +594,7 @@ namespace esx {
 		U32 u = m & 0x3;
 		U32 r = (c & (0xFFFFFF00 << ((0x3 - u) * 8))) | (aw >> (u * 8));
 
-		setRegister(mCurrentInstruction.RegisterTarget(), r);
+		addPendingLoad(mCurrentInstruction.RegisterTarget(), r);
 	}
 
 	void R3000::SWR()
@@ -863,8 +869,6 @@ namespace esx {
 
 	void R3000::BNE()
 	{
-		//ESX_CORE_LOG_TRACE("BNE {:08x}h", mCurrentInstruction.Address);
-
 		mBranch = ESX_TRUE;
 		U32 a = getRegister(mCurrentInstruction.RegisterSource());
 		U32 b = getRegister(mCurrentInstruction.RegisterTarget());
@@ -892,18 +896,19 @@ namespace esx {
 
 	void R3000::BLTZAL()
 	{
-
-		ESX_CORE_LOG_TRACE("BLTZAL {:08x}h {} => {:08x}h", mCurrentInstruction.Address, mCurrentInstruction.RegisterSource().Value, getRegister(mCurrentInstruction.RegisterSource()));
-
 		mBranch = ESX_TRUE;
 		I32 a = getRegister(mCurrentInstruction.RegisterSource());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
+
+		setRegister(GPRRegister::ra, mNextPC);
+
 		if (a < 0) {
-			setRegister(GPRRegister::ra, mNextPC);
 			mNextPC += o;
 			mNextPC -= 4;
 			mTookBranch = ESX_TRUE;
 		}
+
+		ESX_CORE_LOG_TRACE("{:08x}h", mCurrentInstruction.Address);
 	}
 
 	void R3000::BLEZ()
@@ -951,8 +956,9 @@ namespace esx {
 		I32 a = getRegister(mCurrentInstruction.RegisterSource());
 		I32 o = mCurrentInstruction.ImmediateSE() << 2;
 
+		setRegister(GPRRegister::ra, mNextPC);
+
 		if (a >= 0) {
-			setRegister(GPRRegister::ra, mNextPC);
 			mNextPC += o;
 			mNextPC -= 4;
 			mTookBranch = ESX_TRUE;
@@ -984,7 +990,7 @@ namespace esx {
 
 	void R3000::JALR()
 	{
-		setRegister(GPRRegister::ra, mNextPC);
+		setRegister(mCurrentInstruction.RegisterDestination(), mNextPC);
 		JR();
 	}
 
@@ -1223,7 +1229,7 @@ namespace esx {
 		}
 
 		U32 mode = sr & 0x3F;
-		sr &= ~0x3F;
+		sr &= ~0xF;
 		sr |= (mode >> 2) & 0x3F;
 
 		setCP0Register(COP0Register::SR, sr);

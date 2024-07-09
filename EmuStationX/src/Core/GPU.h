@@ -123,7 +123,7 @@ namespace esx {
 		BIT DisplayEnable = ESX_FALSE;
 		BIT InterruptRequest = ESX_FALSE;
 		BIT ReadyCmdWord = ESX_TRUE;
-		BIT ReadySendVRAMToCPU = ESX_TRUE;
+		BIT ReadySendVRAMToCPU = ESX_FALSE;
 		BIT ReadyToReceiveDMABlock = ESX_TRUE;
 		DMADirection DMADirection = DMADirection::Off;
 		BIT DrawOddLines = ESX_FALSE;

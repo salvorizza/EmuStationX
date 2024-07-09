@@ -129,14 +129,6 @@ namespace esx {
 				}
 				break;
 			}
-
-			case GP0Mode::VRAMtoCPU: {
-				if (mCurrentCommand.IsComplete(instruction)) {
-					mCurrentCommand.Complete = ESX_TRUE;
-					mMode = GP0Mode::Command;
-				}
-				break;
-			}
 		}
 		
 		if (mCurrentCommand.Complete) {
@@ -424,9 +416,17 @@ namespace esx {
 		U16 XSiz = (size >> 0) & 0xFFFF;
 		U16 YSiz = (size >> 16) & 0xFFFF;
 
+		if (XSiz == 0 || YSiz == 0) return;
+
+		XPos &= 0x3F0;
+		YPos &= 0x1FF;
+
+		XSiz = ((XSiz & 0x3FF) + 0x0F) & ~0x0F;
+		YSiz &= 0x1FF;
+
 		Color color = unpackColor(command & 0xFFFFFF);
 
-		ESX_CORE_LOG_TRACE("GPU::gp0QuickRectangleFillCommand");
+		//ESX_CORE_LOG_TRACE("GPU::gp0QuickRectangleFillCommand");
 		mRenderer->Clear(XPos, YPos, XSiz, YSiz, color);
 	}
 
@@ -523,7 +523,7 @@ namespace esx {
 			}
 		}
 
-		ESX_CORE_LOG_TRACE("GPU::gp0DrawPolygonPrimitiveCommand");
+		//ESX_CORE_LOG_TRACE("GPU::gp0DrawPolygonPrimitiveCommand");
 		mRenderer->DrawPolygon(vertices);
 	}
 
@@ -634,7 +634,7 @@ namespace esx {
 		}
 
 
-		ESX_CORE_LOG_TRACE("GPU::gp0DrawRectanglePrimitiveCommand");
+		//ESX_CORE_LOG_TRACE("GPU::gp0DrawRectanglePrimitiveCommand");
 		mRenderer->DrawPolygon(vertices);
 	}
 
@@ -658,6 +658,14 @@ namespace esx {
 		mMemoryTransferDestinationCoordsY = (destinationCoords >> 16) & 0xFFFF;
 		mMemoryTransferSourceCoordsX = (sourceCoords >> 0) & 0xFFFF;
 		mMemoryTransferSourceCoordsY = (sourceCoords >> 16) & 0xFFFF;
+
+		mMemoryTransferSourceCoordsX &= 0x3FF;
+		mMemoryTransferSourceCoordsY &= 0x1FF;
+		mMemoryTransferDestinationCoordsX &= 0x3FF;
+		mMemoryTransferDestinationCoordsY &= 0x1FF;
+		mMemoryTransferWidth = ((mMemoryTransferWidth - 1) & 0x3FF) + 1;
+		mMemoryTransferHeight = ((mMemoryTransferHeight - 1) & 0x1FF) + 1;
+
 		mMemoryTransferX = 0;
 		mMemoryTransferY = 0;
 
@@ -684,14 +692,19 @@ namespace esx {
 
 		mMemoryTransferWidth = (size >> 0) & 0xFFFF;
 		mMemoryTransferHeight = (size >> 16) & 0xFFFF;
+		mMemoryTransferDestinationCoordsX = (destinationCoords >> 0) & 0xFFFF;
+		mMemoryTransferDestinationCoordsY = (destinationCoords >> 16) & 0xFFFF;
+
+		mMemoryTransferDestinationCoordsX &= 0x3FF;
+		mMemoryTransferDestinationCoordsY &= 0x1FF;
+		mMemoryTransferWidth = ((mMemoryTransferWidth - 1) & 0x3FF) + 1;
+		mMemoryTransferHeight = ((mMemoryTransferHeight - 1) & 0x1FF) + 1;
 
 		U32 numHalfWords = mMemoryTransferWidth * mMemoryTransferHeight;
 		numHalfWords = (numHalfWords + 1) & ~1;
 		U32 numWords = numHalfWords >> 1;
 
 		mCurrentCommand.RemainingParameters = numWords;
-		mMemoryTransferDestinationCoordsX = (destinationCoords >> 0) & 0xFFFF;
-		mMemoryTransferDestinationCoordsY = (destinationCoords >> 16) & 0xFFFF;
 		mMemoryTransferX = 0;
 		mMemoryTransferY = 0;
 
@@ -717,9 +730,14 @@ namespace esx {
 
 		mMemoryTransferWidth = (size >> 0) & 0xFFFF;
 		mMemoryTransferHeight = (size >> 16) & 0xFFFF;
-
 		mMemoryTransferSourceCoordsX = (sourceCoord >> 0) & 0xFFFF;
 		mMemoryTransferSourceCoordsY = (sourceCoord >> 16) & 0xFFFF;
+
+		mMemoryTransferSourceCoordsX &= 0x3FF;
+		mMemoryTransferSourceCoordsY &= 0x1FF;
+		mMemoryTransferWidth = ((mMemoryTransferWidth - 1) & 0x3FF) + 1;
+		mMemoryTransferHeight = ((mMemoryTransferHeight - 1) & 0x1FF) + 1;
+
 		mMemoryTransferX = 0;
 		mMemoryTransferY = 0;
 		mMemoryTransferVRAMToCPU = 0;
@@ -731,8 +749,6 @@ namespace esx {
 		mRenderer->VRAMReadFull(mMemoryTransferSourceCoordsX, mMemoryTransferSourceCoordsY, mMemoryTransferWidth, mMemoryTransferHeight, mPixelsToTransfer);
 
 		mGPUStat.ReadySendVRAMToCPU = ESX_TRUE;
-
-		mMode = GP0Mode::VRAMtoCPU;
 	}
 
 	Command GPU::gp0EnvironmentCommands(U32 instruction) const
@@ -843,6 +859,9 @@ namespace esx {
 		U32 instruction = mCommandBuffer.pop();
 		mGPUStat.SetMaskWhenDrawingPixels = (instruction >> 0) & 0x1;
 		mGPUStat.DrawPixels = (instruction >> 1) & 0x1;
+
+		mRenderer->SetForceAlpha(mGPUStat.SetMaskWhenDrawingPixels);
+		mRenderer->SetCheckMask(mGPUStat.DrawPixels);
 	}
 
 	void GPU::gp1Reset()
@@ -973,7 +992,6 @@ namespace esx {
 			default:
 				break;
 		}
-		ESX_CORE_LOG_INFO("Get GPU Info {:02x}h {:02x}h", registerIndex & 0xF, mGPURead);
 	}
 
 	void GPU::gp1SetTextureDisableSpecial(U32 instruction){

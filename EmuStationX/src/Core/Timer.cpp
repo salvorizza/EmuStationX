@@ -127,19 +127,22 @@ namespace esx {
 		Counter& timer1 = mCounters[1];
 		Counter& timer2 = mCounters[2];
 
-		if ((timer0.Mode.ClockSource & 1) == 0) {
+		if (!timer0.Pause && (timer0.Mode.ClockSource & 1) == 0) {
 			incrementCounter(timer0);
 		}
 
-		if ((timer1.Mode.ClockSource & 1) == 0) {
+		if (!timer1.Pause && (timer1.Mode.ClockSource & 1) == 0) {
 			incrementCounter(timer1);
 		}
 
-		if (timer2.Mode.ClockSource < 2) {
-			incrementCounter(timer2);
-		} else {
-			if ((clocks % 8) == 0) {
+		if (!timer2.Pause) {
+			if (timer2.Mode.ClockSource < 2) {
 				incrementCounter(timer2);
+			}
+			else {
+				if ((clocks % 8) == 0) {
+					incrementCounter(timer2);
+				}
 			}
 		}
 	}
@@ -157,7 +160,7 @@ namespace esx {
 			}
 		}
 
-		if ((timer1.Mode.ClockSource & 1) == 1) {
+		if (!timer1.Pause && (timer1.Mode.ClockSource & 1) == 1) {
 			incrementCounter(timer1);
 		}
 	}
@@ -180,7 +183,7 @@ namespace esx {
 	{
 		Counter& timer0 = mCounters[0];
 
-		if ((timer0.Mode.ClockSource & 1) == 1) {
+		if (!timer0.Pause && (timer0.Mode.ClockSource & 1) == 1) {
 			incrementCounter(timer0);
 		}
 	}
@@ -211,6 +214,7 @@ namespace esx {
 
 		if (counter == 0 && mCounters[counter].Mode.SyncEnable && mCounters[counter].Mode.SyncMode == 3) mCounters[counter].Pause = ESX_TRUE;
 		if (counter == 1 && mCounters[counter].Mode.SyncEnable && mCounters[counter].Mode.SyncMode == 3) mCounters[counter].Pause = ESX_TRUE;
+		if (counter == 2 && mCounters[counter].Mode.SyncEnable && (mCounters[counter].Mode.SyncMode & 1) == 0) mCounters[counter].Pause = ESX_TRUE;
 	}
 
 	U32 Timer::getCounterMode(U8 counter)
@@ -247,11 +251,7 @@ namespace esx {
 
 	void Timer::incrementCounter(Counter& timer)
 	{
-		if (timer.Pause) return;
-
 		CounterModeRegister& modeRegister = timer.Mode;
-
-		if (timer.Number == 2 && modeRegister.SyncEnable && (modeRegister.SyncMode & 1) == 0) return;
 
 		timer.CurrentValue++;
 		BIT reachedTargetValue = timer.CurrentValue == timer.TargetValue;
@@ -265,23 +265,33 @@ namespace esx {
 		}
 
 		if ((modeRegister.IRQCounterEqualTargetEnable && reachedTargetValue) || (modeRegister.IRQCounterEqualMaxEnable && reachedMaxValue)) {
-
-			if (!modeRegister.IRQRepeat) {
-				ESX_CORE_LOG_WARNING("Timer {} one-shot mode not implemented yet", timer.Number);
-			}
-
-			if (!modeRegister.IRQToggle) {
-				ESX_CORE_LOG_WARNING("Timer {} pulse mode not implemented yet", timer.Number);
-			}
-
-			//TODO: this is Repeat mode do pulse and toggle
-			BIT newInterruptRequest = !modeRegister.InterruptRequest;
-
-			SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-			ic->requestInterrupt((InterruptType)((U8)InterruptType::Timer0 << timer.Number), !modeRegister.InterruptRequest, !newInterruptRequest);
-
-			modeRegister.InterruptRequest = newInterruptRequest;
+			handleInterrupt(timer, modeRegister);
 		}
+	}
+
+	void Timer::handleInterrupt(Counter& timer, CounterModeRegister& modeRegister)
+	{
+		static const InterruptType interruptTypes[] = {
+			InterruptType::Timer0,
+			InterruptType::Timer1,
+			InterruptType::Timer2
+		};
+
+		if (!modeRegister.IRQRepeat) {
+			ESX_CORE_LOG_WARNING("Timer {} one-shot mode not implemented yet", timer.Number);
+		}
+
+		if (!modeRegister.IRQToggle) {
+			ESX_CORE_LOG_WARNING("Timer {} pulse mode not implemented yet", timer.Number);
+		}
+
+		//TODO: this is Repeat mode do pulse and toggle
+		BIT newInterruptRequest = !modeRegister.InterruptRequest;
+
+		SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+		ic->requestInterrupt(interruptTypes[timer.Number], !modeRegister.InterruptRequest, !newInterruptRequest);
+
+		modeRegister.InterruptRequest = newInterruptRequest;
 	}
 
 }

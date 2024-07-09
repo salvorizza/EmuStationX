@@ -179,8 +179,8 @@ namespace esx {
 
 		void Internal_RTPS(const Array<I16, 3>& V, BIT lm, BIT sf);
 
-		void Multiply(const Array<I32, 3>& T, const Array<I16, 3>& V, const Array<I16, 9>& M, I64& R0, I64& R1, I64& R2);
-		void Multiply(const Array<I16, 3>& V, const Array<I16, 9>& M, I64& R0, I64& R1, I64& R2);
+		void Multiply(const Array<I32, 3>& T, const Array<I16, 3>& V, const Array<I16, 9>& M);
+		void Multiply(const Array<I16, 3>& V, const Array<I16, 9>& M);
 
 		void setMAC(U8 index, I64 value);
 		void setIR(U8 index, I32 value, BIT lm);

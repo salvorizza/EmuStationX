@@ -60,6 +60,8 @@ namespace esx {
 
 		void incrementCounter(Counter& counter);
 
+		void handleInterrupt(Counter& timer, CounterModeRegister& modeRegister);
+
 
 	private:
 		Array<Counter, 3> mCounters;

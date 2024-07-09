@@ -103,6 +103,12 @@ namespace esx {
 		glUniform1f(location, value);
 	}
 
+	void Shader::uploadUniform(const char* uniformName, int value)
+	{
+		int32_t location = getLocation(uniformName);
+		glUniform1i(location, value);
+	}
+
 	std::shared_ptr<Shader> Shader::LoadFromFile(const char* vertexPath, const char* fragmentPath)
 	{
 
