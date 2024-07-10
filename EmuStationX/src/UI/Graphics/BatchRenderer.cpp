@@ -8,10 +8,10 @@ namespace esx {
 
 
 	BatchRenderer::BatchRenderer()
-		:	mTriVerticesBase(TRI_MAX_VERTICES)
+		:	mTriVerticesBase(TRI_MAX_VERTICES),
+			mLineStripVerticesBase(MAX_LINE_STRIP_VERTICES)
 	{
-		mTriVBO = MakeShared<VertexBuffer>();
-		mTriVBO->setLayout({
+		BufferLayout defaultLayout = {
 			BufferElement("aPos", ShaderType::Short2),
 			BufferElement("aUV", ShaderType::UShort2),
 			BufferElement("aColor", ShaderType::UByte3),
@@ -20,13 +20,23 @@ namespace esx {
 			BufferElement("aBPP", ShaderType::UByte1),
 			BufferElement("aSemiTransparency", ShaderType::UByte1),
 			BufferElement("aDither", ShaderType::UByte1)
-		});
-		mTriVBO->setData(nullptr, TRI_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
+		};
 
+		mTriVBO = MakeShared<VertexBuffer>();
+		mTriVBO->setLayout(defaultLayout);
+		mTriVBO->setData(nullptr, TRI_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
 		mTriVAO = MakeShared<VertexArray>();
 		mTriVAO->addVertexBuffer(mTriVBO);
 		mTriVAO->unbind();
 		mTriVBO->unbind();
+
+		mLineStripVBO = MakeShared<VertexBuffer>();
+		mLineStripVBO->setLayout(defaultLayout);
+		mLineStripVBO->setData(nullptr, LINE_STRIP_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
+		mLineStripVAO = MakeShared<VertexArray>();
+		mLineStripVAO->addVertexBuffer(mLineStripVBO);
+		mLineStripVAO->unbind();
+		mLineStripVBO->unbind();
 
 		mFBO = MakeShared<FrameBuffer>(1024, 512);
 		SharedPtr<Texture2D> colorAttachment = MakeShared<Texture2D>(0);
@@ -52,6 +62,7 @@ namespace esx {
 	void BatchRenderer::Begin()
 	{
 		mTriCurrentVertex = mTriVerticesBase.begin();
+		mLineStripCurrentVertex = mLineStripVerticesBase.begin();
 	}
 
 	void BatchRenderer::end()
@@ -61,8 +72,9 @@ namespace esx {
 
 	void BatchRenderer::Flush()
 	{
-		ptrdiff_t numIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
-		if (numIndices > 0) {
+		ptrdiff_t numTriIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
+		ptrdiff_t numLineStripIndices = std::distance(mLineStripVerticesBase.begin(), mLineStripCurrentVertex);
+		if (numTriIndices > 0 || numLineStripIndices > 0) {
 			mFBO->bind();
 			glViewport(0, 0, mFBO->width(), mFBO->height());
 			glScissor(mDrawTopLeft.x, 511 - mDrawBottomRight.y, (mDrawBottomRight.x - mDrawTopLeft.x) + 1, (mDrawBottomRight.y - mDrawTopLeft.y) + 1);
@@ -74,18 +86,31 @@ namespace esx {
 
 			mFBO->getColorAttachment()->bind();
 
-			mTriVBO->bind();
-			mTriVBO->setData(mTriVerticesBase.data(), numIndices * sizeof(PolygonVertex), VertexBufferDataUsage::Dynamic);
+			if (numTriIndices > 0) {
+				mTriVBO->bind();
+				mTriVBO->setData(mTriVerticesBase.data(), numTriIndices * sizeof(PolygonVertex), VertexBufferDataUsage::Dynamic);
+				mTriVAO->bind();
+				glDrawArrays(GL_TRIANGLES, 0, (GLsizei)numTriIndices);
+				glFinish();
+				mTriVAO->unbind();
+				mTriVBO->unbind();
+			}
 
-			mTriVAO->bind();
-			glDrawArrays(GL_TRIANGLES, 0, (GLsizei)numIndices);
-			glFinish();
+			if (numLineStripIndices > 0) {
+				mLineStripVBO->bind();
+				mLineStripVBO->setData(mLineStripVerticesBase.data(), numLineStripIndices * sizeof(PolygonVertex), VertexBufferDataUsage::Dynamic);
+				mLineStripVAO->bind();
+				glDrawArrays(GL_LINES, 0, (GLsizei)numLineStripIndices);
+				glFinish();
+				mLineStripVAO->unbind();
+				mLineStripVBO->unbind();
+			}
 
-			mTriVAO->unbind();
-			mTriVBO->unbind();
 			mFBO->getColorAttachment()->unbind();
 			mShader->stop();
 			mFBO->unbind();
+
+			mRefreshVRAMData = ESX_TRUE;
 		}
 	}
 
@@ -152,11 +177,12 @@ namespace esx {
 			Begin();
 		}
 
+		//ESX_CORE_LOG_TRACE("BatchRenderer::DrawPolygon");
 		for (PolygonVertex& vertex : vertices) {
 			vertex.vertex.x += mDrawOffset.x;
 			vertex.vertex.y += mDrawOffset.y;
 
-			//ESX_CORE_LOG_TRACE(" Vertex({},{}),Color({},{},{}),Textured({})", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.textured);
+			//ESX_CORE_LOG_TRACE(" Vertex({},{}),Color({},{},{}),UV({},{}),Textured({})", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v, vertex.textured);
 		}
 
 		for (U64 i = 0; i < 3; i++) {
@@ -176,27 +202,44 @@ namespace esx {
 		}
 	}
 
-	void BatchRenderer::VRAMWrite(U16 x, U16 y, U16 data)
+	void BatchRenderer::DrawLineStrip(Vector<PolygonVertex>& vertices)
 	{
-		VRAMColor color = fromU16(data);
+		ptrdiff_t numIndices = std::distance(mLineStripVerticesBase.begin(), mLineStripCurrentVertex);
+		if ((numIndices + vertices.size()) >= MAX_LINE_STRIP_VERTICES || (numIndices > 0 && vertices.at(0).semiTransparency != 255)) {
+			Flush();
+			Begin();
+		}
 
-		x &= 1023;
-		y &= 511;
+		for (PolygonVertex& vertex : vertices) {
+			vertex.vertex.x += mDrawOffset.x;
+			vertex.vertex.y += mDrawOffset.y;
+		}
 
-		mFBO->getColorAttachment()->bind();
-		mFBO->getColorAttachment()->setPixel(x, (511-y), &color);
-		mFBO->getColorAttachment()->unbind();
+		for (U64 i = 0; i < vertices.size(); i++) {
+			const PolygonVertex& vertex = vertices[i];
+
+			*mLineStripCurrentVertex = vertex;
+			mLineStripCurrentVertex++;
+
+			if (vertices.size() > 2 && i > 0 && i < vertices.size() - 1) {
+				*mLineStripCurrentVertex = vertex;
+				mLineStripCurrentVertex++;
+			}
+		}
 	}
 
-	void BatchRenderer::VRAMWriteFull(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels)
+	void BatchRenderer::VRAMWrite(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels)
 	{
 		Flush();
 		Begin();
 
-		void* data = mVRAM24.data();
-		mFBO->getColorAttachment()->bind();
-		mFBO->getColorAttachment()->getPixels(&data);
-		mFBO->getColorAttachment()->unbind();
+		if (mRefreshVRAMData) {
+			void* data = mVRAM24.data();
+			mFBO->getColorAttachment()->bind();
+			mFBO->getColorAttachment()->getPixels(&data);
+			mFBO->getColorAttachment()->unbind();
+			mRefreshVRAMData = ESX_FALSE;
+		}
 
 		mFBO->getColorAttachment()->bind();
 		for (I32 yOff = 0; yOff < height; yOff++) {
@@ -219,32 +262,18 @@ namespace esx {
 		mFBO->getColorAttachment()->unbind();
 	}
 
-	U16 BatchRenderer::VRAMRead(U16 x, U16 y)
+	void BatchRenderer::VRAMRead(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels)
 	{
 		Flush();
 		Begin();
 
-		x &= 1023;
-		y &= 511;
-
-		U64 index = ((511-y) * 1024) + x;
-
-		VRAMColor& color = mVRAM24.at(index);
-
-		U16 data = toU16(color);
-
-		return data;
-	}
-
-	void BatchRenderer::VRAMReadFull(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels)
-	{
-		Flush();
-		Begin();
-
-		void* data = mVRAM24.data();
-		mFBO->getColorAttachment()->bind();
-		mFBO->getColorAttachment()->getPixels(&data);
-		mFBO->getColorAttachment()->unbind();
+		if (mRefreshVRAMData) {
+			void* data = mVRAM24.data();
+			mFBO->getColorAttachment()->bind();
+			mFBO->getColorAttachment()->getPixels(&data);
+			mFBO->getColorAttachment()->unbind();
+			mRefreshVRAMData = ESX_FALSE;
+		}
 
 		for (I32 yOff = 0; yOff < height; yOff++) {
 			for (I32 xOff = 0; xOff < width; xOff++) {
@@ -280,6 +309,8 @@ namespace esx {
 		mCheckMask = ESX_FALSE;
 
 		glEnable(GL_SCISSOR_TEST);
+
+		mRefreshVRAMData = ESX_TRUE;
 	}
 
 }

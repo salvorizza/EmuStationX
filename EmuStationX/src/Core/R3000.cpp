@@ -1053,6 +1053,7 @@ namespace esx {
 
 	void R3000::COP2()
 	{
+		//ESX_CORE_LOG_TRACE("COP2");
 		if (CO(mCurrentInstruction.binaryInstruction) == 0) {
 			switch (mCurrentInstruction.RegisterSource().Value) {
 				case 0x00: {

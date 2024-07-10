@@ -490,6 +490,8 @@ namespace esx {
 		channel.TransferStatus.LinkedListNextNodeAddress = 0;
 		channel.TransferStatus.LinkedListRemainingSize = 0;
 		channel.TransferStatus.LinkedListPacketAddress = 0;
+
+		ESX_CORE_LOG_TRACE("DMA - Starting Linked List Transfer starting node {:08x}h on port {}", channel.TransferStatus.LinkedListCurrentNodeAddress, (U8)channel.Port);
 	}
 
 	void DMA::clockLinkedListTransfer(Channel& channel)

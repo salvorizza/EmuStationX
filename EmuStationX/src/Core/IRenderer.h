@@ -82,13 +82,12 @@ namespace esx {
 		virtual void SetCheckMask(BIT value) = 0;
 		virtual void Clear(U16 x, U16 y, U16 w, U16 h, Color& color) = 0;
 		virtual void DrawPolygon(Vector<PolygonVertex>& vertices) = 0;
+		virtual void DrawLineStrip(Vector<PolygonVertex>& vertices) = 0;
 
 		virtual void Reset() = 0;
 
-		virtual void VRAMWrite(U16 x, U16 y, U16 data) = 0;
-		virtual void VRAMWriteFull(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels) = 0;
-		virtual U16 VRAMRead(U16 x, U16 y) = 0;
-		virtual void VRAMReadFull(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels) = 0;
+		virtual void VRAMWrite(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels) = 0;
+		virtual void VRAMRead(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels) = 0;
 
 		static VRAMColor fromU16(U16 value) {
 			VRAMColor color = {

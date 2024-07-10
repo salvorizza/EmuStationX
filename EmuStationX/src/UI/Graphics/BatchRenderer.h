@@ -30,10 +30,9 @@ namespace esx {
 		void SetCheckMask(BIT value) override;
 		void Clear(U16 x, U16 y, U16 w, U16 h, Color& color) override;
 		void DrawPolygon(Vector<PolygonVertex>& vertices) override;
-		void VRAMWrite(U16 x, U16 y, U16 data) override;
-		void VRAMWriteFull(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels) override;
-		U16 VRAMRead(U16 x, U16 y) override;
-		void VRAMReadFull(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels) override;
+		void DrawLineStrip(Vector<PolygonVertex>& vertices) override;
+		void VRAMWrite(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels) override;
+		void VRAMRead(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels) override;
 
 		const SharedPtr<FrameBuffer>& getPreviousFrame() { return mFBO; }
 
@@ -45,13 +44,25 @@ namespace esx {
 		static const size_t MAX_TRIS = 1000000;
 		static const size_t TRI_BUFFER_SIZE = TRI_SIZE * MAX_TRIS;
 		static const size_t TRI_MAX_VERTICES = MAX_TRIS * 3;
+
+		static const size_t LINE_STRIP_VERTEX_SIZE = sizeof(PolygonVertex);
+		static const size_t MAX_LINE_STRIP_VERTICES = 1000000;
+		static const size_t LINE_STRIP_BUFFER_SIZE = LINE_STRIP_VERTEX_SIZE * MAX_LINE_STRIP_VERTICES;
 	private:
 		SharedPtr<Shader> mShader;
+
+
 		SharedPtr<VertexArray> mTriVAO;
 		SharedPtr<VertexBuffer> mTriVBO;
-		SharedPtr<IndexBuffer> mTriIBO;
 		Vector<PolygonVertex> mTriVerticesBase;
 		Vector<PolygonVertex>::iterator mTriCurrentVertex;
+
+		SharedPtr<VertexArray> mLineStripVAO;
+		SharedPtr<VertexBuffer> mLineStripVBO;
+		Vector<PolygonVertex> mLineStripVerticesBase;
+		Vector<PolygonVertex>::iterator mLineStripCurrentVertex;
+
+
 		SharedPtr<FrameBuffer> mFBO;
 
 		glm::ivec2 mDrawOffset = glm::ivec2(0,0);
@@ -61,6 +72,7 @@ namespace esx {
 		BIT mCheckMask = ESX_FALSE;
 
 		Vector<VRAMColor> mVRAM24;
+		BIT mRefreshVRAMData = ESX_FALSE;
 	};
 
 }
