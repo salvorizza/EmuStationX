@@ -9,7 +9,8 @@ namespace esx {
 
 	BatchRenderer::BatchRenderer()
 		:	mTriVerticesBase(TRI_MAX_VERTICES),
-			mLineStripVerticesBase(MAX_LINE_STRIP_VERTICES)
+			mLineStripVerticesBase(MAX_LINE_STRIP_VERTICES),
+			mLineStripIndicesBase(MAX_LINE_STRIP_VERTICES)
 	{
 		BufferLayout defaultLayout = {
 			BufferElement("aPos", ShaderType::Short2),
@@ -33,8 +34,11 @@ namespace esx {
 		mLineStripVBO = MakeShared<VertexBuffer>();
 		mLineStripVBO->setLayout(defaultLayout);
 		mLineStripVBO->setData(nullptr, LINE_STRIP_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
+		mLineStripIBO = MakeShared<IndexBuffer>();
+		mLineStripVBO->setData(nullptr, MAX_LINE_STRIP_VERTICES * sizeof(U32), VertexBufferDataUsage::Dynamic);
 		mLineStripVAO = MakeShared<VertexArray>();
 		mLineStripVAO->addVertexBuffer(mLineStripVBO);
+		mLineStripVAO->setIndexBuffer(mLineStripIBO);
 		mLineStripVAO->unbind();
 		mLineStripVBO->unbind();
 
@@ -63,6 +67,7 @@ namespace esx {
 	{
 		mTriCurrentVertex = mTriVerticesBase.begin();
 		mLineStripCurrentVertex = mLineStripVerticesBase.begin();
+		mLineStripCurrentIndex = mLineStripIndicesBase.begin();
 	}
 
 	void BatchRenderer::end()
@@ -74,6 +79,7 @@ namespace esx {
 	{
 		ptrdiff_t numTriIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
 		ptrdiff_t numLineStripIndices = std::distance(mLineStripVerticesBase.begin(), mLineStripCurrentVertex);
+
 		if (numTriIndices > 0 || numLineStripIndices > 0) {
 			mFBO->bind();
 			glViewport(0, 0, mFBO->width(), mFBO->height());
@@ -88,7 +94,7 @@ namespace esx {
 
 			if (numTriIndices > 0) {
 				mTriVBO->bind();
-				mTriVBO->setData(mTriVerticesBase.data(), numTriIndices * sizeof(PolygonVertex), VertexBufferDataUsage::Dynamic);
+				mTriVBO->copyData(mTriVerticesBase.data(), numTriIndices * sizeof(PolygonVertex));
 				mTriVAO->bind();
 				glDrawArrays(GL_TRIANGLES, 0, (GLsizei)numTriIndices);
 				glFinish();
@@ -97,13 +103,26 @@ namespace esx {
 			}
 
 			if (numLineStripIndices > 0) {
+				ESX_CORE_LOG_TRACE("{}", numLineStripIndices);
+
+				glEnable(GL_PRIMITIVE_RESTART);
+				glPrimitiveRestartIndex(-1);
+
 				mLineStripVBO->bind();
-				mLineStripVBO->setData(mLineStripVerticesBase.data(), numLineStripIndices * sizeof(PolygonVertex), VertexBufferDataUsage::Dynamic);
+				mLineStripVBO->copyData(mLineStripVerticesBase.data(), numLineStripIndices * sizeof(PolygonVertex));
+
+				mLineStripIBO->bind();
+				mLineStripIBO->copyData(mLineStripIndicesBase.data(), numLineStripIndices * sizeof(U32));
+
 				mLineStripVAO->bind();
-				glDrawArrays(GL_LINES, 0, (GLsizei)numLineStripIndices);
+				glDrawElements(GL_LINE_STRIP, numLineStripIndices, GL_UNSIGNED_INT, nullptr);
 				glFinish();
 				mLineStripVAO->unbind();
 				mLineStripVBO->unbind();
+				mLineStripIBO->unbind();
+
+
+				glDisable(GL_PRIMITIVE_RESTART);
 			}
 
 			mFBO->getColorAttachment()->unbind();
@@ -218,14 +237,16 @@ namespace esx {
 		for (U64 i = 0; i < vertices.size(); i++) {
 			const PolygonVertex& vertex = vertices[i];
 
+			*mLineStripCurrentIndex = std::distance(mLineStripVerticesBase.begin(), mLineStripCurrentVertex);
+			mLineStripCurrentIndex++;
+
 			*mLineStripCurrentVertex = vertex;
 			mLineStripCurrentVertex++;
-
-			if (vertices.size() > 2 && i > 0 && i < vertices.size() - 1) {
-				*mLineStripCurrentVertex = vertex;
-				mLineStripCurrentVertex++;
-			}
 		}
+
+		*mLineStripCurrentIndex = -1;
+		mLineStripCurrentIndex++;
+		mLineStripCurrentVertex++;
 	}
 
 	void BatchRenderer::VRAMWrite(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels)

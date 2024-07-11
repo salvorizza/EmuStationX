@@ -59,8 +59,11 @@ namespace esx {
 
 		SharedPtr<VertexArray> mLineStripVAO;
 		SharedPtr<VertexBuffer> mLineStripVBO;
+		SharedPtr<IndexBuffer> mLineStripIBO;
 		Vector<PolygonVertex> mLineStripVerticesBase;
 		Vector<PolygonVertex>::iterator mLineStripCurrentVertex;
+		Vector<U32> mLineStripIndicesBase;
+		Vector<U32>::iterator mLineStripCurrentIndex;
 
 
 		SharedPtr<FrameBuffer> mFBO;

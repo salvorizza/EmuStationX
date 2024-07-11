@@ -61,6 +61,7 @@ namespace esx {
 		void unbind();
 
 		void setData(void* data, size_t size, VertexBufferDataUsage dataUsage);
+		void copyData(void* data, size_t size);
 		void* map();
 		void unMap();
 

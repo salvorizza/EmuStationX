@@ -79,6 +79,11 @@ namespace esx {
 		glBufferData(GL_ARRAY_BUFFER, size, data, dataUsageToOpenGLDataUsage(dataUsage));
 	}
 
+	void VertexBuffer::copyData(void* data, size_t size)
+	{
+		glBufferSubData(GL_ARRAY_BUFFER, 0, size, data);
+	}
+
 	void* VertexBuffer::map()
 	{
 		return glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);

@@ -570,7 +570,7 @@ namespace esx {
 		mSeekSector = 0x00;
 
 		//Init
-		mShellOpen = ESX_TRUE;
+		mShellOpen = ESX_FALSE;
 
 		mStat.ShellOpen = ESX_TRUE;
 		mStat.Rotating = ESX_TRUE;
