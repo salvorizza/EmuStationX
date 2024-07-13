@@ -41,12 +41,12 @@ namespace esx {
 	public:
 		static const size_t QUAD_VERTEX_SIZE = sizeof(PolygonVertex);
 		static const size_t TRI_SIZE = QUAD_VERTEX_SIZE * 3;
-		static const size_t MAX_TRIS = 1000000;
+		static const size_t MAX_TRIS = 10000;
 		static const size_t TRI_BUFFER_SIZE = TRI_SIZE * MAX_TRIS;
 		static const size_t TRI_MAX_VERTICES = MAX_TRIS * 3;
 
 		static const size_t LINE_STRIP_VERTEX_SIZE = sizeof(PolygonVertex);
-		static const size_t MAX_LINE_STRIP_VERTICES = 1000000;
+		static const size_t MAX_LINE_STRIP_VERTICES = 10000;
 		static const size_t LINE_STRIP_BUFFER_SIZE = LINE_STRIP_VERTEX_SIZE * MAX_LINE_STRIP_VERTICES;
 	private:
 		SharedPtr<Shader> mShader;

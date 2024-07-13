@@ -13,6 +13,8 @@ namespace esx {
 	}
 
 	IndexBuffer::IndexBuffer()
+		: mRendererID(0),
+		  mNumIndices(0)
 	{
 		glGenBuffers(1, &mRendererID);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mRendererID);

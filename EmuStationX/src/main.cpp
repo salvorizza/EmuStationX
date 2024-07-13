@@ -291,6 +291,12 @@ public:
 		controller->setButtonState(ControllerButton::Triangle, InputManager::IsKeyPressed(GLFW_KEY_C));
 		controller->setButtonState(ControllerButton::Circle, InputManager::IsKeyPressed(GLFW_KEY_V));
 
+		controller->setButtonState(ControllerButton::Select, InputManager::IsKeyPressed(GLFW_KEY_K));
+		controller->setButtonState(ControllerButton::Start, InputManager::IsKeyPressed(GLFW_KEY_L));
+
+		controller->setButtonState(ControllerButton::R1, InputManager::IsKeyPressed(GLFW_KEY_P));
+		controller->setButtonState(ControllerButton::L1, InputManager::IsKeyPressed(GLFW_KEY_Q));
+
 		mDisassemblerPanel->onUpdate();
 		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
 		InputManager::Update();

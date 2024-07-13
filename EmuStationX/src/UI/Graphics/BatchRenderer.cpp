@@ -35,7 +35,7 @@ namespace esx {
 		mLineStripVBO->setLayout(defaultLayout);
 		mLineStripVBO->setData(nullptr, LINE_STRIP_BUFFER_SIZE, VertexBufferDataUsage::Dynamic);
 		mLineStripIBO = MakeShared<IndexBuffer>();
-		mLineStripVBO->setData(nullptr, MAX_LINE_STRIP_VERTICES * sizeof(U32), VertexBufferDataUsage::Dynamic);
+		mLineStripIBO->setData(nullptr, MAX_LINE_STRIP_VERTICES * sizeof(U32), VertexBufferDataUsage::Dynamic);
 		mLineStripVAO = MakeShared<VertexArray>();
 		mLineStripVAO->addVertexBuffer(mLineStripVBO);
 		mLineStripVAO->setIndexBuffer(mLineStripIBO);
@@ -103,14 +103,12 @@ namespace esx {
 			}
 
 			if (numLineStripIndices > 0) {
-				ESX_CORE_LOG_TRACE("{}", numLineStripIndices);
 
 				glEnable(GL_PRIMITIVE_RESTART);
 				glPrimitiveRestartIndex(-1);
 
 				mLineStripVBO->bind();
 				mLineStripVBO->copyData(mLineStripVerticesBase.data(), numLineStripIndices * sizeof(PolygonVertex));
-
 				mLineStripIBO->bind();
 				mLineStripIBO->copyData(mLineStripIndicesBase.data(), numLineStripIndices * sizeof(U32));
 
@@ -186,6 +184,7 @@ namespace esx {
 		glClearColor(floorf(color.r / 8) / 31.0, floorf(color.g / 8) / 31.0, floorf(color.b / 8) / 31.0, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 		mFBO->unbind();
+		mRefreshVRAMData = ESX_TRUE;
 	}
 
 	void BatchRenderer::DrawPolygon(Vector<PolygonVertex>& vertices)
@@ -315,6 +314,9 @@ namespace esx {
 	{
 		std::fill(mTriVerticesBase.begin(), mTriVerticesBase.end(), PolygonVertex());
 		mTriCurrentVertex = mTriVerticesBase.begin();
+
+		std::fill(mLineStripIndicesBase.begin(), mLineStripIndicesBase.end(), 0);
+		mLineStripCurrentIndex = mLineStripIndicesBase.begin();
 
 		mFBO->bind();
 		glClearColor(0, 0, 0, 1);
