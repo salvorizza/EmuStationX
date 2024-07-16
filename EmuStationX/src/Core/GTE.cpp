@@ -149,15 +149,58 @@ namespace esx {
 					I64(mRegisters.SXY0[0]) * I64(mRegisters.SXY2[1]) - 
 					I64(mRegisters.SXY1[0]) * I64(mRegisters.SXY0[1]) - 
 					I64(mRegisters.SXY2[0]) * I64(mRegisters.SXY1[1]);
-		setMAC(0, MAC0);
+		setMAC(0, MAC0, ESX_FALSE);
 	}
 
 	void GTE::OP() {
-		ESX_CORE_LOG_ERROR("GTE::OP not implemented yet");
+		I64 D1 = I64(mRegisters.RT[0 * 3 + 0]);
+		I64 D2 = I64(mRegisters.RT[1 * 3 + 1]);
+		I64 D3 = I64(mRegisters.RT[2 * 3 + 2]);
+
+		I64 MAC1 = mRegisters.IR3 * D2 - mRegisters.IR2 * D3;
+		I64 MAC2 = mRegisters.IR1 * D3 - mRegisters.IR3 * D1;
+		I64 MAC3 = mRegisters.IR2 * D1 - mRegisters.IR1 * D2;
+
+		setMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		setMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		setMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::DPCS() {
-		ESX_CORE_LOG_ERROR("GTE::DPCS not implemented yet");
+		/*[MAC1,MAC2,MAC3] = [R,G,B] SHL 16*/
+		/*[IR1,IR2,IR3] = (([RFC,GFC,BFC] SHL 12) - [MAC1,MAC2,MAC3]) SAR (sf*12)*/
+		I64 MAC1 = ((I64)mRegisters.FC[0] << 12) - (U64)mRegisters.RGBC[0] << 16;
+		I64 MAC2 = ((I64)mRegisters.FC[1] << 12) - (U64)mRegisters.RGBC[1] << 16;
+		I64 MAC3 = ((I64)mRegisters.FC[2] << 12) - (U64)mRegisters.RGBC[2] << 16;
+
+		setMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		setMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		setMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		setIR(1, mRegisters.MACV[0], ESX_FALSE);
+		setIR(2, mRegisters.MACV[1], ESX_FALSE);
+		setIR(3, mRegisters.MACV[2], ESX_FALSE);
+
+		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3])*/
+		MAC1 = (mRegisters.IR1 * mRegisters.IR0) + ((U64)mRegisters.RGBC[0] << 16);
+		MAC2 = (mRegisters.IR2 * mRegisters.IR0) + ((U64)mRegisters.RGBC[1] << 16);
+		MAC3 = (mRegisters.IR3 * mRegisters.IR0) + ((U64)mRegisters.RGBC[2] << 16);
+
+		setMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		setMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		setMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
+		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
+		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::INTPL() {
@@ -221,15 +264,15 @@ namespace esx {
 		}
 
 		if (mCurrentCommand.TranslationVector == TranslationVector::None) {
-			Multiply(*V, *M);
+			Multiply(*V, *M, MAC1, MAC2, MAC3, ESX_FALSE);
 		} else {
-			Multiply(*T, *V, *M);
+			Multiply(*T, *V, *M, MAC1, MAC2, MAC3, ESX_FALSE);
 		}
 
 
-		setMAC(1, mRegisters.MACV[0] >> (mCurrentCommand.ShiftFraction * 12));
-		setMAC(2, mRegisters.MACV[1] >> (mCurrentCommand.ShiftFraction * 12));
-		setMAC(3, mRegisters.MACV[2] >> (mCurrentCommand.ShiftFraction * 12));
+		setMAC(1, mRegisters.MACV[0], mCurrentCommand.ShiftFraction);
+		setMAC(2, mRegisters.MACV[1], mCurrentCommand.ShiftFraction);
+		setMAC(3, mRegisters.MACV[2], mCurrentCommand.ShiftFraction);
 
 		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
 		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
@@ -240,11 +283,11 @@ namespace esx {
 		I64 MAC1, MAC2, MAC3;
 
 		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (LLM*V0) SAR (sf*12)*/
-		Multiply(mRegisters.V0, mRegisters.LLM);
+		Multiply(mRegisters.V0, mRegisters.LLM, MAC1, MAC2, MAC3, ESX_FALSE);
 			
-		setMAC(1, mRegisters.MACV[0] >> (mCurrentCommand.ShiftFraction * 12));
-		setMAC(2, mRegisters.MACV[1] >> (mCurrentCommand.ShiftFraction * 12));
-		setMAC(3, mRegisters.MACV[2] >> (mCurrentCommand.ShiftFraction * 12));
+		setMAC(1, mRegisters.MACV[0], mCurrentCommand.ShiftFraction);
+		setMAC(2, mRegisters.MACV[1], mCurrentCommand.ShiftFraction);
+		setMAC(3, mRegisters.MACV[2], mCurrentCommand.ShiftFraction);
 
 		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
 		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
@@ -252,11 +295,11 @@ namespace esx {
 
 		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (BK*1000h + LCM*IR) SAR (sf*12)*/
 		Array<I16, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
-		Multiply(mRegisters.BK, IR, mRegisters.LCM);
+		Multiply(mRegisters.BK, IR, mRegisters.LCM, MAC1, MAC2, MAC3, ESX_FALSE);
 
-		setMAC(1, mRegisters.MACV[0] >> (mCurrentCommand.ShiftFraction * 12));
-		setMAC(2, mRegisters.MACV[1] >> (mCurrentCommand.ShiftFraction * 12));
-		setMAC(3, mRegisters.MACV[2] >> (mCurrentCommand.ShiftFraction * 12));
+		setMAC(1, mRegisters.MACV[0], mCurrentCommand.ShiftFraction);
+		setMAC(2, mRegisters.MACV[1], mCurrentCommand.ShiftFraction);
+		setMAC(3, mRegisters.MACV[2], mCurrentCommand.ShiftFraction);
 
 		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
 		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
@@ -267,9 +310,9 @@ namespace esx {
 		MAC2 = (I64(mRegisters.RGBC[1]) * I64(mRegisters.IR2)) << 4;
 		MAC3 = (I64(mRegisters.RGBC[2]) * I64(mRegisters.IR3)) << 4;
 
-		setMAC(1, MAC1);
-		setMAC(2, MAC2);
-		setMAC(3, MAC3);
+		setMAC(1, MAC1, ESX_FALSE);
+		setMAC(2, MAC2, ESX_FALSE);
+		setMAC(3, MAC3, ESX_FALSE);
 
 		/*[IR1,IR2,IR3] = (([RFC,GFC,BFC] SHL 12) - [MAC1,MAC2,MAC3]) SAR (sf*12)*/
 		I32 IR1 = ((mRegisters.FC[0] << 12) - mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
@@ -285,18 +328,18 @@ namespace esx {
 		MAC2 = (IR2 * mRegisters.IR0) + mRegisters.MACV[1];
 		MAC3 = (IR3 * mRegisters.IR0) + mRegisters.MACV[2];
 
-		setMAC(1, MAC1);
-		setMAC(2, MAC2);
-		setMAC(3, MAC3);
+		setMAC(1, MAC1, ESX_FALSE);
+		setMAC(2, MAC2, ESX_FALSE);
+		setMAC(3, MAC3, ESX_FALSE);
 
 		/*[MAC1,MAC2,MAC3] = [MAC1,MAC2,MAC3] SAR (sf*12)*/
 		MAC1 = I64(mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC2 = I64(mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC3 = I64(mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
 
-		setMAC(1, MAC1);
-		setMAC(2, MAC2);
-		setMAC(3, MAC3);
+		setMAC(1, MAC1, ESX_FALSE);
+		setMAC(2, MAC2, ESX_FALSE);
+		setMAC(3, MAC3, ESX_FALSE);
 
 		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
 		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
@@ -347,7 +390,7 @@ namespace esx {
 		I64 MAC0 = I64(mRegisters.ZSF3) * (I64(mRegisters.SZ1) + mRegisters.SZ2 + mRegisters.SZ3);
 		I64 OTZ = MAC0 / 0x1000;
 
-		setMAC(0, MAC0);
+		setMAC(0, MAC0, ESX_FALSE);
 
 		if (OTZ < 0 || OTZ > 0xFFFF) {
 			OTZ = std::clamp<I64>(OTZ, 0x0000, 0xFFFF);
@@ -375,18 +418,18 @@ namespace esx {
 		MAC2 = 0;
 		MAC3 = 0;
 
-		setMAC(1, MAC1);
-		setMAC(2, MAC2);
-		setMAC(3, MAC3);
+		setMAC(1, MAC1, ESX_FALSE);
+		setMAC(2, MAC2, ESX_FALSE);
+		setMAC(3, MAC3, ESX_FALSE);
 
 		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3]) SAR (sf*12)*/
 		MAC1 = ((mRegisters.IR1 * mRegisters.IR0) + mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC2 = ((mRegisters.IR2 * mRegisters.IR0) + mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC3 = ((mRegisters.IR3 * mRegisters.IR0) + mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
 
-		setMAC(1, MAC1);
-		setMAC(2, MAC2);
-		setMAC(3, MAC3);
+		setMAC(1, MAC1, ESX_FALSE);
+		setMAC(2, MAC2, ESX_FALSE);
+		setMAC(3, MAC3, ESX_FALSE);
 
 		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
 		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
@@ -405,18 +448,18 @@ namespace esx {
 		MAC2 = (I64)mRegisters.MACV[1] << (mCurrentCommand.ShiftFraction * 12);
 		MAC3 = (I64)mRegisters.MACV[2] << (mCurrentCommand.ShiftFraction * 12);
 
-		setMAC(1, MAC1);
-		setMAC(2, MAC2);
-		setMAC(3, MAC3);
+		setMAC(1, MAC1, ESX_FALSE);
+		setMAC(2, MAC2, ESX_FALSE);
+		setMAC(3, MAC3, ESX_FALSE);
 
 		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3]) SAR (sf*12)*/
 		MAC1 = ((mRegisters.IR1 * mRegisters.IR0) + mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC2 = ((mRegisters.IR2 * mRegisters.IR0) + mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC3 = ((mRegisters.IR3 * mRegisters.IR0) + mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
 
-		setMAC(1, MAC1);
-		setMAC(2, MAC2);
-		setMAC(3, MAC3);
+		setMAC(1, MAC1, ESX_FALSE);
+		setMAC(2, MAC2, ESX_FALSE);
+		setMAC(3, MAC3, ESX_FALSE);
 
 		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
 		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
@@ -523,19 +566,16 @@ namespace esx {
 
 	void GTE::Internal_RTPS(const Array<I16, 3>& V, BIT lm, BIT sf)
 	{
-		Array<I16, 2> SXY2 = {};
+		Array<I32, 2> SXY2 = {};
+		I64 MAC0, MAC1, MAC2, MAC3;
 
-		Multiply(mRegisters.TR, V, mRegisters.RT);
-
-		setMAC(1, mRegisters.MACV[0] >> (sf * 12));
-		setMAC(2, mRegisters.MACV[1] >> (sf * 12));
-		setMAC(3, mRegisters.MACV[2] >> (sf * 12));
+		Multiply(mRegisters.TR, V, mRegisters.RT, MAC1, MAC2, MAC3, sf);
 
 		setIR(1, mRegisters.MACV[0], lm);
 		setIR(2, mRegisters.MACV[1], lm);
 
-		I32 MAC3sf = mRegisters.MACV[2] >> (sf * 12);
-		I32 MAC312 = mRegisters.MACV[2] >> 12;
+		I32 MAC3sf = MAC3 >> (sf * 12);
+		I32 MAC312 = MAC3 >> 12;
 		I32 minValue = lm ? 0x0000 : -0x8000;
 		I32 maxValue = 0x7FFF;
 		if(MAC312 < -0x8000 || MAC312 > 0x7FFF) mRegisters.FLAG |= FlagRegisterIR3Sat;
@@ -544,7 +584,7 @@ namespace esx {
 		I32 SZ3 = MAC312;
 		pushSZ(SZ3);
 
-		U32 H_CALC = 0;
+		I32 H_CALC = 0;
 		if (mRegisters.H < (mRegisters.SZ3 * 2)) {
 			U32 z = std::countl_zero<U16>(mRegisters.SZ3);
 			H_CALC = (U32)mRegisters.H << z;
@@ -558,29 +598,35 @@ namespace esx {
 			mRegisters.FLAG |= FlagRegisterDivOver;
 		}
 
-		I64 MAC0 = H_CALC * I64(mRegisters.IR1) + mRegisters.OF[0]; 
-		setMAC(0, MAC0); 
-		SXY2[0] = mRegisters.MAC0 / 0x10000;
+		MAC0 = H_CALC * I64(mRegisters.IR1) + mRegisters.OF[0]; 
+		setMAC(0, MAC0, ESX_FALSE); 
+		SXY2[0] = MAC0 >> 16;
 
 		MAC0 = H_CALC * I64(mRegisters.IR2) + mRegisters.OF[1];
-		setMAC(0, MAC0); 
-		SXY2[1] = mRegisters.MAC0 / 0x10000;
+		setMAC(0, MAC0, ESX_FALSE);
+		SXY2[1] = MAC0 >> 16;
 
 		MAC0 = H_CALC * I64(mRegisters.DQA) + mRegisters.DQB; 
-		setMAC(0, MAC0); 
+		setMAC(0, MAC0, ESX_FALSE);
 
-		I64 IR0 = mRegisters.MAC0 / 0x1000; 
-		setIR(0, IR0, false);
+		I64 MAC012 = MAC0 >> 12;
+		if (MAC012 < 0x0000 || MAC012 > 0x1000) mRegisters.FLAG |= FlagRegisterIR0Sat;
+		mRegisters.IR0 = std::clamp<I32>(MAC012, 0x0000, 0x1000);
 
 		pushSXY(SXY2);
 	}
 
-	void GTE::Multiply(const Array<I32, 3>& T, const Array<I16, 3>& V, const Array<I16, 9>& M) {
-		//setMAC(1,(I64(T[0]) * 0x1000 + I64(M[0 * 3 + 0]) * V[0] + I64(M[0 * 3 + 1]) * V[1] + I64(M[0 * 3 + 2]) * V[2]));
-		//setMAC(2,(I64(T[1]) * 0x1000 + I64(M[1 * 3 + 0]) * V[0] + I64(M[1 * 3 + 1]) * V[1] + I64(M[1 * 3 + 2]) * V[2]));
-		//setMAC(3,(I64(T[2]) * 0x1000 + I64(M[2 * 3 + 0]) * V[0] + I64(M[2 * 3 + 1]) * V[1] + I64(M[2 * 3 + 2]) * V[2]));
+	void GTE::Multiply(const Array<I32, 3>& T, const Array<I16, 3>& V, const Array<I16, 9>& M, I64& MAC1, I64& MAC2, I64& MAC3, BIT sf) {
+		MAC1 = (I64(T[0]) * 0x1000 + I64(M[0 * 3 + 0]) * V[0] + I64(M[0 * 3 + 1]) * V[1] + I64(M[0 * 3 + 2]) * V[2]);
+		MAC2 = (I64(T[1]) * 0x1000 + I64(M[1 * 3 + 0]) * V[0] + I64(M[1 * 3 + 1]) * V[1] + I64(M[1 * 3 + 2]) * V[2]);
+		MAC3 = (I64(T[2]) * 0x1000 + I64(M[2 * 3 + 0]) * V[0] + I64(M[2 * 3 + 1]) * V[1] + I64(M[2 * 3 + 2]) * V[2]);
 
-		setMAC(1, (I64(T[0]) * 0x1000 + I64(M[0 * 3 + 0]) * V[0]));
+		setMAC(1, MAC1, sf);
+		setMAC(2, MAC2, sf);
+		setMAC(3, MAC3, sf);
+
+
+		/*setMAC(1, (I64(T[0]) * 0x1000 + I64(M[0 * 3 + 0]) * V[0]));
 		setMAC(1, mRegisters.MACV[0] +  I64(M[0 * 3 + 1]) * V[1]);
 		setMAC(1, mRegisters.MACV[0] +  I64(M[0 * 3 + 2]) * V[2]);
 
@@ -590,28 +636,34 @@ namespace esx {
 
 		setMAC(3, (I64(T[2]) * 0x1000 + I64(M[2 * 3 + 0]) * V[0]));
 		setMAC(3, mRegisters.MACV[2] +  I64(M[2 * 3 + 1]) * V[1]);
-		setMAC(3, mRegisters.MACV[2] +  I64(M[2 * 3 + 2]) * V[2]);
+		setMAC(3, mRegisters.MACV[2] +  I64(M[2 * 3 + 2]) * V[2]);*/
 	}
 
-	void GTE::Multiply(const Array<I16, 3>& V, const Array<I16, 9>& M)
+	void GTE::Multiply(const Array<I16, 3>& V, const Array<I16, 9>& M, I64& MAC1, I64& MAC2, I64& MAC3, BIT sf)
 	{
-		//mRegisters.MACV[0] = (I64(M[0 * 3 + 0]) * V[0] + I64(M[0 * 3 + 1]) * V[1] + I64(M[0 * 3 + 2]) * V[2]);
-		setMAC(1,						I64(M[0 * 3 + 0]) * V[0]);
+		MAC1 = (I64(M[0 * 3 + 0]) * V[0] + I64(M[0 * 3 + 1]) * V[1] + I64(M[0 * 3 + 2]) * V[2]);
+		setMAC(1, MAC1, sf);
+
+		/*setMAC(1, I64(M[0 * 3 + 0]) * V[0]);
 		setMAC(1, mRegisters.MACV[0] +	I64(M[0 * 3 + 1]) * V[1]);
-		setMAC(1, mRegisters.MACV[0] +	I64(M[0 * 3 + 2]) * V[2]);
+		setMAC(1, mRegisters.MACV[0] +	I64(M[0 * 3 + 2]) * V[2]);*/
 
-		//mRegisters.MACV[1] = (I64(M[1 * 3 + 0]) * V[0] + I64(M[1 * 3 + 1]) * V[1] + I64(M[1 * 3 + 2]) * V[2]);
-		setMAC(2,						I64(M[1 * 3 + 0]) * V[0]);
+		MAC2 = (I64(M[1 * 3 + 0]) * V[0] + I64(M[1 * 3 + 1]) * V[1] + I64(M[1 * 3 + 2]) * V[2]);
+		setMAC(2, MAC2, sf);
+
+		/*setMAC(2, I64(M[1 * 3 + 0]) * V[0]);
 		setMAC(2, mRegisters.MACV[1] +	I64(M[1 * 3 + 1]) * V[1]);
-		setMAC(2, mRegisters.MACV[1] +	I64(M[1 * 3 + 2]) * V[2]);
+		setMAC(2, mRegisters.MACV[1] +	I64(M[1 * 3 + 2]) * V[2]);*/
 
-		//mRegisters.MACV[2] = (I64(M[2 * 3 + 0]) * V[0] + I64(M[2 * 3 + 1]) * V[1] + I64(M[2 * 3 + 2]) * V[2]);
-		setMAC(3,						I64(M[2 * 3 + 0]) * V[0]);
+		MAC3 = (I64(M[2 * 3 + 0]) * V[0] + I64(M[2 * 3 + 1]) * V[1] + I64(M[2 * 3 + 2]) * V[2]);
+		setMAC(3, MAC3, sf);
+
+		/*setMAC(3, I64(M[2 * 3 + 0]) * V[0]);
 		setMAC(3, mRegisters.MACV[2] +	I64(M[2 * 3 + 1]) * V[1]);
-		setMAC(3, mRegisters.MACV[2] +	I64(M[2 * 3 + 2]) * V[2]);
+		setMAC(3, mRegisters.MACV[2] +	I64(M[2 * 3 + 2]) * V[2]);*/
 	}
 
-	void GTE::setMAC(U8 index, I64 value)
+	void GTE::setMAC(U8 index, I64 value, BIT sf)
 	{
 		I64 minValue = (index == 0) ? (-(1ll << 31)) : (-(1ll << 43));
 		I64 maxValue = (index == 0) ? ((1ll << 31) - 1) : ((1ll << 43) - 1);
@@ -633,9 +685,9 @@ namespace esx {
 		}
 
 		if (index == 0) {
-			mRegisters.MAC0 = static_cast<I32>(value);
+			mRegisters.MAC0 = static_cast<I32>(value >> (sf * 12));
 		} else {
-			mRegisters.MACV[index - 1] = static_cast<I32>(value);
+			mRegisters.MACV[index - 1] = static_cast<I32>(value >> (sf * 12));
 		}
 	}
 
@@ -656,10 +708,10 @@ namespace esx {
 		}
 
 		switch (index) {
-			case 0: mRegisters.IR0 = static_cast<I16>(value); break;
-			case 1: mRegisters.IR1 = static_cast<I16>(value); break;
-			case 2: mRegisters.IR2 = static_cast<I16>(value); break;
-			case 3: mRegisters.IR3 = static_cast<I16>(value); break;
+			case 0: mRegisters.IR0 = value; break;
+			case 1: mRegisters.IR1 = value; break;
+			case 2: mRegisters.IR2 = value; break;
+			case 3: mRegisters.IR3 = value; break;
 		}
 	}
 
@@ -676,21 +728,22 @@ namespace esx {
 		mRegisters.SZ3 = static_cast<U16>(value);
 	}
 
-	void GTE::pushSXY(Array<I16, 2>& value)
+	void GTE::pushSXY(Array<I32, 2>& value)
 	{
 		if (value[0] < -0x400 || value[0] > 0x3FF) {
-			value[0] = std::clamp<I16>(value[0], -0x400, 0x3FF);
+			value[0] = std::clamp<I32>(value[0], -0x400, 0x3FF);
 			mRegisters.FLAG |= FlagRegisterSX2Sat;
 		}
 
 		if (value[1] < -0x400 || value[1] > 0x3FF) {
-			value[1] = std::clamp<I16>(value[1], -0x400, 0x3FF);
+			value[1] = std::clamp<I32>(value[1], -0x400, 0x3FF);
 			mRegisters.FLAG |= FlagRegisterSY2Sat;
 		}
 
 		mRegisters.SXY0 = mRegisters.SXY1;
 		mRegisters.SXY1 = mRegisters.SXY2;
-		mRegisters.SXY2 = value;
+		mRegisters.SXY2[0] = value[0];
+		mRegisters.SXY2[1] = value[1];
 	}
 
 	void GTE::pushColor(I32 r, I32 g, I32 b)
@@ -715,7 +768,6 @@ namespace esx {
 		mRegisters.RGB0 = mRegisters.RGB1;
 		mRegisters.RGB1 = mRegisters.RGB2;
 		mRegisters.Registers[22] = (r << 0) | (g << 8) | (b << 16) | (c << 24);
-
 	}
 
 }

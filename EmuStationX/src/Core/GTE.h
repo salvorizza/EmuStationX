@@ -79,14 +79,10 @@ namespace esx {
 			Array<U8, 4> RGBC;
 			U16 OTZ;
 			U16 PAD4;
-			I16 IR0;
-			U16 PAD5;
-			I16 IR1;
-			U16 PAD6;
-			I16 IR2;
-			U16 PAD7;
-			I16 IR3;
-			U16 PAD8;
+			I32 IR0;
+			I32 IR1;
+			I32 IR2;
+			I32 IR3;
 			Array<I16, 2> SXY0;
 			Array<I16, 2> SXY1;
 			Array<I16, 2> SXY2;
@@ -179,13 +175,13 @@ namespace esx {
 
 		void Internal_RTPS(const Array<I16, 3>& V, BIT lm, BIT sf);
 
-		void Multiply(const Array<I32, 3>& T, const Array<I16, 3>& V, const Array<I16, 9>& M);
-		void Multiply(const Array<I16, 3>& V, const Array<I16, 9>& M);
+		void Multiply(const Array<I32, 3>& T, const Array<I16, 3>& V, const Array<I16, 9>& M, I64& MAC1, I64& MAC2, I64& MAC3, BIT sf);
+		void Multiply(const Array<I16, 3>& V, const Array<I16, 9>& M, I64& MAC1, I64& MAC2, I64& MAC3, BIT sf);
 
-		void setMAC(U8 index, I64 value);
+		void setMAC(U8 index, I64 value, BIT sf);
 		void setIR(U8 index, I32 value, BIT lm);
 		void pushSZ(I32 value);
-		void pushSXY(Array<I16,2>& value);
+		void pushSXY(Array<I32,2>& value);
 		void pushColor(I32 r, I32 g, I32 b);
 
 	private:
