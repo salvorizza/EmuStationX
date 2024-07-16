@@ -13,8 +13,6 @@ namespace esx {
 		: BusDevice(ESX_TEXT("DMA"))
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801080, BYTE(0x7F), 0xFFFFFFFF);
-
-		reset();
 	}
 
 	DMA::~DMA()
@@ -170,6 +168,8 @@ namespace esx {
 		};
 		mRunningDMAs = 0;
 
+		mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
+
 		setControlRegister(0x07654321);
 		setInterruptRegister(0);
 
@@ -252,18 +252,22 @@ namespace esx {
 
 		U8 flag = 1 << (U8)channel.Port;
 
+		
 		if (mInterruptRegister.IRQEnable & flag) {
 			BIT oldIRQ = mInterruptRegister.IRQMasterFlag();
 			mInterruptRegister.IRQFlags |= flag;
 			BIT newIRQ = mInterruptRegister.IRQMasterFlag();
 
-			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::DMA, oldIRQ, newIRQ);
+			mInterruptControl->requestInterrupt(InterruptType::DMA, oldIRQ, newIRQ);
 		}
+
 		mRunningDMAs--;
 	}
 
 	void DMA::setInterruptRegister(U32 value)
 	{
+		BIT oldIRQ = mInterruptRegister.IRQMasterFlag();
+
 		U8 IRQResetMask = ~((value >> 24) & 0x7F);
 
 		mInterruptRegister.IRQCompletionInterrupt = (value >> 0) & 0x7F;
@@ -272,6 +276,8 @@ namespace esx {
 		mInterruptRegister.IRQEnable = (value >> 16) & 0x7F;
 		mInterruptRegister.IRQMasterEnable = (value >> 23) & 0x1;
 		mInterruptRegister.IRQFlags &= IRQResetMask;
+
+		mInterruptControl->requestInterrupt(InterruptType::DMA, oldIRQ, mInterruptRegister.IRQMasterFlag());
 	}
 
 	U32 DMA::getInterruptRegister()
@@ -353,6 +359,10 @@ namespace esx {
 		channel.Trigger = ESX_FALSE;
 
 		mRunningDMAs++;
+
+		if ((mInterruptRegister.IRQCompletionInterrupt >> (U8)port) & 0x1) {
+			ESX_CORE_LOG_ERROR("Every slice interrupt not implemented yet");
+		}
 
 		switch (channel.SyncMode) {
 			case SyncMode::LinkedList: {

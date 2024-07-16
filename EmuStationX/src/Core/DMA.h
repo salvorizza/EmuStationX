@@ -88,6 +88,8 @@ namespace esx {
 		}
 	};
 
+	class InterruptControl;
+
 	class DMA : public BusDevice {
 	public:
 		DMA();
@@ -145,6 +147,7 @@ namespace esx {
 			Port::OTC
 		};
 		U8 mRunningDMAs = 0;
+		SharedPtr<InterruptControl> mInterruptControl;
 	};
 
 }
