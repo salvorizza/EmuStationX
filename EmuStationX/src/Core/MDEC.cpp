@@ -64,7 +64,17 @@ namespace esx {
 
 	U32 MDEC::channelOut()
 	{
-		return 0;
+		if (mCurrentBlockPointer == -1 || mCurrentBlockPointer >= mCurrentBlock.size()) {
+			if (mDecodedBlocks.size() == 0) return 0;
+
+			mCurrentBlock = mDecodedBlocks.front();
+			mDecodedBlocks.pop_front();
+			mCurrentBlockPointer = 0;
+
+			mStatusRegister.CurrentBlock = (mStatusRegister.CurrentBlock + 1) % 4;
+		}
+
+		return mCurrentBlock[mCurrentBlockPointer];
 	}
 
 	U32 MDEC::getStatusRegister()
@@ -216,15 +226,26 @@ namespace esx {
 		switch (mStatusRegister.DataOutputDepth) {
 			case MDECOutputDepth::Bit15:
 			case MDECOutputDepth::Bit24: {
-				Array<I16, 64> Crblk{}, Cbblk{}, Yblk{};
+				Array<Array<I16, 64>, 6> blocks = {};
 				U64 src = 0;
 
-				rl_decode_block(Crblk, src, mQuantTableColor);
-				rl_decode_block(Cbblk, src, mQuantTableColor);
-				rl_decode_block(Yblk, src, mQuantTableLuminance); yuv_to_rgb(Crblk, Cbblk, Yblk, 0, 0);
-				rl_decode_block(Yblk, src, mQuantTableLuminance); yuv_to_rgb(Crblk, Cbblk, Yblk, 0, 8);
-				rl_decode_block(Yblk, src, mQuantTableLuminance); yuv_to_rgb(Crblk, Cbblk, Yblk, 8, 0);
-				rl_decode_block(Yblk, src, mQuantTableLuminance); yuv_to_rgb(Crblk, Cbblk, Yblk, 8, 8);
+				while (true) {
+					BIT canDecode = ESX_TRUE;
+					for (I32 i = 0; i < 6; i++) {
+						if (!rl_decode_block(blocks[i], src, (i < 2) ? mQuantTableColor : mQuantTableLuminance)) canDecode = ESX_FALSE;
+					}
+
+					if (canDecode == ESX_FALSE) {
+						break;
+					}
+
+					mDecodedBlocks.emplace_back();
+
+					yuv_to_rgb(blocks[0], blocks[1], blocks[2], 0, 0);
+					yuv_to_rgb(blocks[0], blocks[1], blocks[3], 0, 8);
+					yuv_to_rgb(blocks[0], blocks[1], blocks[4], 8, 0);
+					yuv_to_rgb(blocks[0], blocks[1], blocks[5], 8, 8);
+				}
 
 				break;
 			}
@@ -256,19 +277,27 @@ namespace esx {
 		return static_cast<I16>(static_cast<U16>((n) << 5)) >> 5;
 	}
 
-	void MDEC::rl_decode_block(Array<I16, 64>& blk, U64& src, const Array<U8, 64>& qt)
+	BIT MDEC::rl_decode_block(Array<I16, 64>& blk, U64& src, const Array<U8, 64>& qt)
 	{
 		std::fill(blk.begin(), blk.end(), 0);
 
 		U16 n = 0;
 		U64 k = 0;
 		while (n != 0xFE00) {
-			n = reinterpret_cast<U16*>(mDataIn.data())[src++];
+			if (src < (mDataIn.size() * 2)) {
+				n = reinterpret_cast<U16*>(mDataIn.data())[src++];
+			} else {
+				return ESX_FALSE;
+			}
 		}
 
 		U16 q_scale = (n >> 10) & 0x3F;
 		I32 val = signed10bit(n & 0x3FF) * qt[k];
 		while (k < 64) {
+			if (src >= (mDataIn.size() * 2)) {
+				return ESX_FALSE;
+			}
+
 			if (q_scale == 0) val = signed10bit(n & 0x3FF) * 2;
 			val = std::clamp(val, -0x400, 0x3FF);
 			if (q_scale > 0) 
@@ -276,13 +305,16 @@ namespace esx {
 			else if (q_scale == 0) 
 				blk[k] = val;
 			n = reinterpret_cast<U16*>(mDataIn.data())[src++];
+			k += ((n >> 10) & 0x3F) + 1;
 			val = (signed10bit(n & 0x3FF) * qt[k] * q_scale + 4) / 8;
 		}
 
-		real_idct_code(blk);
+		real_idct_core(blk);
+
+		return ESX_TRUE;
 	}
 
-	void MDEC::real_idct_code(Array<I16, 64>& blk)
+	void MDEC::real_idct_core(Array<I16, 64>& blk)
 	{
 		Array<I16, 64> temp = {};
 		for (I32 pass = 0; pass < 1; pass++) {
@@ -301,6 +333,7 @@ namespace esx {
 
 	void MDEC::yuv_to_rgb(const Array<I16, 64>& Crblk, const Array<I16, 64>& Cbblk, const Array<I16, 64>& Yblk, U64 xx, U64 yy)
 	{
+		auto& rgb_block = mDecodedBlocks.front();
 		for (I32 y = 0; y < 7; y++) {
 			for (I32 x = 0; x < 7; x++) {
 				U64 index = (((x + xx) / 2) + ((y + yy) / 2)) * 8;
@@ -313,9 +346,9 @@ namespace esx {
 				R = std::clamp(Y + R, -128, 127);
 				G = std::clamp(Y + G, -128, 127);
 				B = std::clamp(Y + B, -128, 127);
-				U32 BGR = (static_cast<U32>(B) << 16) | (static_cast<U32>(G) << 8) | (static_cast<U32>(R) << 0);
+				U32 BGR = ((static_cast<U32>(B) & 0xFF) << 16) | ((static_cast<U32>(G) & 0xFF) << 8) | ((static_cast<U32>(R) & 0xFF) << 0);
 				if (mStatusRegister.DataOutputSigned == ESX_FALSE) BGR ^= 0x808080;
-
+				rgb_block[(x + xx) + (y + yy) * 16] = BGR;
 			}
 		}
 	}
