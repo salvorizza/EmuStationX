@@ -21,12 +21,23 @@ namespace esx {
 
 	void DMA::clock(U64 clocks)
 	{
+		constexpr Array<U64, 7> clocks_per_word = {
+			1,
+			1,
+			1,
+			40,
+			4,
+			20,
+			1
+		};
+
 		if (mRunningDMAs == 0) return;
+		if (mPriorityPorts.size() == 0) return;
 
 		for (Port& port : mPriorityPorts) {
 			Channel& channel = mChannels[(U8)port];
 
-			if (channel.MasterEnable && channel.Enable) {
+			if (channel.MasterEnable && channel.TransferStartOrBusy && (clocks % clocks_per_word[(U8)port]) == 0) {
 				switch (channel.SyncMode)
 				{
 					case SyncMode::LinkedList:
@@ -78,10 +89,6 @@ namespace esx {
 						setChannelControl(port, value);
 						break;
 					}
-				}
-
-				if (isChannelActive(port)) {
-					startTransfer(port);
 				}
 			}
 		}
@@ -186,9 +193,17 @@ namespace esx {
 		mChannels[(U8)port].SyncMode = (SyncMode)((channelControl >> 9) & 0x3);
 		mChannels[(U8)port].ChoppingDMAWindowSize = ((channelControl >> 16) & 0x7);
 		mChannels[(U8)port].ChoppingCPUWindowSize = ((channelControl >> 20) & 0x7);
-		mChannels[(U8)port].Enable = ((channelControl >> 24) & 0x1);
-		mChannels[(U8)port].Trigger = ((channelControl >> 28) & 0x1);
+		mChannels[(U8)port].TransferStartOrBusy = ((channelControl >> 24) & 0x1);
+		mChannels[(U8)port].ForceTransferStart = ((channelControl >> 28) & 0x1);
 		mChannels[(U8)port].Dummy = ((channelControl >> 29) & 0x3);
+
+		if (mChannels[(U8)port].ChoppingEnable) {
+			ESX_CORE_LOG_ERROR("DMA - Chopping not implemented yet");
+		}
+
+		if (isChannelActive(port)) {
+			startTransfer(port);
+		}
 	}
 
 	U32 DMA::getChannelControl(Port port)
@@ -201,8 +216,8 @@ namespace esx {
 		result |= ((U8)mChannels[(U8)port].SyncMode) << 9;
 		result |= ((U8)mChannels[(U8)port].ChoppingDMAWindowSize) << 16;
 		result |= ((U8)mChannels[(U8)port].ChoppingCPUWindowSize) << 20;
-		result |= ((U8)mChannels[(U8)port].Enable) << 24;
-		result |= ((U8)mChannels[(U8)port].Trigger) << 28;
+		result |= ((U8)mChannels[(U8)port].TransferStartOrBusy) << 24;
+		result |= ((U8)mChannels[(U8)port].ForceTransferStart) << 28;
 		result |= ((U8)mChannels[(U8)port].Dummy) << 29;
 
 		return result;
@@ -211,6 +226,7 @@ namespace esx {
 	void DMA::setChannelBaseAddress(Port port, U32 value)
 	{
 		mChannels[(U8)port].BaseAddress = value & 0xFFFFFF;
+		mChannels[(U8)port].BaseAddress &= ~0x3;
 	}
 
 	U32 DMA::getChannelBaseAddress(Port port)
@@ -239,16 +255,16 @@ namespace esx {
 		Channel& channel = mChannels[(U8)port];
 
 		BIT trigger = ESX_TRUE;
-		if (channel.SyncMode == SyncMode::Manual) {
-			trigger = channel.Trigger;
+		if (channel.SyncMode == SyncMode::Burst) {
+			trigger = channel.ForceTransferStart;
 		}
 
-		return (channel.MasterEnable && channel.Enable && trigger) ? ESX_TRUE : ESX_FALSE;
+		return (channel.MasterEnable && channel.TransferStartOrBusy && trigger) ? ESX_TRUE : ESX_FALSE;
 	}
 
 	void DMA::setChannelDone(Channel& channel)
 	{
-		channel.Enable = ESX_FALSE;
+		channel.TransferStartOrBusy = ESX_FALSE;
 
 		U8 flag = 1 << (U8)channel.Port;
 
@@ -356,7 +372,7 @@ namespace esx {
 	{
 		Channel& channel = mChannels[(U8)port];
 
-		channel.Trigger = ESX_FALSE;
+		channel.ForceTransferStart = ESX_FALSE;
 
 		mRunningDMAs++;
 
@@ -383,10 +399,10 @@ namespace esx {
 		U32 transferSize = 0;
 		switch (channel.SyncMode)
 		{
-			case SyncMode::Manual:
+			case SyncMode::Burst:
 				transferSize = channel.BlockSize;
 				break;
-			case SyncMode::Blocks:
+			case SyncMode::Slice:
 				transferSize = channel.BlockSize * channel.BlockCount;
 				break;
 		}
@@ -394,7 +410,7 @@ namespace esx {
 		channel.TransferStatus.BlockCurrentAddress = channel.BaseAddress;
 		channel.TransferStatus.BlockRemainingSize = transferSize;
 
-		//ESX_CORE_LOG_TRACE("DMA - Starting Block Transfer of {:08x}h size with starting address {:08x}h on port {}", channel.TransferStatus.BlockRemainingSize, channel.TransferStatus.BlockCurrentAddress, (U8)channel.Port);
+		ESX_CORE_LOG_TRACE("DMA - Starting Block Transfer of {:08x}h size with starting address {:08x}h on port {}", channel.TransferStatus.BlockRemainingSize, channel.TransferStatus.BlockCurrentAddress, (U8)channel.Port);
 	}
 
 	void DMA::clockBlockTransfer(Channel& channel)
@@ -483,6 +499,10 @@ namespace esx {
 		channel.TransferStatus.BlockCurrentAddress += increment;
 		channel.TransferStatus.BlockRemainingSize--;
 
+		if (channel.SyncMode == SyncMode::Slice) {
+			channel.BaseAddress = channel.TransferStatus.BlockCurrentAddress;
+		}
+
 		if (channel.TransferStatus.BlockRemainingSize == 0) {
 			//ESX_CORE_LOG_TRACE("DMA - Block Transfer Done");
 			setChannelDone(channel);
@@ -501,7 +521,7 @@ namespace esx {
 		channel.TransferStatus.LinkedListRemainingSize = 0;
 		channel.TransferStatus.LinkedListPacketAddress = 0;
 
-		ESX_CORE_LOG_TRACE("DMA - Starting Linked List Transfer starting node {:08x}h on port {}", channel.TransferStatus.LinkedListCurrentNodeAddress, (U8)channel.Port);
+		//ESX_CORE_LOG_TRACE("DMA - Starting Linked List Transfer starting node {:08x}h on port {}", channel.TransferStatus.LinkedListCurrentNodeAddress, (U8)channel.Port);
 	}
 
 	void DMA::clockLinkedListTransfer(Channel& channel)
@@ -510,6 +530,7 @@ namespace esx {
 		SharedPtr<RAM> ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
 		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
 		TransferStatus& transferStatus = channel.TransferStatus;
+
 
 		if (transferStatus.LinkedListRemainingSize == 0) {
 			ram->load(ESX_TEXT("Root"), transferStatus.LinkedListCurrentNodeAddress, transferStatus.LinkedListCurrentNodeHeader);
@@ -532,6 +553,7 @@ namespace esx {
 				setChannelDone(channel);
 			} else {
 				transferStatus.LinkedListCurrentNodeAddress = transferStatus.LinkedListNextNodeAddress;
+				channel.BaseAddress = transferStatus.LinkedListCurrentNodeAddress;
 			}
 		}
 	}

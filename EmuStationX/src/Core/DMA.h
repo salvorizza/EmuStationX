@@ -27,8 +27,8 @@ namespace esx {
 	};
 
 	enum class SyncMode : U8 {
-		Manual = 0,
-		Blocks = 1,
+		Burst = 0,
+		Slice = 1,
 		LinkedList = 2,
 		Reserved = 3
 	};
@@ -48,14 +48,14 @@ namespace esx {
 	struct Channel {
 		Port Port = Port::Max;
 
-		BIT Enable = ESX_FALSE;
+		BIT TransferStartOrBusy = ESX_FALSE;
 		Direction Direction = Direction::ToMainRAM;
 		Step Step = Step::Forward;
 		BIT ChoppingEnable = ESX_FALSE;
-		SyncMode SyncMode = SyncMode::Manual;
+		SyncMode SyncMode = SyncMode::Burst;
 		U8 ChoppingDMAWindowSize = 0;
 		U8 ChoppingCPUWindowSize = 0;
-		BIT Trigger = ESX_FALSE;
+		BIT ForceTransferStart = ESX_FALSE;
 		U8 Dummy = 0;
 
 		U8 Priority = 0;
@@ -84,7 +84,7 @@ namespace esx {
 		U8 IRQFlags = 0;
 
 		BIT IRQMasterFlag() {
-			return (BusErrorFlag || (IRQMasterEnable && ((IRQEnable & IRQFlags) > 0))) ? ESX_TRUE : ESX_FALSE;
+			return (BusErrorFlag || (IRQMasterEnable && IRQFlags > 0)) ? ESX_TRUE : ESX_FALSE;
 		}
 	};
 

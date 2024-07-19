@@ -168,7 +168,7 @@ namespace esx {
 				
 				switch (mCurrentCommand) {
 					case MDECCommand::DecodeMacroblock: {
-						ESX_CORE_LOG_ERROR("MDEC::DecodeMacroblock not implemented yet");
+						decodeMacroblock();
 						break;
 					}
 
@@ -208,6 +208,115 @@ namespace esx {
 	{
 		for (I32 i = 0; i < 64; i++) {
 			mScaleTable[i] = reinterpret_cast<I16*>(mDataIn.data())[i];
+		}
+	}
+
+	void MDEC::decodeMacroblock()
+	{
+		switch (mStatusRegister.DataOutputDepth) {
+			case MDECOutputDepth::Bit15:
+			case MDECOutputDepth::Bit24: {
+				Array<I16, 64> Crblk{}, Cbblk{}, Yblk{};
+				U64 src = 0;
+
+				rl_decode_block(Crblk, src, mQuantTableColor);
+				rl_decode_block(Cbblk, src, mQuantTableColor);
+				rl_decode_block(Yblk, src, mQuantTableLuminance); yuv_to_rgb(Crblk, Cbblk, Yblk, 0, 0);
+				rl_decode_block(Yblk, src, mQuantTableLuminance); yuv_to_rgb(Crblk, Cbblk, Yblk, 0, 8);
+				rl_decode_block(Yblk, src, mQuantTableLuminance); yuv_to_rgb(Crblk, Cbblk, Yblk, 8, 0);
+				rl_decode_block(Yblk, src, mQuantTableLuminance); yuv_to_rgb(Crblk, Cbblk, Yblk, 8, 8);
+
+				break;
+			}
+		}
+	}
+
+	constexpr Array<U8, 64> zigzag = {
+		0 ,1 ,5 ,6 ,14,15,27,28,
+		2 ,4 ,7 ,13,16,26,29,42,
+		3 ,8 ,12,17,25,30,41,43,
+		9 ,11,18,24,31,40,44,53,
+		10,19,23,32,39,45,52,54,
+		20,22,33,38,46,51,55,60,
+		21,34,37,47,50,56,59,61,
+		35,36,48,49,57,58,62,63
+	};
+
+	static constexpr Array<U8, 64> calc_zagzig() {
+		Array<U8, 64> result = {};
+		for (I32 i = 0; i < 64; i++) {
+			result[zigzag[i]] = i;
+		}
+		return result;
+	}
+
+	constexpr Array<U8, 64> zagzig = calc_zagzig();
+
+	static constexpr I16 signed10bit(U16 n) {
+		return static_cast<I16>(static_cast<U16>((n) << 5)) >> 5;
+	}
+
+	void MDEC::rl_decode_block(Array<I16, 64>& blk, U64& src, const Array<U8, 64>& qt)
+	{
+		std::fill(blk.begin(), blk.end(), 0);
+
+		U16 n = 0;
+		U64 k = 0;
+		while (n != 0xFE00) {
+			n = reinterpret_cast<U16*>(mDataIn.data())[src++];
+		}
+
+		U16 q_scale = (n >> 10) & 0x3F;
+		I32 val = signed10bit(n & 0x3FF) * qt[k];
+		while (k < 64) {
+			if (q_scale == 0) val = signed10bit(n & 0x3FF) * 2;
+			val = std::clamp(val, -0x400, 0x3FF);
+			if (q_scale > 0) 
+				blk[zagzig[k]] = val;
+			else if (q_scale == 0) 
+				blk[k] = val;
+			n = reinterpret_cast<U16*>(mDataIn.data())[src++];
+			val = (signed10bit(n & 0x3FF) * qt[k] * q_scale + 4) / 8;
+		}
+
+		real_idct_code(blk);
+	}
+
+	void MDEC::real_idct_code(Array<I16, 64>& blk)
+	{
+		Array<I16, 64> temp = {};
+		for (I32 pass = 0; pass < 1; pass++) {
+			for (I32 x = 0; x < 7; x++) {
+				for (I32 y = 0; y < 7; y++) {
+					I32 sum = 0;
+					for (I32 z = 0; z < 7; z++) {
+						sum = sum + blk[y + z * 8] * (mScaleTable[x + z * 8] / 8);
+					}
+					temp[x + y * 8] = (sum + 0x0FFF) / 0x2000;
+				}
+			}
+			std::swap(blk, temp);
+		}
+	}
+
+	void MDEC::yuv_to_rgb(const Array<I16, 64>& Crblk, const Array<I16, 64>& Cbblk, const Array<I16, 64>& Yblk, U64 xx, U64 yy)
+	{
+		for (I32 y = 0; y < 7; y++) {
+			for (I32 x = 0; x < 7; x++) {
+				U64 index = (((x + xx) / 2) + ((y + yy) / 2)) * 8;
+				I32 R = Crblk[index];
+				I32 B = Cbblk[index];
+				I32 G = (-0.3437 * B) + (-0.7143 * R);
+				R = (1.402 * R);
+				B = (1.772 * B);
+				I16 Y = Yblk[x + y * 8];
+				R = std::clamp(Y + R, -128, 127);
+				G = std::clamp(Y + G, -128, 127);
+				B = std::clamp(Y + B, -128, 127);
+				U32 BGR = (static_cast<U32>(B) << 16) | (static_cast<U32>(G) << 8) | (static_cast<U32>(R) << 0);
+				if (mStatusRegister.DataOutputSigned == ESX_FALSE) BGR ^= 0x808080;
+
+			}
 		}
 	}
 

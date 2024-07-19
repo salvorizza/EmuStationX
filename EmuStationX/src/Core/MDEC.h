@@ -66,6 +66,11 @@ namespace esx {
 
 		void setQuantTable();
 		void setScaleTable();
+		void decodeMacroblock();
+
+		void rl_decode_block(Array<I16, 64>& blk, U64& src, const Array<U8, 64>& qt);
+		void real_idct_code(Array<I16, 64>& blk);
+		void yuv_to_rgb(const Array<I16, 64>& Crblk, const Array<I16, 64>& Cbblk, const Array<I16, 64>& Yblk, U64 xx, U64 yy);
 
 	private:
 		MDECStatusRegister mStatusRegister = {};
