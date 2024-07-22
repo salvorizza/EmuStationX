@@ -81,7 +81,7 @@ namespace esx {
 
 		Array<U8, 64> mQuantTableLuminance = {};
 		Array<U8, 64> mQuantTableColor = {};
-		Array<U16, 64> mScaleTable = {};
+		Array<I16, 64> mScaleTable = {};
 
 		Deque<Array<U32, 256>> mDecodedBlocks = {};
 		Array<U32, 256> mCurrentBlock = {};

@@ -108,6 +108,7 @@ namespace esx {
 					if (mCurrentCommand.RemainingParameters == 0) {
 						mCurrentCommand.Complete = ESX_TRUE;
 					}
+					mGPUStat.ReadyToReceiveDMABlock = ESX_TRUE;
 				}
 				break;
 			}
@@ -132,8 +133,8 @@ namespace esx {
 		}
 		
 		if (mCurrentCommand.Complete) {
-			mGPUStat.ReadyToReceiveDMABlock = ESX_TRUE;
 			mGPUStat.ReadyCmdWord = ESX_TRUE;
+			mGPUStat.ReadyToReceiveDMABlock = ESX_TRUE;
 		}
 	}
 
@@ -742,6 +743,8 @@ namespace esx {
 		mPixelsToTransfer.clear();
 
 		mMode = GP0Mode::CPUtoVRAM;
+
+		ESX_CORE_LOG_TRACE("gp0CPUtoVRAMBlitCommand");
 	}
 
 	Command GPU::gp0VRAMtoCPUBlitCommands(U32 instruction) const
