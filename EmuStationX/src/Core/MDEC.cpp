@@ -74,7 +74,9 @@ namespace esx {
 			mStatusRegister.CurrentBlock = (mStatusRegister.CurrentBlock + 1) % 4;
 		}
 
-		return mCurrentBlock[mCurrentBlockPointer];
+		U32 value = mCurrentBlock[mCurrentBlockPointer];
+		if (mCurrentBlockPointer >= mCurrentBlock.size() && mDecodedBlocks.size() == 0) mStatusRegister.DataOutFIFOEmpty = ESX_TRUE;
+		return value;
 	}
 
 	U32 MDEC::getStatusRegister()
@@ -203,13 +205,13 @@ namespace esx {
 
 	void MDEC::setQuantTable()
 	{
-		for (I32 i = 0; i < 32; i++) {
+		for (I32 i = 0; i < 64; i++) {
 			mQuantTableLuminance[i] = reinterpret_cast<U8*>(mDataIn.data())[i];
 		}
 
 		if (mDataIn.size() > 16) {
-			for (I32 i = 0; i < 32; i++) {
-				mQuantTableColor[i] = reinterpret_cast<U8*>(mDataIn.data())[32 + i];
+			for (I32 i = 0; i < 64; i++) {
+				mQuantTableColor[i] = reinterpret_cast<U8*>(mDataIn.data())[64 + i];
 			}
 		}
 	}
@@ -247,6 +249,8 @@ namespace esx {
 					yuv_to_rgb(blocks[0], blocks[1], blocks[5], 8, 8);
 				}
 
+				mStatusRegister.DataOutFIFOEmpty = ESX_FALSE;
+
 				break;
 			}
 		}
@@ -274,7 +278,11 @@ namespace esx {
 	constexpr Array<U8, 64> zagzig = calc_zagzig();
 
 	static constexpr I16 signed10bit(U16 n) {
-		return static_cast<I16>(static_cast<U16>((n) << 5)) >> 5;
+		return static_cast<I16>(n << 6) >> 6;
+	}
+
+	static constexpr I32 signed9bit(I32 n) {
+		return static_cast<I32>(n << 23) >> 23;
 	}
 
 	BIT MDEC::rl_decode_block(Array<I16, 64>& blk, U64& src, const Array<U8, 64>& qt)
@@ -283,30 +291,26 @@ namespace esx {
 
 		U16 n = 0;
 		U64 k = 0;
-		while (n != 0xFE00) {
-			if (src < (mDataIn.size() * 2)) {
-				n = reinterpret_cast<U16*>(mDataIn.data())[src++];
-			} else {
+		do {
+			if (src >= (mDataIn.size() * 2)) {
 				return ESX_FALSE;
 			}
-		}
+			n = reinterpret_cast<U16*>(mDataIn.data())[src++];
+		} while (n == 0xFE00);
 
 		U16 q_scale = (n >> 10) & 0x3F;
 		I32 val = signed10bit(n & 0x3FF) * qt[k];
 		while (k < 64) {
+			if (q_scale == 0) val = signed10bit(n & 0x3FF) * 2;
+			val = std::clamp(val, -0x400, 0x3FF);
+			blk[(q_scale > 0) ? zagzig[k] : k] = val;
+
 			if (src >= (mDataIn.size() * 2)) {
 				return ESX_FALSE;
 			}
-
-			if (q_scale == 0) val = signed10bit(n & 0x3FF) * 2;
-			val = std::clamp(val, -0x400, 0x3FF);
-			if (q_scale > 0) 
-				blk[zagzig[k]] = val;
-			else if (q_scale == 0) 
-				blk[k] = val;
 			n = reinterpret_cast<U16*>(mDataIn.data())[src++];
 			k += ((n >> 10) & 0x3F) + 1;
-			val = (signed10bit(n & 0x3FF) * qt[k] * q_scale + 4) / 8;
+			if (k < 64) val = (signed10bit(n & 0x3FF) * qt[k] * q_scale + 4) / 8;
 		}
 
 		real_idct_core(blk);
@@ -315,6 +319,29 @@ namespace esx {
 	}
 
 	void MDEC::real_idct_core(Array<I16, 64>& blk)
+	{
+		Array<I64, 64> temp = {};
+		for (I32 x = 0; x < 7; x++) {
+			for (I32 y = 0; y < 7; y++) {
+				I64 sum = 0;
+				for (I32 z = 0; z < 7; z++) {
+					sum += I64(blk[z * 8 + x]) * I32(mScaleTable[y * 8 + z]);
+				}
+				temp[x + y * 8] = sum;
+			}
+		}
+		for (I32 x = 0; x < 7; x++) {
+			for (I32 y = 0; y < 7; y++) {
+				I64 sum = 0;
+				for (I32 z = 0; z < 7; z++) {
+					sum += I64(temp[z + y * 8]) * I32(mScaleTable[z + x * 8]);
+				}
+				blk[x + y * 8] = static_cast<I16>(std::clamp<I32>(signed9bit((sum >> 32) + ((sum >> 31) & 1)), -128, 127));
+			}
+		}
+	}
+
+	/*void MDEC::real_idct_core(Array<I16, 64>& blk)
 	{
 		Array<I16, 64> temp = {};
 		for (I32 pass = 0; pass < 1; pass++) {
@@ -329,26 +356,29 @@ namespace esx {
 			}
 			std::swap(blk, temp);
 		}
-	}
+	}*/
 
 	void MDEC::yuv_to_rgb(const Array<I16, 64>& Crblk, const Array<I16, 64>& Cbblk, const Array<I16, 64>& Yblk, U64 xx, U64 yy)
 	{
 		auto& rgb_block = mDecodedBlocks.front();
-		for (I32 y = 0; y < 7; y++) {
-			for (I32 x = 0; x < 7; x++) {
-				U64 index = (((x + xx) / 2) + ((y + yy) / 2)) * 8;
-				I32 R = Crblk[index];
-				I32 B = Cbblk[index];
-				I32 G = (-0.3437 * B) + (-0.7143 * R);
-				R = (1.402 * R);
-				B = (1.772 * B);
-				I16 Y = Yblk[x + y * 8];
-				R = std::clamp(Y + R, -128, 127);
-				G = std::clamp(Y + G, -128, 127);
-				B = std::clamp(Y + B, -128, 127);
-				U32 BGR = ((static_cast<U32>(B) & 0xFF) << 16) | ((static_cast<U32>(G) & 0xFF) << 8) | ((static_cast<U32>(R) & 0xFF) << 0);
+		for (I32 y = 0; y < 8; y++) {
+			for (I32 x = 0; x < 8; x++) {
+				U64 index = ((x + xx) / 2) + ((y + yy) / 2) * 8;
+				I16 R = Crblk[index];
+				I16 B = Cbblk[index];
+				I16 G = static_cast<I16>((-0.3437f * static_cast<F32>(B)) + (-0.7143f * static_cast<F32>(R)));
+
+				R = static_cast<I16>((1.402f * static_cast<F32>(R)));
+				B = static_cast<I16>((1.772f * static_cast<F32>(B)));
+
+				I32 Y = Yblk[x + y * 8];
+				R = static_cast<I16>(std::clamp(Y + R, -128, 127));
+				G = static_cast<I16>(std::clamp(Y + G, -128, 127));
+				B = static_cast<I16>(std::clamp(Y + B, -128, 127));
+
+				U32 BGR = (static_cast<U16>(B) << 16) | (static_cast<U16>(G) << 8) | (static_cast<U16>(R) << 0);
 				if (mStatusRegister.DataOutputSigned == ESX_FALSE) BGR ^= 0x808080;
-				rgb_block[(x + xx) + (y + yy) * 16] = BGR;
+				rgb_block[(x + xx) + ((y + yy) * 16)] = BGR;
 			}
 		}
 	}
