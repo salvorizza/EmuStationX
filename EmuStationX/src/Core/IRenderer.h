@@ -104,5 +104,18 @@ namespace esx {
 			return ((color.a == 255 ? 1 : 0) << 15) | ((color.b >> 3) << 10) | ((color.g >> 3) << 5) | (color.r >> 3);
 		}
 
+		static VRAMColor fromU24(U16 value) {
+			VRAMColor color = {
+				.r = U8((value >> 0) & 0xFF),
+				.g = U8((value >> 8) & 0xFF),
+				.b = U8((value >> 16) & 0xFF),
+				.a = 0,
+			};
+			return color;
+		}
+
+		static U32 toU24(const VRAMColor& color) {
+			return (color.b << 16) | (color.g << 8) | (color.r << 0);
+		}
 	};
 }
