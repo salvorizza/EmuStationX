@@ -449,7 +449,6 @@ namespace esx {
 	{
 		REG = value & 0x1F;
 
-		ESX_CORE_LOG_INFO("CDROM IE: {:08x}h", CDROM_REG2);
 		if ((CDROM_REG3 & CDROM_REG2) == CDROM_REG3) {
 			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
 		}

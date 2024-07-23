@@ -42,7 +42,6 @@ namespace esx {
 		if (mTXShift.Size != 0) {
 			if (mStatRegister.TXFifoNotFull == ESX_FALSE) {
 				mStatRegister.TXFifoNotFull = ESX_TRUE;
-				//ESX_CORE_LOG_TRACE("TX {:02X}h", mTX);
 			}
 
 			U8 value = mTXShift.Pop();
@@ -85,8 +84,6 @@ namespace esx {
 				mRXShift = {};
 
 				mRX.Push(rx);
-
-				//ESX_CORE_LOG_TRACE("RX {:02X}h", rx);
 
 				mStatRegister.RXFifoNotEmpty = ESX_TRUE;
 				if (mControlRegister.RXEnable) mControlRegister.RXEnable = ESX_FALSE;
@@ -370,7 +367,7 @@ namespace esx {
 		BIT portSwitch = prevControlRegister.PortSelect && !mControlRegister.PortSelect;
 
 		if (deselected || portSwitch) {
-			//ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
+			ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
 
 			for (auto& device : mPorts[SerialPort::Port1]) {
 				if (device) {

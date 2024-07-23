@@ -114,14 +114,10 @@ namespace esx {
 			}
 
 			case GP0Mode::CPUtoVRAM: {
-				if (mGPUStat.ColorDepth == ColorDepth::C15Bit) {
-					U16 pixel1 = (instruction >> 16) & 0xFFFF;
-					U16 pixel2 = (instruction >> 0) & 0xFFFF;
-					mPixelsToTransfer.emplace_back(IRenderer::fromU16(pixel2));
-					mPixelsToTransfer.emplace_back(IRenderer::fromU16(pixel1));
-				} else {
-					ESX_CORE_LOG_ERROR("CPUtoVRAM - 24 bit not implemented yet");
-				}
+				U16 pixel1 = (instruction >> 16) & 0xFFFF;
+				U16 pixel2 = (instruction >> 0) & 0xFFFF;
+				mPixelsToTransfer.emplace_back(IRenderer::fromU16(pixel2));
+				mPixelsToTransfer.emplace_back(IRenderer::fromU16(pixel1));
 
 				if (mCurrentCommand.IsComplete(instruction)) {
 					mRenderer->VRAMWrite(mMemoryTransferDestinationCoordsX, mMemoryTransferDestinationCoordsY, mMemoryTransferWidth, mMemoryTransferHeight, mPixelsToTransfer);
@@ -218,29 +214,23 @@ namespace esx {
 	U32 GPU::gpuRead()
 	{
 		if (mGPUStat.ReadySendVRAMToCPU) {
-			U32 packet = 0;
-			if (mGPUStat.ColorDepth == ColorDepth::C15Bit) {
-				U32 numHalfWords = mMemoryTransferWidth * mMemoryTransferHeight;
-				BIT isOdd = numHalfWords % 2;
+			U32 numHalfWords = mMemoryTransferWidth * mMemoryTransferHeight;
+			BIT isOdd = numHalfWords % 2;
 
-				if (mPixelsToTransfer.size() == 0 || mMemoryTransferVRAMToCPU >= numHalfWords) {
-					return 0;
-				}
-
-				U16 pixel2 = IRenderer::toU16(mPixelsToTransfer[mMemoryTransferVRAMToCPU]);
-				mMemoryTransferVRAMToCPU++;
-
-				U16 pixel1 = (mMemoryTransferVRAMToCPU == (numHalfWords - 1) && isOdd) ? 0 : IRenderer::toU16(mPixelsToTransfer[mMemoryTransferVRAMToCPU]);
-				mMemoryTransferVRAMToCPU++;
-
-				U32 packet = (pixel1 << 16) | pixel2;
-
-				if (mMemoryTransferVRAMToCPU == numHalfWords) {
-					mGPUStat.ReadySendVRAMToCPU = ESX_FALSE;
-				}
+			if (mPixelsToTransfer.size() == 0 || mMemoryTransferVRAMToCPU >= numHalfWords) {
+				return 0;
 			}
-			else {
-				ESX_CORE_LOG_ERROR("GPU::gpuRead - 24 bit not implemented yet");
+
+			U16 pixel2 = IRenderer::toU16(mPixelsToTransfer[mMemoryTransferVRAMToCPU]);
+			mMemoryTransferVRAMToCPU++;
+
+			U16 pixel1 = (mMemoryTransferVRAMToCPU == (numHalfWords - 1) && isOdd) ? 0 : IRenderer::toU16(mPixelsToTransfer[mMemoryTransferVRAMToCPU]);
+			mMemoryTransferVRAMToCPU++;
+
+			U32 packet = (pixel1 << 16) | pixel2;
+
+			if (mMemoryTransferVRAMToCPU == numHalfWords) {
+				mGPUStat.ReadySendVRAMToCPU = ESX_FALSE;
 			}
 
 			mGPURead = packet;
@@ -740,16 +730,9 @@ namespace esx {
 		mMemoryTransferHeight = ((mMemoryTransferHeight - 1) & 0x1FF) + 1;
 
 		U32 numWords = 0;
-		if (mGPUStat.ColorDepth == ColorDepth::C15Bit) {
-			U32 numHalfWords = mMemoryTransferWidth * mMemoryTransferHeight;
-			numHalfWords = (numHalfWords + 1) & ~1;
-			numWords = numHalfWords >> 1;
-		} else {
-			U32 numPixels = mMemoryTransferWidth * mMemoryTransferHeight;
-			U32 numBytes = numPixels * 3;
-			numWords = numBytes / 4;
-			if (numBytes % 4 != 0) numWords += 1;
-		}
+		U32 numHalfWords = mMemoryTransferWidth * mMemoryTransferHeight;
+		numHalfWords = (numHalfWords + 1) & ~1;
+		numWords = numHalfWords >> 1;
 
 		mCurrentCommand.RemainingParameters = numWords;
 		mMemoryTransferX = 0;
@@ -760,8 +743,6 @@ namespace esx {
 		mPixelsToTransfer.clear();
 
 		mMode = GP0Mode::CPUtoVRAM;
-
-		ESX_CORE_LOG_TRACE("gp0CPUtoVRAMBlitCommand");
 	}
 
 	Command GPU::gp0VRAMtoCPUBlitCommands(U32 instruction) const

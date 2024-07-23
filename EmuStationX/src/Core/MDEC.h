@@ -77,15 +77,13 @@ namespace esx {
 		MDECControlRegister mControlRegister = {};
 		MDECCommand mCurrentCommand = MDECCommand::None;
 		Vector<U32> mDataIn = {};
-		Vector<U32> mDataOut = {};
+		Deque<U32> mDataOut = {};
 
 		Array<U8, 64> mQuantTableLuminance = {};
 		Array<U8, 64> mQuantTableColor = {};
 		Array<I16, 64> mScaleTable = {};
 
-		Deque<Array<U32, 256>> mDecodedBlocks = {};
-		Array<U32, 256> mCurrentBlock = {};
-		U32 mCurrentBlockPointer = -1;
+		Array<U32, 256> mCurrentDecodedBlock = {};
 	};
 
 }

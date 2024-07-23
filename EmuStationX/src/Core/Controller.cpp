@@ -58,6 +58,7 @@ namespace esx {
 		mPhase = CommunicationPhase::Addressing;
 		mTX.Set(0xFF);
 		mRX = {};
+		mCommandResponse = {};
 		mSelected = ESX_FALSE;
 	}
 
