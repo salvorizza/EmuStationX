@@ -183,7 +183,7 @@ namespace esx {
 
 		BIT mShellOpen = ESX_FALSE;
 		SharedPtr<CompactDisk> mCD;
-		U8 mSeekMinute, mSeekSecond, mSeekSector;
+		U64 mSeekLBA;
 		BIT mSetLocUnprocessed = ESX_FALSE;
 	};
 

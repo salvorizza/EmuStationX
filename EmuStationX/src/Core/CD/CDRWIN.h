@@ -45,9 +45,10 @@ namespace esx {
 		CDRWIN(const std::filesystem::path& cuePath);
 		~CDRWIN() = default;
 
-		virtual void seek(U8 minute, U8 second, U8 sector) override;
+		virtual void seek(U64 seekPos) override;
 		virtual void readSector(Sector* pOutSector) override;
 
+		virtual U64 getCurrentPos() { return mCurrentLBA + CompactDisk::calculateBinaryPosition(0,2,0); }
 	private:
 		void parse(const std::filesystem::path& cuePath);
 

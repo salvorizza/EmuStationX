@@ -8,16 +8,9 @@ namespace esx {
 		parse(cuePath);
 	}
 
-	void CDRWIN::seek(U8 minute, U8 second, U8 sector)
+	void CDRWIN::seek(U64 seekPos)
 	{
-		if (second < 2) {
-			minute--;
-			second = 59 - second - 2;
-		} else {
-			second -= 2;
-		}
-
-		U32 seekPos = calculateBinaryPosition(minute, second, sector);
+		seekPos -= calculateBinaryPosition(0, 2, 0);
 
 		mCurrentFile = mFiles.begin();
 		if (seekPos > mCurrentFile->Size) {
@@ -26,6 +19,7 @@ namespace esx {
 		}
 
 		mCurrentFile->mStream.seekg(seekPos, mCurrentFile->mStream.beg);
+		mCurrentLBA = seekPos;
 	}
 
 	void CDRWIN::readSector(Sector* pOutSector)
@@ -34,6 +28,7 @@ namespace esx {
 		if (mCurrentFile->mStream.fail() == ESX_TRUE) {
 			ESX_CORE_LOG_TRACE("Strano");
 		}
+		mCurrentLBA += sizeof(Sector);
 	}
 
 	void CDRWIN::parse(const std::filesystem::path& cuePath)

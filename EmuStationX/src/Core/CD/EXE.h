@@ -33,7 +33,7 @@ namespace esx {
 		EXE(const std::filesystem::path& exePath);
 		~EXE();
 
-		virtual void seek(U8 minute, U8 second, U8 sector) override;
+		virtual void seek(U64 seekPos) override;
 		virtual void readSector(Sector* pOutSector) override;
 
 	private:

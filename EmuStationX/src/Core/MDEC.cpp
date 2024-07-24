@@ -124,9 +124,13 @@ namespace esx {
 
 	U32 MDEC::getDataOrResponse()
 	{
-		ESX_CORE_LOG_ERROR("TODO: MDEC Data");
-
-		return U32();
+		U32 word = 0;
+		if (mDataOut.size() != 0) {
+			word = mDataOut.front();
+			mDataOut.pop_front();
+		}
+		mStatusRegister.DataOutFIFOEmpty = mDataOut.size() == 0;
+		return word;
 	}
 
 	void MDEC::setCommandOrParameters(U32 value)
@@ -244,20 +248,41 @@ namespace esx {
 					yuv_to_rgb(blocks[0], blocks[1], blocks[4], 8, 0);
 					yuv_to_rgb(blocks[0], blocks[1], blocks[5], 8, 8);
 
-					for (I32 i = 0; i < mCurrentDecodedBlock.size(); i++) {
-						U32 word = mCurrentDecodedBlock[i];
+					if (mStatusRegister.DataOutputDepth == MDECOutputDepth::Bit24) {
+						for (I32 i = 0; i < mCurrentDecodedBlock.size(); i++) {
+							U32 word = mCurrentDecodedBlock[i];
 
-						if (bytesToFill != 0) {
-							U32 bytesToAppend = (word & (0xFFFFFF >> ((3 - bytesToFill) * 8))) << ((4 - bytesToFill) * 8);
-							mDataOut.back() = mDataOut.back() | bytesToAppend;
-							word >>= (bytesToFill * 8);
+							if (bytesToFill != 0) {
+								U32 bytesToAppend = (word & (0xFFFFFF >> ((3 - bytesToFill) * 8))) << ((4 - bytesToFill) * 8);
+								mDataOut.back() = mDataOut.back() | bytesToAppend;
+								word >>= (bytesToFill * 8);
+							}
+
+							if (bytesToFill != 3) {
+								mDataOut.emplace_back(word);
+							}
+
+							bytesToFill = (bytesToFill + 1) % 4;
 						}
+					}
+					else {
+						U16 a = mStatusRegister.DataOutputBit15Set;
+						for (I32 i = 0; i < mCurrentDecodedBlock.size();) {
+							U32 word1 = mCurrentDecodedBlock[i++];
+							U8 r = (word1 >> 3) & 0x1F;
+							U8 g = (word1 >> 11) & 0x1F;
+							U8 b = (word1 >> 19) & 0x1F;
+							U16 pixel1 = (a << 15) | (b << 10) | (g << 5) | r;
 
-						if (bytesToFill != 3) {
-							mDataOut.emplace_back(word);
+
+							U32 word2 = mCurrentDecodedBlock[i++];
+							r = (word2 >> 3) & 0x1F;
+							g = (word2 >> 11) & 0x1F;
+							b = (word2 >> 19) & 0x1F;
+							U16 pixel2 = (a << 15) | (b << 10) | (g << 5) | r;
+
+							mDataOut.emplace_back((pixel2 << 16) | pixel1);
 						}
-
-						bytesToFill = (bytesToFill + 1) % 4;
 					}
 				}
 
@@ -328,6 +353,10 @@ namespace esx {
 				val = std::clamp(val, -0x400, 0x3FF);
 				blk[(q_scale > 0) ? zagzig[k] : k] = val;
 			}
+			
+			if (k >= 63) {
+				k = 64;
+			}
 		}
 
 		real_idct_core(blk);
@@ -335,30 +364,31 @@ namespace esx {
 		return ESX_TRUE;
 	}
 
-	/*void MDEC::real_idct_core(Array<I16, 64>& blk)
+	void MDEC::real_idct_core(Array<I16, 64>& blk)
 	{
 		Array<I64, 64> temp = {};
 		for (I32 x = 0; x < 8; x++) {
 			for (I32 y = 0; y < 8; y++) {
 				I64 sum = 0;
 				for (I32 z = 0; z < 8; z++) {
-					sum += I64(blk[z * 8 + x]) * I32(mScaleTable[y * 8 + z]);
+					sum += I64(blk[y + z * 8]) * I32(mScaleTable[x + z * 8] / 8);
 				}
-				temp[x + y * 8] = sum;
+				temp[x + y * 8] = (sum + 0x0FFF) / 0x2000;
 			}
 		}
 		for (I32 x = 0; x < 8; x++) {
 			for (I32 y = 0; y < 8; y++) {
 				I64 sum = 0;
 				for (I32 z = 0; z < 8; z++) {
-					sum += I64(temp[z + y * 8]) * I32(mScaleTable[z + x * 8]);
+					sum += I64(temp[y + z * 8]) * I32(mScaleTable[x + z * 8] / 8);
 				}
-				blk[x + y * 8] = static_cast<I16>(std::clamp<I32>(signed9bit((sum >> 32) + ((sum >> 31) & 1)), -128, 127));
+				blk[x + y * 8] = (sum + 0x0FFF) / 0x2000;
+				//blk[x + y * 8] = static_cast<I16>(std::clamp<I32>(signed9bit((sum >> 32) + ((sum >> 31) & 1)), -128, 127));
 			}
 		}
-	}*/
+	}
 
-	void MDEC::real_idct_core(Array<I16, 64>& blk)
+	/*void MDEC::real_idct_core(Array<I16, 64>& blk)
 	{
 		Array<I16, 64> src = blk;
 		Array<I16, 64> dst = {};
@@ -377,7 +407,7 @@ namespace esx {
 		}
 
 		blk = src;
-	}
+	}*/
 
 	void MDEC::yuv_to_rgb(const Array<I16, 64>& Crblk, const Array<I16, 64>& Cbblk, const Array<I16, 64>& Yblk, U64 xx, U64 yy)
 	{

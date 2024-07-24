@@ -18,7 +18,7 @@ namespace esx {
 
 	void CDROM::clock(U64 clocks)
 	{
-		if (!mResponses.empty() && mResponses.front().TargetCycle == clocks) {
+		if (!mResponses.empty() && mResponses.front().TargetCycle <= clocks) {
 			auto& response = mResponses.front();
 			
 			mResponseSize = 0;
@@ -192,17 +192,25 @@ namespace esx {
 			}
 
 			case CommandType::Setloc: {
-				U8 minuteBCD = popParameter();
-				U8 secondBCD = popParameter();
-				U8 sectorBCD = popParameter();
+				U8 minute = fromBCD(popParameter());
+				U8 second = fromBCD(popParameter());
+				U8 sector = fromBCD(popParameter());
 
-				mSeekMinute = fromBCD(minuteBCD);
-				mSeekSecond = fromBCD(secondBCD);
-				mSeekSector = fromBCD(sectorBCD);
+				mSeekLBA = CompactDisk::calculateBinaryPosition(minute, second, sector);
 
 				mSetLocUnprocessed = ESX_TRUE;
+				/*
+				//Bohhh
+				if (mSectors.size() > 0) {
+					U8 minute = fromBCD(mSectors.front().Header[0]);
+					U8 second = fromBCD(mSectors.front().Header[1]);
+					U8 sector = fromBCD(mSectors.front().Header[2]);
+					U64 lba = CompactDisk::calculateBinaryPosition(minute, second, sector);
 
-				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Setloc {:02d}:{:02d}:{:02d} - {:08x}h", cpu->mCurrentInstruction.Address, mSeekMinute, mSeekSecond, mSeekSector, CompactDisk::calculateBinaryPosition(mSeekMinute, mSeekSecond - 2, mSeekSector));
+					mSetLocUnprocessed = lba != mSeekLBA;
+				}*/
+
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Setloc {:02d}:{:02d}:{:02d} - {:08x}h", cpu->mCurrentInstruction.Address, minute, second, sector, mSeekLBA - CompactDisk::calculateBinaryPosition(0, 2, 0));
 				break;
 			}
 			
@@ -216,14 +224,15 @@ namespace esx {
 				}
 
 				if (mSetLocUnprocessed) {
-					mCD->seek(mSeekMinute, mSeekSecond, mSeekSector);
-					mSetLocUnprocessed = ESX_FALSE;
+					mCD->seek(mSeekLBA);
 					mSectors = {};
 
 					mStat.Seek = ESX_TRUE;
 					response.Clear();
 					response.Push(getStatus());
 					mStat.Seek = ESX_FALSE;
+
+					mSetLocUnprocessed = ESX_FALSE;
 				}
 
 				mStat.Read = ESX_TRUE;
@@ -300,7 +309,7 @@ namespace esx {
 					response.Push(getStatus());
 					mStat.Seek = ESX_FALSE;
 
-					mCD->seek(mSeekMinute, mSeekSecond, mSeekSector);
+					mCD->seek(mSeekLBA);
 					if (mStat.Read) {
 						mResponses = {};
 						mStat.Read = ESX_FALSE;
@@ -431,15 +440,19 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 		if (requestRegister.WantData) {
-			U8* sector = reinterpret_cast<U8*>(mMode.WholeSector ? ((void*)&(mSectors.front().Header)) : ((void*)&(mSectors.front().UserData)));
-			U32 dataToCopy = mMode.WholeSector ? (sizeof(Sector) - sizeof(Sector::SyncBytes)) : CD_SECTOR_DATA_SIZE;
+			if (mSectors.size() > 0) {
+				U8* sector = reinterpret_cast<U8*>(mMode.WholeSector ? ((void*)&(mSectors.front().Header)) : ((void*)&(mSectors.front().UserData)));
+				U32 dataToCopy = mMode.WholeSector ? (sizeof(Sector) - sizeof(Sector::SyncBytes)) : CD_SECTOR_DATA_SIZE;
 
-			for (I32 i = 0; i < dataToCopy; i++) {
-				mData.push_back(sector[i]);
+				ESX_CORE_LOG_TRACE("Trovato {:08x}h", dataToCopy);
+
+				for (I32 i = 0; i < dataToCopy; i++) {
+					mData.push_back(sector[i]);
+				}
+
+				mSectors.pop_front();
+				CDROM_REG0.DataFifoEmpty = ESX_FALSE;
 			}
-
-			mSectors.pop_front();
-			CDROM_REG0.DataFifoEmpty = ESX_FALSE;
 		} else {
 			mData.clear();
 		}
@@ -566,9 +579,7 @@ namespace esx {
 		mResponses = {};
 
 		mShellOpen = ESX_FALSE;
-		mSeekMinute = 0x00;
-		mSeekSecond = 0x00;
-		mSeekSector = 0x00;
+		mSeekLBA = 0x00;
 
 		//Init
 		mShellOpen = ESX_FALSE;

@@ -354,7 +354,7 @@ namespace esx {
 	{
 		SharedPtr<RAM> pRAM = mBus->getDevice<RAM>("RAM");
 		Sector headerSector = {};
-		mEXE->seek(0, 0, 0);
+		mEXE->seek(0);
 		mEXE->readSector(&headerSector);
 
 		EXEHeader* pExeHeader = reinterpret_cast<EXEHeader*>(headerSector.UserData.data());

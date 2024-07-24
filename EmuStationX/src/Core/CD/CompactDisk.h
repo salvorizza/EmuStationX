@@ -26,10 +26,15 @@ namespace esx {
 		CompactDisk() = default;
 		~CompactDisk() = default;
 
-		virtual void seek(U8 minute, U8 second, U8 sector) = 0;
+		virtual void seek(U64 seekPos) = 0;
 		virtual void readSector(Sector* pOutSector) = 0;
 
 		constexpr static U32 calculateBinaryPosition(U8 minute, U8 second, U8 sector) { return ((minute * 60 + second) * CD_SECTORS_PER_SECOND + sector) * CD_SECTOR_SIZE; }
+
+		virtual U64 getCurrentPos() { return mCurrentLBA; }
+
+	protected:
+		U64 mCurrentLBA = 0x00;
 	};
 
 }
