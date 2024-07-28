@@ -175,7 +175,6 @@ namespace esx {
 		};
 		mRunningDMAs = 0;
 
-		mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 
 		setControlRegister(0x07654321);
 		setInterruptRegister(0);
@@ -183,6 +182,14 @@ namespace esx {
 		for (U8 port = 0; port < (U8)Port::Max; port++) {
 			mChannels[port].Port = (Port)port;
 		}
+
+		mBus = getBus(ESX_TEXT("Root"));
+		mRAM = mBus->getDevice<RAM>(ESX_TEXT("RAM"));
+		mGPU = mBus->getDevice<GPU>(ESX_TEXT("GPU"));
+		mCDROM = mBus->getDevice<CDROM>(ESX_TEXT("CDROM"));
+		mMDEC = mBus->getDevice<MDEC>(ESX_TEXT("MDEC"));
+		mSPU = mBus->getDevice<SPU>(ESX_TEXT("SPU"));
+		mInterruptControl = mBus->getDevice<InterruptControl>("InterruptControl");
 	}
 
 	void DMA::setChannelControl(Port port, U32 channelControl)
@@ -410,18 +417,13 @@ namespace esx {
 		channel.TransferStatus.BlockCurrentAddress = channel.BaseAddress;
 		channel.TransferStatus.BlockRemainingSize = transferSize;
 
-		//ESX_CORE_LOG_TRACE("DMA - Starting Block Transfer of {:08x}h size with starting address {:08x}h on port {} direction {}", channel.TransferStatus.BlockRemainingSize, channel.TransferStatus.BlockCurrentAddress, (U8)channel.Port, (channel.Direction == Direction::ToMainRAM) ? "ToMainRAM" : "FromMainRAM");
+		ESX_CORE_LOG_TRACE("DMA - Starting Block Transfer of {:08x}h size with starting address {:08x}h on port {} direction {}", channel.TransferStatus.BlockRemainingSize, channel.TransferStatus.BlockCurrentAddress, (U8)channel.Port, (channel.Direction == Direction::ToMainRAM) ? "ToMainRAM" : "FromMainRAM");
 	}
 
 	void DMA::clockBlockTransfer(Channel& channel)
 	{
 		I32 increment = (channel.Step == Step::Forward) ? 4 : -4;
-		SharedPtr<Bus> bus = getBus(ESX_TEXT("Root"));
-		SharedPtr<RAM> ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
-		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
-		SharedPtr<CDROM> cdrom = bus->getDevice<CDROM>(ESX_TEXT("CDROM"));
-		SharedPtr<MDEC> mdec = bus->getDevice<MDEC>(ESX_TEXT("MDEC"));
-		SharedPtr<SPU> spu = bus->getDevice<SPU>(ESX_TEXT("SPU"));
+
 
 		U32 currentAddress = channel.TransferStatus.BlockCurrentAddress & 0x1FFFFC;
 
@@ -431,7 +433,7 @@ namespace esx {
 
 				switch (channel.Port) {
 					case Port::MDECout: {
-						valueToWrite = mdec->channelOut();
+						valueToWrite = mMDEC->channelOut();
 						break;
 					}
 
@@ -446,15 +448,15 @@ namespace esx {
 					}
 
 					case Port::GPU: {
-						valueToWrite = gpu->gpuRead();
+						valueToWrite = mGPU->gpuRead();
 						break;
 					}
 
 					case Port::CDROM: {
-						U8 b4 = cdrom->popData();
-						U8 b3 = cdrom->popData();
-						U8 b2 = cdrom->popData();
-						U8 b1 = cdrom->popData();
+						U8 b4 = mCDROM->popData();
+						U8 b3 = mCDROM->popData();
+						U8 b2 = mCDROM->popData();
+						U8 b1 = mCDROM->popData();
 
 						valueToWrite = (b1 << 24) | (b2 << 16) | (b3 << 8) | (b4 << 0);
 						break;
@@ -466,24 +468,24 @@ namespace esx {
 					}
 				}
 
-				ram->store(ESX_TEXT("Root"), currentAddress, valueToWrite);
+				mRAM->store(ESX_TEXT("Root"), currentAddress, valueToWrite);
 				break;
 			}
 			case Direction::FromMainRAM: {
 				U32 value = 0;
-				ram->load(ESX_TEXT("Root"), currentAddress, value);
+				mRAM->load(ESX_TEXT("Root"), currentAddress, value);
 
 				switch (channel.Port) {
 					case Port::MDECin: {
-						mdec->channelIn(value);
+						mMDEC->channelIn(value);
 						break;
 					}
 					case Port::SPU: {
-						spu->writeToRAM(value);
+						mSPU->writeToRAM(value);
 						break;
 					}
 					case Port::GPU: {
-						gpu->gp0(value);
+						mGPU->gp0(value);
 						break;
 					}
 					default: {
@@ -526,14 +528,11 @@ namespace esx {
 
 	void DMA::clockLinkedListTransfer(Channel& channel)
 	{
-		SharedPtr<Bus> bus = getBus(ESX_TEXT("Root"));
-		SharedPtr<RAM> ram = bus->getDevice<RAM>(ESX_TEXT("RAM"));
-		SharedPtr<GPU> gpu = bus->getDevice<GPU>(ESX_TEXT("GPU"));
 		TransferStatus& transferStatus = channel.TransferStatus;
 
 
 		if (transferStatus.LinkedListRemainingSize == 0) {
-			ram->load(ESX_TEXT("Root"), transferStatus.LinkedListCurrentNodeAddress, transferStatus.LinkedListCurrentNodeHeader);
+			mRAM->load(ESX_TEXT("Root"), transferStatus.LinkedListCurrentNodeAddress, transferStatus.LinkedListCurrentNodeHeader);
 			transferStatus.LinkedListNextNodeAddress = transferStatus.LinkedListCurrentNodeHeader & 0x1FFFFC;
 			transferStatus.LinkedListRemainingSize = transferStatus.LinkedListCurrentNodeHeader >> 24;
 			transferStatus.LinkedListPacketAddress = (transferStatus.LinkedListCurrentNodeAddress + 4) & 0x1FFFFC;
@@ -541,8 +540,8 @@ namespace esx {
 
 		if (transferStatus.LinkedListRemainingSize > 0) {
 			U32 packet = 0;
-			ram->load(ESX_TEXT("Root"), transferStatus.LinkedListPacketAddress, packet);
-			gpu->gp0(packet);
+			mRAM->load(ESX_TEXT("Root"), transferStatus.LinkedListPacketAddress, packet);
+			mGPU->gp0(packet);
 
 			transferStatus.LinkedListRemainingSize--;
 			transferStatus.LinkedListPacketAddress = (transferStatus.LinkedListPacketAddress + 4) & 0x1FFFFC;

@@ -89,6 +89,11 @@ namespace esx {
 	};
 
 	class InterruptControl;
+	class GPU;
+	class CDROM;
+	class SPU;
+	class RAM;
+	class MDEC;
 
 	class DMA : public BusDevice {
 	public:
@@ -147,7 +152,15 @@ namespace esx {
 			Port::OTC
 		};
 		U8 mRunningDMAs = 0;
+
 		SharedPtr<InterruptControl> mInterruptControl;
+		SharedPtr<Bus> mBus;
+		SharedPtr<GPU> mGPU;
+		SharedPtr<CDROM> mCDROM;
+		SharedPtr<DMA> mDMA;
+		SharedPtr<SPU> mSPU;
+		SharedPtr<MDEC> mMDEC;
+		SharedPtr<RAM> mRAM;
 	};
 
 }

@@ -1350,6 +1350,17 @@ namespace esx {
 		};
 	}
 
+	void R3000::BiosWrite(U32 fd, U32 src, U32 length)
+	{
+		BIT exception = ESX_FALSE;
+		if (fd == 1) {
+			for (I32 i = 0; i < length; i++) {
+				U8 c = load<U8>(src + i, exception);
+				BiosPutChar(c);
+			}
+		}
+	}
+
 	void R3000::setCP0Register(RegisterIndex index, U32 value)
 	{
 		mCP0Registers[index.Value] = value;
@@ -1388,7 +1399,7 @@ namespace esx {
 			case 0x00: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - open(filename,accessmode)",callPC); break;
 			case 0x01: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - lseek(fd,offset,seektype)",callPC); break;
 			case 0x02: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - read(fd,dst,length)",callPC); break;
-			case 0x03: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - write(fd,src,length)",callPC); break;
+			case 0x03: BiosWrite(mRegisters[4], mRegisters[5], mRegisters[6]); break;//case 0x03: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - write(fd,src,length)",callPC); break;
 			case 0x04: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - close(fd)",callPC); break;
 			case 0x05: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - ioctl(fd,cmd,arg)",callPC); break;
 			case 0x06: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - exit(exitcode)",callPC); break;
@@ -1622,7 +1633,7 @@ namespace esx {
 			case 0x32: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - open(filename,accessmode)", callPC); break;
 			case 0x33: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - lseek(fd,offset,seektype)", callPC); break;
 			case 0x34: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - read(fd,dst,length)", callPC); break;
-			case 0x35: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - write(fd,src,length)", callPC); break;
+			case 0x35: BiosWrite(mRegisters[4], mRegisters[5], mRegisters[6]); break; //ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - write(fd,src,length)", callPC); break;
 			case 0x36: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - close(fd)", callPC); break;
 			case 0x37: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - ioctl(fd,cmd,arg)", callPC); break;
 			case 0x38: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - exit(exitcode)", callPC); break;

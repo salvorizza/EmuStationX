@@ -375,7 +375,17 @@ namespace esx {
 	}
 
 	void GTE::SQR() {
-		ESX_CORE_LOG_ERROR("GTE::SQR not implemented yet");
+		I64 MAC1 = (I64(mRegisters.IR1) * I64(mRegisters.IR1)) >> 12;
+		I64 MAC2 = (I64(mRegisters.IR2) * I64(mRegisters.IR2)) >> 12;
+		I64 MAC3 = (I64(mRegisters.IR3) * I64(mRegisters.IR3)) >> 12;
+
+		setMAC(1, MAC1, ESX_FALSE);
+		setMAC(2, MAC2, ESX_FALSE);
+		setMAC(3, MAC3, ESX_FALSE);
+
+		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::DCPL() {
@@ -401,7 +411,17 @@ namespace esx {
 	}
 
 	void GTE::AVSZ4() {
-		ESX_CORE_LOG_ERROR("GTE::AVSZ4 not implemented yet");
+		I64 MAC0 = I64(mRegisters.ZSF4) * (I64(mRegisters.SZ0) + I64(mRegisters.SZ1) + mRegisters.SZ2 + mRegisters.SZ3);
+		I64 OTZ = MAC0 / 0x1000;
+
+		setMAC(0, MAC0, ESX_FALSE);
+
+		if (OTZ < 0 || OTZ > 0xFFFF) {
+			OTZ = std::clamp<I64>(OTZ, 0x0000, 0xFFFF);
+			mRegisters.FLAG |= FlagRegisterSZ3OTZSat;
+		}
+
+		mRegisters.OTZ = static_cast<U16>(OTZ);
 	}
 
 	void GTE::RTPT() {

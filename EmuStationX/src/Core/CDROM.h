@@ -9,6 +9,7 @@ namespace esx {
 
 	constexpr size_t CD_READ_DELAY = 33868800 / CD_SECTORS_PER_SECOND;
 	constexpr size_t CD_READ_DELAY_2X = 33868800 / (2 * CD_SECTORS_PER_SECOND);
+	constexpr size_t CD_1_MS = 33868800 / 1000;
 
 	using FIFO = Queue<U8>;
 
@@ -55,6 +56,8 @@ namespace esx {
 		Mute = 0x0B,
 		Demute = 0x0C,
 		Setmode = 0x0E,
+		GetTN = 0x13,
+		GetTD = 0x14,
 		SeekL = 0x15,
 		Test = 0x19,
 		GetID = 0x1A,
@@ -128,6 +131,27 @@ namespace esx {
 		virtual void reset() override;
 
 		constexpr static U8 fromBCD(U8 bcd) { return ((bcd >> 4) & 0xF) * 10 + ((bcd >> 0) & 0xF); }
+		constexpr static U8 toBCD(U8 decimal) { 
+			U8 bcd = 0;
+
+			if (decimal == 0) {
+				return 0;
+			}
+
+			U8 bitsToShift = 0;
+			while (decimal != 0) {
+				U8 remainder = decimal % 10;
+
+				bcd |= (remainder << bitsToShift);
+
+				decimal /= 10;
+				bitsToShift += 4;
+			}
+
+
+			return bcd;
+		}
+
 	private:
 		void command(CommandType command, U32 responseNumber = 1);
 
@@ -173,8 +197,8 @@ namespace esx {
 
 		Array<U8, 16> mResponse; U8 mResponseSize = 0x00, mResponseReadPointer = 0x00;
 
-		Deque<U8> mData;
-		Deque<Sector> mSectors;
+		Array<U8, CD_SECTOR_SIZE> mData; U32 mDataReadPointer = 0; U32 mDataWritePointer = 0;
+		Array<Sector, 8> mSectors; U32 mOldSector = 0; U32 mCurrentSector = 0; U32 mNextSector = 0;
 
 		CDROMStatusRegister mStat = {};
 		CDROMModeRegister mMode = {};

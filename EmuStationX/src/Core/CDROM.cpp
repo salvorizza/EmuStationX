@@ -199,16 +199,6 @@ namespace esx {
 				mSeekLBA = CompactDisk::calculateBinaryPosition(minute, second, sector);
 
 				mSetLocUnprocessed = ESX_TRUE;
-				/*
-				//Bohhh
-				if (mSectors.size() > 0) {
-					U8 minute = fromBCD(mSectors.front().Header[0]);
-					U8 second = fromBCD(mSectors.front().Header[1]);
-					U8 sector = fromBCD(mSectors.front().Header[2]);
-					U64 lba = CompactDisk::calculateBinaryPosition(minute, second, sector);
-
-					mSetLocUnprocessed = lba != mSeekLBA;
-				}*/
 
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Setloc {:02d}:{:02d}:{:02d} - {:08x}h", cpu->mCurrentInstruction.Address, minute, second, sector, mSeekLBA - CompactDisk::calculateBinaryPosition(0, 2, 0));
 				break;
@@ -225,7 +215,6 @@ namespace esx {
 
 				if (mSetLocUnprocessed) {
 					mCD->seek(mSeekLBA);
-					mSectors = {};
 
 					mStat.Seek = ESX_TRUE;
 					response.Clear();
@@ -239,13 +228,18 @@ namespace esx {
 
 				response.NumberOfResponses++;
 				if (response.Number > 1) {
-					Sector& sector = mSectors.emplace_back();
-					mCD->readSector(&sector);
+					mOldSector = mCurrentSector;
+					mCurrentSector = mNextSector;
+					mNextSector = (mNextSector + 1) % mSectors.size();
+
+					mCD->readSector(&mSectors[mCurrentSector]);
+
 					if (response.Number > 1) {
 						response.Code = INT1;
 					}
-					response.TargetCycle = clocks + (mMode.DoubleSpeed ? CD_READ_DELAY_2X : CD_READ_DELAY);
 				}
+
+				response.TargetCycle = clocks + (mMode.DoubleSpeed ? CD_READ_DELAY_2X : CD_READ_DELAY);
 				break;
 			}
 
@@ -299,6 +293,25 @@ namespace esx {
 				break;
 			}
 
+			case CommandType::GetTN: {
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetTN", cpu->mCurrentInstruction.Address);
+
+				response.Push(toBCD(1));
+				response.Push(toBCD(mCD->getLastTrack()));
+				break;
+			}
+
+			case CommandType::GetTD: {
+				U8 track = popParameter();
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetTD {}", cpu->mCurrentInstruction.Address, track);
+
+				MSF msf = mCD->getTrackStart(fromBCD(track));
+
+				response.Push(toBCD(msf.Minute));
+				response.Push(toBCD(msf.Second));
+				break;
+			}
+
 			case CommandType::SeekL: {
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - SeekL {}", cpu->mCurrentInstruction.Address, response.Number);
 				response.NumberOfResponses = 2;
@@ -314,7 +327,6 @@ namespace esx {
 						mResponses = {};
 						mStat.Read = ESX_FALSE;
 					}
-					mSectors = {};
 				}
 				mSetLocUnprocessed = ESX_FALSE;
 				break;
@@ -433,28 +445,31 @@ namespace esx {
 
 	void CDROM::setRequestRegister(U8 value)
 	{
+		auto cpu = getBus("Root")->getDevice<R3000>("R3000");
+
 		RequestRegister requestRegister = {};
 
 		requestRegister.WantData = (value >> 7) & 0x1;
 		requestRegister.BFWR = (value >> 6) & 0x1;
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
+
+		ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
+			cpu->mCurrentInstruction.Address, requestRegister.WantData, requestRegister.BFWR, requestRegister.WantCommandStartInterrupt,
+			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);
+
 		if (requestRegister.WantData) {
-			if (mSectors.size() > 0) {
-				U8* sector = reinterpret_cast<U8*>(mMode.WholeSector ? ((void*)&(mSectors.front().Header)) : ((void*)&(mSectors.front().UserData)));
-				U32 dataToCopy = mMode.WholeSector ? (sizeof(Sector) - sizeof(Sector::SyncBytes)) : CD_SECTOR_DATA_SIZE;
+			if (CDROM_REG0.DataFifoEmpty == ESX_TRUE) {
+				std::memcpy(mData.data(), &mSectors[mOldSector], mData.size());
+				mDataReadPointer = mMode.WholeSector ? offsetof(Sector, Header) : offsetof(Sector, UserData);
+				mDataWritePointer = mMode.WholeSector ? CD_SECTOR_SIZE : CD_SECTOR_DATA_SIZE;
+				mDataWritePointer += mDataReadPointer;
 
-				ESX_CORE_LOG_TRACE("Trovato {:08x}h", dataToCopy);
-
-				for (I32 i = 0; i < dataToCopy; i++) {
-					mData.push_back(sector[i]);
-				}
-
-				mSectors.pop_front();
 				CDROM_REG0.DataFifoEmpty = ESX_FALSE;
 			}
 		} else {
-			mData.clear();
+			mDataWritePointer = mDataReadPointer = 0;
+			CDROM_REG0.DataFifoEmpty = ESX_TRUE;
 		}
 	}
 
@@ -543,10 +558,11 @@ namespace esx {
 	{
 		U8 value = 0;
 
-		value = mData.front();
-		mData.pop_front();
+		if (mDataReadPointer != mDataWritePointer) {
+			value = mData[mDataReadPointer++];
+		}
 
-		if (mData.size() == 0) {
+		if (mDataReadPointer == mDataWritePointer) {
 			CDROM_REG0.DataFifoEmpty = ESX_TRUE;
 		}
 
@@ -571,8 +587,6 @@ namespace esx {
 		mResponseSize = 0x00; 
 		mResponseReadPointer = 0x00;
 
-		mSectors = {};
-
 		mStat = {};
 		mMode = {};
 
@@ -587,7 +601,6 @@ namespace esx {
 		mStat.ShellOpen = ESX_TRUE;
 		mStat.Rotating = ESX_TRUE;
 
-		mData.resize(CD_SECTOR_SIZE * 2);
 		std::fill(mData.begin(), mData.end(), 0x00);
 
 		mSetLocUnprocessed = ESX_FALSE;

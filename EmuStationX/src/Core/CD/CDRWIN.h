@@ -22,9 +22,9 @@ namespace esx {
 
 	struct CDRWinIndex {
 		I32 Number = 0;
-		I32 Minute = 0;
-		I32 Second = 0;
-		I32 Sector = 0;
+
+		U32 lba = 0;
+		U32 pregapLba= 0;
 	};
 
 	struct CDRWINTrack {
@@ -47,6 +47,11 @@ namespace esx {
 
 		virtual void seek(U64 seekPos) override;
 		virtual void readSector(Sector* pOutSector) override;
+		virtual U8 getLastTrack() override { return mCurrentFile != mFiles.end() ? mCurrentFile->Tracks.size() : 0; }
+		virtual MSF getTrackStart(U8 trackNumber) override;
+
+		void computeCurrentFile();
+		U64 computeGapLBA();
 
 		virtual U64 getCurrentPos() { return mCurrentLBA + CompactDisk::calculateBinaryPosition(0,2,0); }
 	private:
