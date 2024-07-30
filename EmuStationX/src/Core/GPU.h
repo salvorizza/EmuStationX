@@ -269,7 +269,13 @@ namespace esx {
 		U64 mDotClocks = 0;
 		U64 mNumDots = 0;
 		U64 mCurrentScanLine = 0;
-		BIT mVBlank = ESX_FALSE;
+
+		BIT mHBlankStarted = ESX_FALSE;
+		BIT mHBlankEnded = ESX_FALSE;
+
+		BIT mVBlankStarted = ESX_FALSE;
+		BIT mVBlankEnded = ESX_FALSE;
+
 		BIT mFrameAvailable = ESX_FALSE;
 
 		SharedPtr<IRenderer> mRenderer = {};
@@ -278,6 +284,7 @@ namespace esx {
 
 		U64 mScanlinesPerFrame = 0;
 		U64 mClocksPerScanline = 0;
+
 	};
 
 	

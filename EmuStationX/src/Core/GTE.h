@@ -129,6 +129,30 @@ namespace esx {
 	};
 	static_assert(sizeof(GTERegisters) == (sizeof(U32) * 64));
 
+	class I44 {
+	public:
+		I44(I64 value)
+			: m_value(value), m_positive_overflow(value > 0x7ffffffffff), m_negative_overflow(value < -0x80000000000) {}
+
+		I44(I64 value, bool positive_overflow, bool negative_overflow)
+			: m_value(value), m_positive_overflow(positive_overflow), m_negative_overflow(negative_overflow) {}
+
+		I44 operator+(I64 rhs) {
+			I64 value = ((m_value + rhs) << 20) >> 20;
+			return I44(value, m_positive_overflow || (value < 0 && m_value >= 0 && rhs >= 0),
+				m_negative_overflow || (value >= 0 && m_value < 0 && rhs < 0));
+		}
+
+		bool positiveOverflow() { return m_positive_overflow; }
+		bool negativeOverflow() { return m_negative_overflow; }
+		I64 value() { return m_value; }
+
+	private:
+		I64 m_value;
+		BIT m_positive_overflow;
+		BIT m_negative_overflow;
+	};
+
 	class GTE {
 		friend class CPUStatusPanel;
 	public:
@@ -173,13 +197,30 @@ namespace esx {
 	private:
 		GTECommand decodeCommand(U32 value);
 
-		void Internal_RTPS(const Array<I16, 3>& V, BIT lm, BIT sf);
+		void Internal_RTPS(const Array<I16, 3>& V, BIT lm, BIT sf, I32& H_CALC);
+		void Internal_NCDS(const Array<I16, 3>& V);
+		void Internal_NCCS(const Array<I16, 3>& V);
+		void Internal_NCS(const Array<I16, 3>& V);
+		void Internal_DPCS(const Array<U8, 4>& RGBC);
 
-		void Multiply(const Array<I32, 3>& T, const Array<I16, 3>& V, const Array<I16, 9>& M, I64& MAC1, I64& MAC2, I64& MAC3, BIT sf);
+		template<typename TVec>
+		void Multiply(const Array<I32, 3>& T, const Array<TVec, 3>& V, const Array<I16, 9>& M, I64& MAC1, I64& MAC2, I64& MAC3, BIT sf) {
+			I44 RES1 = (I44(I64(T[0]) << 12) + I64(M[0 * 3 + 0]) * V[0] + I64(M[0 * 3 + 1]) * V[1] + I64(M[0 * 3 + 2]) * V[2]);
+			I44 RES2 = (I44(I64(T[1]) << 12) + I64(M[1 * 3 + 0]) * V[0] + I64(M[1 * 3 + 1]) * V[1] + I64(M[1 * 3 + 2]) * V[2]);
+			I44 RES3 = (I44(I64(T[2]) << 12) + I64(M[2 * 3 + 0]) * V[0] + I64(M[2 * 3 + 1]) * V[1] + I64(M[2 * 3 + 2]) * V[2]);
+
+			MAC1 = RES1.value();
+			MAC2 = RES2.value();
+			MAC3 = RES3.value();
+
+			overflowCheckMAC(1, RES1, sf);
+			overflowCheckMAC(2, RES2, sf);
+			overflowCheckMAC(3, RES3, sf);	
+		}
 		void Multiply(const Array<I16, 3>& V, const Array<I16, 9>& M, I64& MAC1, I64& MAC2, I64& MAC3, BIT sf);
 
-		void setMAC(U8 index, I64 value, BIT sf);
-		void setIR(U8 index, I32 value, BIT lm);
+		void overflowCheckMAC(U8 index, I44 value, BIT sf, BIT set = ESX_TRUE);
+		void overfowCheckIR(U8 index, I64 value, BIT lm, BIT set = ESX_TRUE);
 		void pushSZ(I32 value);
 		void pushSXY(Array<I32,2>& value);
 		void pushColor(I32 r, I32 g, I32 b);

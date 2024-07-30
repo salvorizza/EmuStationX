@@ -367,7 +367,7 @@ namespace esx {
 		BIT portSwitch = prevControlRegister.PortSelect && !mControlRegister.PortSelect;
 
 		if (deselected || portSwitch) {
-			ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
+			//ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
 
 			for (auto& device : mPorts[SerialPort::Port1]) {
 				if (device) {

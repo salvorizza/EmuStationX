@@ -139,7 +139,15 @@ namespace esx {
 	}
 
 	void GTE::RTPS() {
-		Internal_RTPS(mRegisters.V0, mCurrentCommand.Saturate, mCurrentCommand.ShiftFraction);
+		I32 H_CALC = 0;
+		Internal_RTPS(mRegisters.V0, mCurrentCommand.Saturate, mCurrentCommand.ShiftFraction, H_CALC);
+
+		I64 MAC0 = H_CALC * I64(mRegisters.DQA) + I64(mRegisters.DQB);
+		overflowCheckMAC(0, MAC0, ESX_FALSE);
+
+		I64 MAC012 = MAC0 >> 12;
+		if (MAC012 < 0x0000 || MAC012 > 0x1000) mRegisters.FLAG |= FlagRegisterIR0Sat;
+		mRegisters.IR0 = std::clamp<I32>(MAC012, 0x0000, 0x1000);
 	}
 
 	void GTE::NCLIP() {
@@ -149,7 +157,7 @@ namespace esx {
 					I64(mRegisters.SXY0[0]) * I64(mRegisters.SXY2[1]) - 
 					I64(mRegisters.SXY1[0]) * I64(mRegisters.SXY0[1]) - 
 					I64(mRegisters.SXY2[0]) * I64(mRegisters.SXY1[1]);
-		setMAC(0, MAC0, ESX_FALSE);
+		overflowCheckMAC(0, MAC0, ESX_FALSE);
 	}
 
 	void GTE::OP() {
@@ -161,246 +169,321 @@ namespace esx {
 		I64 MAC2 = mRegisters.IR1 * D3 - mRegisters.IR3 * D1;
 		I64 MAC3 = mRegisters.IR2 * D1 - mRegisters.IR1 * D2;
 
-		setMAC(1, MAC1, mCurrentCommand.ShiftFraction);
-		setMAC(2, MAC2, mCurrentCommand.ShiftFraction);
-		setMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
 
-		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
-		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
-		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::DPCS() {
-		/*[MAC1,MAC2,MAC3] = [R,G,B] SHL 16*/
-		/*[IR1,IR2,IR3] = (([RFC,GFC,BFC] SHL 12) - [MAC1,MAC2,MAC3]) SAR (sf*12)*/
-		I64 MAC1 = ((I64)mRegisters.FC[0] << 12) - (U64)mRegisters.RGBC[0] << 16;
-		I64 MAC2 = ((I64)mRegisters.FC[1] << 12) - (U64)mRegisters.RGBC[1] << 16;
-		I64 MAC3 = ((I64)mRegisters.FC[2] << 12) - (U64)mRegisters.RGBC[2] << 16;
+		Internal_DPCS(mRegisters.RGBC);
+	}
 
-		setMAC(1, MAC1, mCurrentCommand.ShiftFraction);
-		setMAC(2, MAC2, mCurrentCommand.ShiftFraction);
-		setMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+	void GTE::INTPL() {
+		U64 MAC1_orig = ((U64)mRegisters.IR1 << 12);
+		U64 MAC2_orig = ((U64)mRegisters.IR2 << 12);
+		U64 MAC3_orig = ((U64)mRegisters.IR3 << 12);
 
-		setIR(1, mRegisters.MACV[0], ESX_FALSE);
-		setIR(2, mRegisters.MACV[1], ESX_FALSE);
-		setIR(3, mRegisters.MACV[2], ESX_FALSE);
+		/*[MAC1,MAC2,MAC((U64)mRegisters.IR2 << 12)3] = [IR1,IR2,IR3] SHL 12 */
+		/*[IR1,IR2,IR3] ((U64)mRegisters.IR3 << 12)= (([RFC,GFC,BFC] SHL 12) - [MAC1,MAC2,MAC3]) SAR (sf*12)*/
+		I64 MAC1 = ((I64)mRegisters.FC[0] << 12) - MAC1_orig;
+		I64 MAC2 = ((I64)mRegisters.FC[1] << 12) - MAC2_orig;
+		I64 MAC3 = ((I64)mRegisters.FC[2] << 12) - MAC3_orig;
+
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		overfowCheckIR(1, mRegisters.MACV[0], ESX_FALSE);
+		overfowCheckIR(2, mRegisters.MACV[1], ESX_FALSE);
+		overfowCheckIR(3, mRegisters.MACV[2], ESX_FALSE);
 
 		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3])*/
-		MAC1 = (mRegisters.IR1 * mRegisters.IR0) + ((U64)mRegisters.RGBC[0] << 16);
-		MAC2 = (mRegisters.IR2 * mRegisters.IR0) + ((U64)mRegisters.RGBC[1] << 16);
-		MAC3 = (mRegisters.IR3 * mRegisters.IR0) + ((U64)mRegisters.RGBC[2] << 16);
+		MAC1 = (mRegisters.IR1 * mRegisters.IR0) + MAC1_orig;
+		MAC2 = (mRegisters.IR2 * mRegisters.IR0) + MAC2_orig;
+		MAC3 = (mRegisters.IR3 * mRegisters.IR0) + MAC3_orig;
 
-		setMAC(1, MAC1, mCurrentCommand.ShiftFraction);
-		setMAC(2, MAC2, mCurrentCommand.ShiftFraction);
-		setMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
 
 		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
 		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
 
 		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
-		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
-		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
-		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
-	}
-
-	void GTE::INTPL() {
-		ESX_CORE_LOG_ERROR("GTE::INTPL not implemented yet");
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::MVMVA() {
-		Array<I32, 3>* T = nullptr;
-		Array<I16, 3>* V = nullptr;
-		Array<I16, 9>* M = nullptr;
+		Array<I32, 3> T = {};
+		Array<I16, 3> V = {};
+		Array<I16, 9> M = {};
+
 		Array<I16, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
+		Array<I32, 3> Zero = { 0,0,0 };
+		Array<I16, 9> GarbageMatrix = {
+			-(U16)mRegisters.RGBC[0] << 4,+(U16)mRegisters.RGBC[0] << 4,mRegisters.IR0,
+			mRegisters.RT[0 * 3 + 2],mRegisters.RT[0 * 3 + 2],mRegisters.RT[0 * 3 + 2],
+			mRegisters.RT[1 * 3 + 1],mRegisters.RT[1 * 3 + 1],mRegisters.RT[1 * 3 + 1]
+		};
+
 		I64 MAC1, MAC2, MAC3;
 
 		switch (mCurrentCommand.MultiplyMatrix) {
 			case MultiplyMatrix::Rotation: {
-				M = &mRegisters.RT;
+				M = mRegisters.RT;
 				break;
 			}
 			case MultiplyMatrix::Light: {
-				M = &mRegisters.LLM;
+				M = mRegisters.LLM;
 				break;
 			}
 			case MultiplyMatrix::Color: {
-				M = &mRegisters.LCM;
+				M = mRegisters.LCM;
+				break;
+			}
+			case MultiplyMatrix::Reserved: {
+				M = GarbageMatrix;
 				break;
 			}
 		}
 
 		switch (mCurrentCommand.MultiplyVector) {
 			case MultiplyVector::V0: {
-				V = &mRegisters.V0;
+				V = mRegisters.V0;
 				break;
 			}
 			case MultiplyVector::V1: {
-				V = &mRegisters.V1;
+				V = mRegisters.V1;
 				break;
 			}
 			case MultiplyVector::V2: {
-				V = &mRegisters.V2;
+				V = mRegisters.V2;
 				break;
 			}
 			case MultiplyVector::IR_Long: {
-				V = &IR;
+				V = IR;
 				break;
 			}
 		}
 
 		switch (mCurrentCommand.TranslationVector) {
 			case TranslationVector::TR: {
-				T = &mRegisters.TR;
+				T = mRegisters.TR;
 				break;
 			}
 			case TranslationVector::BK: {
-				T = &mRegisters.BK;
+				T = mRegisters.BK;
 				break;
 			}
 			case TranslationVector::FC_Bugged: {
-				T = &mRegisters.FC;
+				T = mRegisters.FC;
 				break;
 			}
 		}
 
-		if (mCurrentCommand.TranslationVector == TranslationVector::None) {
-			Multiply(*V, *M, MAC1, MAC2, MAC3, ESX_FALSE);
+		if (mCurrentCommand.TranslationVector == TranslationVector::FC_Bugged) {
+			MAC1 = I64(M[0 * 3 + 1]) * V[1] + I64(M[0 * 3 + 2]) * V[2];
+			MAC2 = I64(M[1 * 3 + 1]) * V[1] + I64(M[1 * 3 + 2]) * V[2];
+			MAC3 = I64(M[2 * 3 + 1]) * V[1] + I64(M[2 * 3 + 2]) * V[2];
+
+			overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+			overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+			overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+			MAC1 = I64(T[0]) * 0x1000 + I64(M[0 * 3 + 0]) * V[0];
+			MAC2 = I64(T[1]) * 0x1000 + I64(M[1 * 3 + 0]) * V[0];
+			MAC3 = I64(T[2]) * 0x1000 + I64(M[2 * 3 + 0]) * V[0];
+
+			overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction, ESX_FALSE);
+			overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction, ESX_FALSE);
+			overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction, ESX_FALSE);
+
+			MAC1 >>= mCurrentCommand.ShiftFraction * 12;
+			MAC2 >>= mCurrentCommand.ShiftFraction * 12;
+			MAC3 >>= mCurrentCommand.ShiftFraction * 12;
+
+			overfowCheckIR(1, MAC1, ESX_FALSE, ESX_FALSE);
+			overfowCheckIR(2, MAC2, ESX_FALSE, ESX_FALSE);
+			overfowCheckIR(3, MAC3, ESX_FALSE, ESX_FALSE);
 		} else {
-			Multiply(*T, *V, *M, MAC1, MAC2, MAC3, ESX_FALSE);
+			Multiply(T, V, M, MAC1, MAC2, MAC3, mCurrentCommand.ShiftFraction);
 		}
 
-
-		setMAC(1, mRegisters.MACV[0], mCurrentCommand.ShiftFraction);
-		setMAC(2, mRegisters.MACV[1], mCurrentCommand.ShiftFraction);
-		setMAC(3, mRegisters.MACV[2], mCurrentCommand.ShiftFraction);
-
-		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
-		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
-		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::NCDS() {
+		Internal_NCDS(mRegisters.V0);
+	}
+
+	void GTE::CDP() {
 		I64 MAC1, MAC2, MAC3;
 
-		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (LLM*V0) SAR (sf*12)*/
-		Multiply(mRegisters.V0, mRegisters.LLM, MAC1, MAC2, MAC3, ESX_FALSE);
-			
-		setMAC(1, mRegisters.MACV[0], mCurrentCommand.ShiftFraction);
-		setMAC(2, mRegisters.MACV[1], mCurrentCommand.ShiftFraction);
-		setMAC(3, mRegisters.MACV[2], mCurrentCommand.ShiftFraction);
-
-		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
-		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
-		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
-
 		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (BK*1000h + LCM*IR) SAR (sf*12)*/
-		Array<I16, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
-		Multiply(mRegisters.BK, IR, mRegisters.LCM, MAC1, MAC2, MAC3, ESX_FALSE);
+		Array<I32, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
+		Multiply(mRegisters.BK, IR, mRegisters.LCM, MAC1, MAC2, MAC3, mCurrentCommand.ShiftFraction);
 
-		setMAC(1, mRegisters.MACV[0], mCurrentCommand.ShiftFraction);
-		setMAC(2, mRegisters.MACV[1], mCurrentCommand.ShiftFraction);
-		setMAC(3, mRegisters.MACV[2], mCurrentCommand.ShiftFraction);
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 
-		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
-		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
-		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
-		
 		/*[MAC1,MAC2,MAC3] = [R*IR1,G*IR2,B*IR3] SHL 4 */
-		MAC1 = (I64(mRegisters.RGBC[0]) * I64(mRegisters.IR1)) << 4;
-		MAC2 = (I64(mRegisters.RGBC[1]) * I64(mRegisters.IR2)) << 4;
-		MAC3 = (I64(mRegisters.RGBC[2]) * I64(mRegisters.IR3)) << 4;
-
-		setMAC(1, MAC1, ESX_FALSE);
-		setMAC(2, MAC2, ESX_FALSE);
-		setMAC(3, MAC3, ESX_FALSE);
+		I64 MAC1_orig = (I64(mRegisters.RGBC[0]) << 4) * I64(mRegisters.IR1);
+		I64 MAC2_orig = (I64(mRegisters.RGBC[1]) << 4) * I64(mRegisters.IR2);
+		I64 MAC3_orig = (I64(mRegisters.RGBC[2]) << 4) * I64(mRegisters.IR3);
 
 		/*[IR1,IR2,IR3] = (([RFC,GFC,BFC] SHL 12) - [MAC1,MAC2,MAC3]) SAR (sf*12)*/
-		I32 IR1 = ((mRegisters.FC[0] << 12) - mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
-		I32 IR2 = ((mRegisters.FC[1] << 12) - mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
-		I32 IR3 = ((mRegisters.FC[2] << 12) - mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
+		MAC1 = (I64(mRegisters.FC[0]) << 12) - MAC1_orig;
+		MAC2 = (I64(mRegisters.FC[1]) << 12) - MAC2_orig;
+		MAC3 = (I64(mRegisters.FC[2]) << 12) - MAC3_orig;
 
-		setIR(1, IR1, false);
-		setIR(2, IR2, false);
-		setIR(3, IR3, false);
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		overfowCheckIR(1, mRegisters.MACV[0], ESX_FALSE);
+		overfowCheckIR(2, mRegisters.MACV[1], ESX_FALSE);
+		overfowCheckIR(3, mRegisters.MACV[2], ESX_FALSE);
 
 		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3])*/
-		MAC1 = (IR1 * mRegisters.IR0) + mRegisters.MACV[0];
-		MAC2 = (IR2 * mRegisters.IR0) + mRegisters.MACV[1];
-		MAC3 = (IR3 * mRegisters.IR0) + mRegisters.MACV[2];
-
-		setMAC(1, MAC1, ESX_FALSE);
-		setMAC(2, MAC2, ESX_FALSE);
-		setMAC(3, MAC3, ESX_FALSE);
-
 		/*[MAC1,MAC2,MAC3] = [MAC1,MAC2,MAC3] SAR (sf*12)*/
-		MAC1 = I64(mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
-		MAC2 = I64(mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
-		MAC3 = I64(mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
+		MAC1 = MAC1_orig + (I64(mRegisters.IR0) * I64(mRegisters.IR1));
+		MAC2 = MAC2_orig + (I64(mRegisters.IR0) * I64(mRegisters.IR2));
+		MAC3 = MAC3_orig + (I64(mRegisters.IR0) * I64(mRegisters.IR3));
 
-		setMAC(1, MAC1, ESX_FALSE);
-		setMAC(2, MAC2, ESX_FALSE);
-		setMAC(3, MAC3, ESX_FALSE);
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
 
 		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
 		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
 
 		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
-		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
-		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
-		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
-	}
-
-	void GTE::CDP() {
-		ESX_CORE_LOG_ERROR("GTE::CDP not implemented yet");
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::NCDT() {
-		ESX_CORE_LOG_ERROR("GTE::NCDT not implemented yet");
+		Internal_NCDS(mRegisters.V0);
+		Internal_NCDS(mRegisters.V1);
+		Internal_NCDS(mRegisters.V2);
 	}
 
 	void GTE::NCCS() {
-		ESX_CORE_LOG_ERROR("GTE::NCCS not implemented yet");
+		Internal_NCCS(mRegisters.V0);
 	}
 
 	void GTE::CC() {
-		ESX_CORE_LOG_ERROR("GTE::CC not implemented yet");
+		I64 MAC1, MAC2, MAC3;
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (BK*1000h + LCM*IR) SAR (sf*12)*/
+		Array<I32, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
+		Multiply(mRegisters.BK, IR, mRegisters.LCM, MAC1, MAC2, MAC3, mCurrentCommand.ShiftFraction);
+
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+
+		/*[MAC1,MAC2,MAC3] = [R*IR1,G*IR2,B*IR3] SHL 4 */
+		I64 MAC1_orig = (I64(mRegisters.RGBC[0]) << 4) * I64(mRegisters.IR1);
+		I64 MAC2_orig = (I64(mRegisters.RGBC[1]) << 4) * I64(mRegisters.IR2);
+		I64 MAC3_orig = (I64(mRegisters.RGBC[2]) << 4) * I64(mRegisters.IR3);
+
+		overflowCheckMAC(1, MAC1_orig, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2_orig, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3_orig, mCurrentCommand.ShiftFraction);
+
+		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
+		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::NCS() {
-		ESX_CORE_LOG_ERROR("GTE::NCS not implemented yet");
+		Internal_NCS(mRegisters.V0);
 	}
 
 	void GTE::NCT() {
-		ESX_CORE_LOG_ERROR("GTE::NCT not implemented yet");
+		Internal_NCS(mRegisters.V0);
+		Internal_NCS(mRegisters.V1);
+		Internal_NCS(mRegisters.V2);
 	}
 
 	void GTE::SQR() {
-		I64 MAC1 = (I64(mRegisters.IR1) * I64(mRegisters.IR1)) >> 12;
-		I64 MAC2 = (I64(mRegisters.IR2) * I64(mRegisters.IR2)) >> 12;
-		I64 MAC3 = (I64(mRegisters.IR3) * I64(mRegisters.IR3)) >> 12;
+		I64 MAC1 = I64(mRegisters.IR1) * I64(mRegisters.IR1);
+		I64 MAC2 = I64(mRegisters.IR2) * I64(mRegisters.IR2);
+		I64 MAC3 = I64(mRegisters.IR3) * I64(mRegisters.IR3);
 
-		setMAC(1, MAC1, ESX_FALSE);
-		setMAC(2, MAC2, ESX_FALSE);
-		setMAC(3, MAC3, ESX_FALSE);
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
 
-		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
-		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
-		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::DCPL() {
-		ESX_CORE_LOG_ERROR("GTE::DCPL not implemented yet");
+		/*[MAC1,MAC2,MAC3] = [R*IR1,G*IR2,B*IR3] SHL 4 */
+		I64 MAC1_orig = (I64(mRegisters.RGBC[0]) << 4) * I64(mRegisters.IR1);
+		I64 MAC2_orig = (I64(mRegisters.RGBC[1]) << 4) * I64(mRegisters.IR2);
+		I64 MAC3_orig = (I64(mRegisters.RGBC[2]) << 4) * I64(mRegisters.IR3);
+
+		/*[MAC1,MAC2,MAC((U64)mRegisters.IR2 << 12)3] = [IR1,IR2,IR3] SHL 12 */
+		/*[IR1,IR2,IR3] ((U64)mRegisters.IR3 << 12)= (([RFC,GFC,BFC] SHL 12) - [MAC1,MAC2,MAC3]) SAR (sf*12)*/
+		I64 MAC1 = ((I64)mRegisters.FC[0] << 12) - MAC1_orig;
+		I64 MAC2 = ((I64)mRegisters.FC[1] << 12) - MAC2_orig;
+		I64 MAC3 = ((I64)mRegisters.FC[2] << 12) - MAC3_orig;
+
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		overfowCheckIR(1, mRegisters.MACV[0], ESX_FALSE);
+		overfowCheckIR(2, mRegisters.MACV[1], ESX_FALSE);
+		overfowCheckIR(3, mRegisters.MACV[2], ESX_FALSE);
+
+		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3])*/
+		MAC1 = (mRegisters.IR1 * mRegisters.IR0) + MAC1_orig;
+		MAC2 = (mRegisters.IR2 * mRegisters.IR0) + MAC2_orig;
+		MAC3 = (mRegisters.IR3 * mRegisters.IR0) + MAC3_orig;
+
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
+		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::DPCT() {
-		ESX_CORE_LOG_ERROR("GTE::DPCT not implemented yet");
+		Internal_DPCS(mRegisters.RGB0);
+		Internal_DPCS(mRegisters.RGB0);
+		Internal_DPCS(mRegisters.RGB0);
 	}
 
 	void GTE::AVSZ3() {
 		I64 MAC0 = I64(mRegisters.ZSF3) * (I64(mRegisters.SZ1) + mRegisters.SZ2 + mRegisters.SZ3);
 		I64 OTZ = MAC0 / 0x1000;
 
-		setMAC(0, MAC0, ESX_FALSE);
+		overflowCheckMAC(0, MAC0, ESX_FALSE);
 
 		if (OTZ < 0 || OTZ > 0xFFFF) {
 			OTZ = std::clamp<I64>(OTZ, 0x0000, 0xFFFF);
@@ -414,7 +497,7 @@ namespace esx {
 		I64 MAC0 = I64(mRegisters.ZSF4) * (I64(mRegisters.SZ0) + I64(mRegisters.SZ1) + mRegisters.SZ2 + mRegisters.SZ3);
 		I64 OTZ = MAC0 / 0x1000;
 
-		setMAC(0, MAC0, ESX_FALSE);
+		overflowCheckMAC(0, MAC0, ESX_FALSE);
 
 		if (OTZ < 0 || OTZ > 0xFFFF) {
 			OTZ = std::clamp<I64>(OTZ, 0x0000, 0xFFFF);
@@ -425,9 +508,18 @@ namespace esx {
 	}
 
 	void GTE::RTPT() {
-		Internal_RTPS(mRegisters.V0, mCurrentCommand.Saturate, mCurrentCommand.ShiftFraction);
-		Internal_RTPS(mRegisters.V1, mCurrentCommand.Saturate, mCurrentCommand.ShiftFraction);
-		Internal_RTPS(mRegisters.V2, mCurrentCommand.Saturate, mCurrentCommand.ShiftFraction);
+		I32 H_CALC = 0;
+
+		Internal_RTPS(mRegisters.V0, mCurrentCommand.Saturate, mCurrentCommand.ShiftFraction, H_CALC);
+		Internal_RTPS(mRegisters.V1, mCurrentCommand.Saturate, mCurrentCommand.ShiftFraction, H_CALC);
+		Internal_RTPS(mRegisters.V2, mCurrentCommand.Saturate, mCurrentCommand.ShiftFraction, H_CALC);
+
+		I64 MAC0 = H_CALC * I64(mRegisters.DQA) + I64(mRegisters.DQB);
+		overflowCheckMAC(0, MAC0, ESX_FALSE);
+
+		I64 MAC012 = MAC0 >> 12;
+		if (MAC012 < 0x0000 || MAC012 > 0x1000) mRegisters.FLAG |= FlagRegisterIR0Sat;
+		mRegisters.IR0 = std::clamp<I32>(MAC012, 0x0000, 0x1000);
 	}
 
 	void GTE::GPF() {
@@ -438,26 +530,26 @@ namespace esx {
 		MAC2 = 0;
 		MAC3 = 0;
 
-		setMAC(1, MAC1, ESX_FALSE);
-		setMAC(2, MAC2, ESX_FALSE);
-		setMAC(3, MAC3, ESX_FALSE);
+		overflowCheckMAC(1, MAC1, ESX_FALSE);
+		overflowCheckMAC(2, MAC2, ESX_FALSE);
+		overflowCheckMAC(3, MAC3, ESX_FALSE);
 
 		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3]) SAR (sf*12)*/
 		MAC1 = ((mRegisters.IR1 * mRegisters.IR0) + mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC2 = ((mRegisters.IR2 * mRegisters.IR0) + mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC3 = ((mRegisters.IR3 * mRegisters.IR0) + mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
 
-		setMAC(1, MAC1, ESX_FALSE);
-		setMAC(2, MAC2, ESX_FALSE);
-		setMAC(3, MAC3, ESX_FALSE);
+		overflowCheckMAC(1, MAC1, ESX_FALSE);
+		overflowCheckMAC(2, MAC2, ESX_FALSE);
+		overflowCheckMAC(3, MAC3, ESX_FALSE);
 
 		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
 		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
 
 		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
-		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
-		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
-		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::GPL() {
@@ -468,30 +560,32 @@ namespace esx {
 		MAC2 = (I64)mRegisters.MACV[1] << (mCurrentCommand.ShiftFraction * 12);
 		MAC3 = (I64)mRegisters.MACV[2] << (mCurrentCommand.ShiftFraction * 12);
 
-		setMAC(1, MAC1, ESX_FALSE);
-		setMAC(2, MAC2, ESX_FALSE);
-		setMAC(3, MAC3, ESX_FALSE);
+		overflowCheckMAC(1, MAC1, ESX_FALSE);
+		overflowCheckMAC(2, MAC2, ESX_FALSE);
+		overflowCheckMAC(3, MAC3, ESX_FALSE);
 
 		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3]) SAR (sf*12)*/
 		MAC1 = ((mRegisters.IR1 * mRegisters.IR0) + mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC2 = ((mRegisters.IR2 * mRegisters.IR0) + mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
 		MAC3 = ((mRegisters.IR3 * mRegisters.IR0) + mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
 
-		setMAC(1, MAC1, ESX_FALSE);
-		setMAC(2, MAC2, ESX_FALSE);
-		setMAC(3, MAC3, ESX_FALSE);
+		overflowCheckMAC(1, MAC1, ESX_FALSE);
+		overflowCheckMAC(2, MAC2, ESX_FALSE);
+		overflowCheckMAC(3, MAC3, ESX_FALSE);
 
 		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
 		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
 
 		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
-		setIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
-		setIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
-		setIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
 
 	void GTE::NCCT() {
-		ESX_CORE_LOG_ERROR("GTE::NCCT not implemented yet");
+		Internal_NCCS(mRegisters.V0);
+		Internal_NCCS(mRegisters.V1);
+		Internal_NCCS(mRegisters.V2);
 	}
 
 	void GTE::NA() {
@@ -584,27 +678,27 @@ namespace esx {
 		return command;
 	}
 
-	void GTE::Internal_RTPS(const Array<I16, 3>& V, BIT lm, BIT sf)
+	void GTE::Internal_RTPS(const Array<I16, 3>& V, BIT lm, BIT sf, I32& H_CALC)
 	{
 		Array<I32, 2> SXY2 = {};
 		I64 MAC0, MAC1, MAC2, MAC3;
 
 		Multiply(mRegisters.TR, V, mRegisters.RT, MAC1, MAC2, MAC3, sf);
 
-		setIR(1, mRegisters.MACV[0], lm);
-		setIR(2, mRegisters.MACV[1], lm);
+		overfowCheckIR(1, mRegisters.MACV[0], lm);
+		overfowCheckIR(2, mRegisters.MACV[1], lm);
 
-		I32 MAC3sf = MAC3 >> (sf * 12);
-		I32 MAC312 = MAC3 >> 12;
-		I32 minValue = lm ? 0x0000 : -0x8000;
-		I32 maxValue = 0x7FFF;
+		I64 MAC3sf = MAC3 >> (sf * 12);
+		I64 MAC312 = MAC3 >> 12;
+		I64 minValue = lm ? 0x0000 : -0x8000;
+		I64 maxValue = 0x7FFF;
 		if(MAC312 < -0x8000 || MAC312 > 0x7FFF) mRegisters.FLAG |= FlagRegisterIR3Sat;
 		mRegisters.IR3 = std::clamp<I32>(MAC3sf, minValue, maxValue);
 
 		I32 SZ3 = MAC312;
 		pushSZ(SZ3);
 
-		I32 H_CALC = 0;
+		H_CALC = 0;
 		if (mRegisters.H < (mRegisters.SZ3 * 2)) {
 			U32 z = std::countl_zero<U16>(mRegisters.SZ3);
 			H_CALC = (U32)mRegisters.H << z;
@@ -618,103 +712,224 @@ namespace esx {
 			mRegisters.FLAG |= FlagRegisterDivOver;
 		}
 
-		MAC0 = H_CALC * I64(mRegisters.IR1) + mRegisters.OF[0]; 
-		setMAC(0, MAC0, ESX_FALSE); 
+		MAC0 = H_CALC * I64(mRegisters.IR1) + I64(mRegisters.OF[0]); 
+		overflowCheckMAC(0, MAC0, ESX_FALSE, ESX_FALSE);
 		SXY2[0] = MAC0 >> 16;
 
-		MAC0 = H_CALC * I64(mRegisters.IR2) + mRegisters.OF[1];
-		setMAC(0, MAC0, ESX_FALSE);
+		MAC0 = H_CALC * I64(mRegisters.IR2) + I64(mRegisters.OF[1]);
+		overflowCheckMAC(0, MAC0, ESX_FALSE, ESX_FALSE);
 		SXY2[1] = MAC0 >> 16;
-
-		MAC0 = H_CALC * I64(mRegisters.DQA) + mRegisters.DQB; 
-		setMAC(0, MAC0, ESX_FALSE);
-
-		I64 MAC012 = MAC0 >> 12;
-		if (MAC012 < 0x0000 || MAC012 > 0x1000) mRegisters.FLAG |= FlagRegisterIR0Sat;
-		mRegisters.IR0 = std::clamp<I32>(MAC012, 0x0000, 0x1000);
 
 		pushSXY(SXY2);
 	}
 
-	void GTE::Multiply(const Array<I32, 3>& T, const Array<I16, 3>& V, const Array<I16, 9>& M, I64& MAC1, I64& MAC2, I64& MAC3, BIT sf) {
-		MAC1 = (I64(T[0]) * 0x1000 + I64(M[0 * 3 + 0]) * V[0] + I64(M[0 * 3 + 1]) * V[1] + I64(M[0 * 3 + 2]) * V[2]);
-		MAC2 = (I64(T[1]) * 0x1000 + I64(M[1 * 3 + 0]) * V[0] + I64(M[1 * 3 + 1]) * V[1] + I64(M[1 * 3 + 2]) * V[2]);
-		MAC3 = (I64(T[2]) * 0x1000 + I64(M[2 * 3 + 0]) * V[0] + I64(M[2 * 3 + 1]) * V[1] + I64(M[2 * 3 + 2]) * V[2]);
+	void GTE::Internal_NCDS(const Array<I16, 3>& V)
+	{
+		I64 MAC1, MAC2, MAC3;
 
-		setMAC(1, MAC1, sf);
-		setMAC(2, MAC2, sf);
-		setMAC(3, MAC3, sf);
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (LLM*V0) SAR (sf*12)*/
+		Multiply(V, mRegisters.LLM, MAC1, MAC2, MAC3, mCurrentCommand.ShiftFraction);
 
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 
-		/*setMAC(1, (I64(T[0]) * 0x1000 + I64(M[0 * 3 + 0]) * V[0]));
-		setMAC(1, mRegisters.MACV[0] +  I64(M[0 * 3 + 1]) * V[1]);
-		setMAC(1, mRegisters.MACV[0] +  I64(M[0 * 3 + 2]) * V[2]);
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (BK*1000h + LCM*IR) SAR (sf*12)*/
+		Array<I32, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
+		Multiply(mRegisters.BK, IR, mRegisters.LCM, MAC1, MAC2, MAC3, mCurrentCommand.ShiftFraction);
 
-		setMAC(2, (I64(T[1]) * 0x1000 + I64(M[1 * 3 + 0]) * V[0]));
-		setMAC(2, mRegisters.MACV[1] +  I64(M[1 * 3 + 1]) * V[1]);
-		setMAC(2, mRegisters.MACV[1] +  I64(M[1 * 3 + 2]) * V[2]);
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 
-		setMAC(3, (I64(T[2]) * 0x1000 + I64(M[2 * 3 + 0]) * V[0]));
-		setMAC(3, mRegisters.MACV[2] +  I64(M[2 * 3 + 1]) * V[1]);
-		setMAC(3, mRegisters.MACV[2] +  I64(M[2 * 3 + 2]) * V[2]);*/
+		/*[MAC1,MAC2,MAC3] = [R*IR1,G*IR2,B*IR3] SHL 4 */
+		I64 MAC1_orig = (I64(mRegisters.RGBC[0]) << 4) * I64(mRegisters.IR1);
+		I64 MAC2_orig = (I64(mRegisters.RGBC[1]) << 4) * I64(mRegisters.IR2);
+		I64 MAC3_orig = (I64(mRegisters.RGBC[2]) << 4) * I64(mRegisters.IR3);
+
+		/*[IR1,IR2,IR3] = (([RFC,GFC,BFC] SHL 12) - [MAC1,MAC2,MAC3]) SAR (sf*12)*/
+		MAC1 = (I64(mRegisters.FC[0]) << 12) - MAC1_orig;
+		MAC2 = (I64(mRegisters.FC[1]) << 12) - MAC2_orig;
+		MAC3 = (I64(mRegisters.FC[2]) << 12) - MAC3_orig;
+
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		overfowCheckIR(1, mRegisters.MACV[0], ESX_FALSE);
+		overfowCheckIR(2, mRegisters.MACV[1], ESX_FALSE);
+		overfowCheckIR(3, mRegisters.MACV[2], ESX_FALSE);
+
+		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3])*/
+		/*[MAC1,MAC2,MAC3] = [MAC1,MAC2,MAC3] SAR (sf*12)*/
+		MAC1 = MAC1_orig + (I64(mRegisters.IR0) * I64(mRegisters.IR1));
+		MAC2 = MAC2_orig + (I64(mRegisters.IR0) * I64(mRegisters.IR2));
+		MAC3 = MAC3_orig + (I64(mRegisters.IR0) * I64(mRegisters.IR3));
+
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
+		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
 	}
+
+	void GTE::Internal_NCCS(const Array<I16, 3>& V)
+	{
+		I64 MAC1, MAC2, MAC3;
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (LLM*V0) SAR (sf*12)*/
+		Multiply(V, mRegisters.LLM, MAC1, MAC2, MAC3, mCurrentCommand.ShiftFraction);
+
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (BK*1000h + LCM*IR) SAR (sf*12)*/
+		Array<I32, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
+		Multiply(mRegisters.BK, IR, mRegisters.LCM, MAC1, MAC2, MAC3, mCurrentCommand.ShiftFraction);
+
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+
+		/*[MAC1,MAC2,MAC3] = [R*IR1,G*IR2,B*IR3] SHL 4 */
+		I64 MAC1_orig = (I64(mRegisters.RGBC[0]) << 4) * I64(mRegisters.IR1);
+		I64 MAC2_orig = (I64(mRegisters.RGBC[1]) << 4) * I64(mRegisters.IR2);
+		I64 MAC3_orig = (I64(mRegisters.RGBC[2]) << 4) * I64(mRegisters.IR3);
+
+		overflowCheckMAC(1, MAC1_orig, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2_orig, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3_orig, mCurrentCommand.ShiftFraction);
+
+		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
+		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+	}
+
+	void GTE::Internal_NCS(const Array<I16, 3>& V)
+	{
+		I64 MAC1, MAC2, MAC3;
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (LLM*V0) SAR (sf*12)*/
+		Multiply(V, mRegisters.LLM, MAC1, MAC2, MAC3, mCurrentCommand.ShiftFraction);
+
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3] = (BK*1000h + LCM*IR) SAR (sf*12)*/
+		Array<I32, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
+		Multiply(mRegisters.BK, IR, mRegisters.LCM, MAC1, MAC2, MAC3, mCurrentCommand.ShiftFraction);
+
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+
+		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
+		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+	}
+
+	void GTE::Internal_DPCS(const Array<U8, 4>& RGBC)
+	{
+		/*[MAC1,MAC2,MAC3] = [R,G,B] SHL 16*/
+		/*[IR1,IR2,IR3] = (([RFC,GFC,BFC] SHL 12) - [MAC1,MAC2,MAC3]) SAR (sf*12)*/
+		I64 MAC1 = (I64(mRegisters.FC[0]) << 12) - (U64(RGBC[0]) << 16);
+		I64 MAC2 = (I64(mRegisters.FC[1]) << 12) - (U64(RGBC[1]) << 16);
+		I64 MAC3 = (I64(mRegisters.FC[2]) << 12) - (U64(RGBC[2]) << 16);
+
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		overfowCheckIR(1, mRegisters.MACV[0], ESX_FALSE);
+		overfowCheckIR(2, mRegisters.MACV[1], ESX_FALSE);
+		overfowCheckIR(3, mRegisters.MACV[2], ESX_FALSE);
+
+		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3])*/
+		MAC1 = (mRegisters.IR1 * mRegisters.IR0) + (U64(RGBC[0]) << 16);
+		MAC2 = (mRegisters.IR2 * mRegisters.IR0) + (U64(RGBC[1]) << 16);
+		MAC3 = (mRegisters.IR3 * mRegisters.IR0) + (U64(RGBC[2]) << 16);
+
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
+
+		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
+		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
+
+		/*[IR1,IR2,IR3] = [MAC1,MAC2,MAC3]*/
+		overfowCheckIR(1, mRegisters.MACV[0], mCurrentCommand.Saturate);
+		overfowCheckIR(2, mRegisters.MACV[1], mCurrentCommand.Saturate);
+		overfowCheckIR(3, mRegisters.MACV[2], mCurrentCommand.Saturate);
+	}
+
 
 	void GTE::Multiply(const Array<I16, 3>& V, const Array<I16, 9>& M, I64& MAC1, I64& MAC2, I64& MAC3, BIT sf)
 	{
-		MAC1 = (I64(M[0 * 3 + 0]) * V[0] + I64(M[0 * 3 + 1]) * V[1] + I64(M[0 * 3 + 2]) * V[2]);
-		setMAC(1, MAC1, sf);
+		I44 RES1 = (I44(I64(M[0 * 3 + 0]) * V[0]) + I64(M[0 * 3 + 1]) * V[1] + I64(M[0 * 3 + 2]) * V[2]);
+		I44 RES2 = (I44(I64(M[1 * 3 + 0]) * V[0]) + I64(M[1 * 3 + 1]) * V[1] + I64(M[1 * 3 + 2]) * V[2]);
+		I44 RES3 = (I44(I64(M[2 * 3 + 0]) * V[0]) + I64(M[2 * 3 + 1]) * V[1] + I64(M[2 * 3 + 2]) * V[2]);
 
-		/*setMAC(1, I64(M[0 * 3 + 0]) * V[0]);
-		setMAC(1, mRegisters.MACV[0] +	I64(M[0 * 3 + 1]) * V[1]);
-		setMAC(1, mRegisters.MACV[0] +	I64(M[0 * 3 + 2]) * V[2]);*/
+		MAC1 = RES1.value();
+		MAC2 = RES2.value();
+		MAC3 = RES3.value();
 
-		MAC2 = (I64(M[1 * 3 + 0]) * V[0] + I64(M[1 * 3 + 1]) * V[1] + I64(M[1 * 3 + 2]) * V[2]);
-		setMAC(2, MAC2, sf);
-
-		/*setMAC(2, I64(M[1 * 3 + 0]) * V[0]);
-		setMAC(2, mRegisters.MACV[1] +	I64(M[1 * 3 + 1]) * V[1]);
-		setMAC(2, mRegisters.MACV[1] +	I64(M[1 * 3 + 2]) * V[2]);*/
-
-		MAC3 = (I64(M[2 * 3 + 0]) * V[0] + I64(M[2 * 3 + 1]) * V[1] + I64(M[2 * 3 + 2]) * V[2]);
-		setMAC(3, MAC3, sf);
-
-		/*setMAC(3, I64(M[2 * 3 + 0]) * V[0]);
-		setMAC(3, mRegisters.MACV[2] +	I64(M[2 * 3 + 1]) * V[1]);
-		setMAC(3, mRegisters.MACV[2] +	I64(M[2 * 3 + 2]) * V[2]);*/
+		overflowCheckMAC(1, RES1, sf);
+		overflowCheckMAC(2, RES2, sf);
+		overflowCheckMAC(3, RES3, sf);
 	}
 
-	void GTE::setMAC(U8 index, I64 value, BIT sf)
+	void GTE::overflowCheckMAC(U8 index, I44 value, BIT sf, BIT set)
 	{
-		I64 minValue = (index == 0) ? (-(1ll << 31)) : (-(1ll << 43));
-		I64 maxValue = (index == 0) ? ((1ll << 31) - 1) : ((1ll << 43) - 1);
-
-		if (value > maxValue) {
-			switch (index) {
-				case 0: mRegisters.FLAG |= FlagRegisterMAC0Pos; break;
-				case 1: mRegisters.FLAG |= FlagRegisterMAC1Pos; break;
-				case 2: mRegisters.FLAG |= FlagRegisterMAC2Pos; break;
-				case 3: mRegisters.FLAG |= FlagRegisterMAC3Pos; break;
-			}
-		} else if (value < minValue) {
-			switch (index) {
-				case 0: mRegisters.FLAG |= FlagRegisterMAC0Neg; break;
-				case 1: mRegisters.FLAG |= FlagRegisterMAC1Neg; break;
-				case 2: mRegisters.FLAG |= FlagRegisterMAC2Neg; break;
-				case 3: mRegisters.FLAG |= FlagRegisterMAC3Neg; break;
-			}
-		}
-
 		if (index == 0) {
-			mRegisters.MAC0 = static_cast<I32>(value >> (sf * 12));
-		} else {
-			mRegisters.MACV[index - 1] = static_cast<I32>(value >> (sf * 12));
+			if (value.value() > I64(0x7fffffffll)) {
+				mRegisters.FLAG |= FlagRegisterMAC0Pos;
+			}
+
+			if (value.value() < I64(-0x80000000ll)) {
+				mRegisters.FLAG |= FlagRegisterMAC0Neg;
+			}
+
+			if(set) mRegisters.MAC0 = static_cast<I32>(value.value() >> (sf * 12));
+		}else {
+			if (value.positiveOverflow()) {
+				switch (index) {
+					case 1: mRegisters.FLAG |= FlagRegisterMAC1Pos; break;
+					case 2: mRegisters.FLAG |= FlagRegisterMAC2Pos; break;
+					case 3: mRegisters.FLAG |= FlagRegisterMAC3Pos; break;
+				}
+			}
+
+			if (value.negativeOverflow()) {
+				switch (index) {
+					case 1: mRegisters.FLAG |= FlagRegisterMAC1Neg; break;
+					case 2: mRegisters.FLAG |= FlagRegisterMAC2Neg; break;
+					case 3: mRegisters.FLAG |= FlagRegisterMAC3Neg; break;
+				}
+			}
+			if (set) mRegisters.MACV[index - 1] = static_cast<I32>(value.value() >> (sf * 12));
 		}
 	}
 
-	void GTE::setIR(U8 index, I32 value, BIT lm)
+	void GTE::overfowCheckIR(U8 index, I64 value, BIT lm, BIT set)
 	{
-		I32 minValue = lm ? 0x0000 : -0x8000;
-		I32 maxValue = 0x7FFF;
+		I64 minValue = lm ? 0x0000 : -0x8000;
+		I64 maxValue = 0x7FFF;
 
 		if (value < minValue || value > maxValue) {
 			value = std::clamp(value, minValue, maxValue);
@@ -727,11 +942,13 @@ namespace esx {
 			}
 		}
 
-		switch (index) {
-			case 0: mRegisters.IR0 = value; break;
-			case 1: mRegisters.IR1 = value; break;
-			case 2: mRegisters.IR2 = value; break;
-			case 3: mRegisters.IR3 = value; break;
+		if (set) {
+			switch (index) {
+				case 0: mRegisters.IR0 = value; break;
+				case 1: mRegisters.IR1 = value; break;
+				case 2: mRegisters.IR2 = value; break;
+				case 3: mRegisters.IR3 = value; break;
+			}
 		}
 	}
 

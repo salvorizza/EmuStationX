@@ -251,24 +251,53 @@ namespace esx {
 		U64 gpuClocks = (clocks * 11) / 7;
 		gpuClocks -= (mFrames * mScanlinesPerFrame * mClocksPerScanline);
 
-		if ((gpuClocks - (mCurrentScanLine * mClocksPerScanline)) >= (mNumDots + 1) * dotClocks) {
+		U64 scanlineClocks = (gpuClocks - (mCurrentScanLine * mClocksPerScanline));
+
+		if (scanlineClocks >= (mNumDots + 1) * dotClocks) {
 			mNumDots++;
 			mTimer->dot();
 		}
 
-		if (gpuClocks >= ((mCurrentScanLine + 1) * mClocksPerScanline)) {
+		if (scanlineClocks <= mHorizontalRangeStart || scanlineClocks >= mHorizontalRangeEnd) {
+			if (scanlineClocks >= mHorizontalRangeStart && !mHBlankEnded) {
+				mTimer->endHblank();
+
+				mHBlankEnded = ESX_TRUE;
+			} else if (scanlineClocks >= mHorizontalRangeEnd && !mHBlankStarted) {
+				mTimer->startHblank();
+				mHBlankStarted = ESX_TRUE;
+			}
+		} else {
+			mHBlankEnded = mHBlankStarted = ESX_FALSE;
+		}
+
+		if (scanlineClocks >= mClocksPerScanline) {
 			mCurrentScanLine++;
 			mNumDots = 0;
-			mTimer->hblank();
 
 			if (mGPUStat.VerticalResolution == VerticalResolution::V240) {
 				mGPUStat.DrawOddLines = (mCurrentScanLine & 0x1) ? ESX_TRUE : ESX_FALSE;
 			}
 
-			if (mCurrentScanLine < mVerticalRangeStart || mCurrentScanLine > mVerticalRangeEnd) {
-				mVBlank = ESX_TRUE;
-			} else {
-				mVBlank = ESX_FALSE;
+			if (mCurrentScanLine <= mVerticalRangeStart || mCurrentScanLine >= mVerticalRangeEnd) {
+				if (mCurrentScanLine >= mVerticalRangeStart && !mVBlankEnded) {
+					mTimer->endVblank();
+
+					mRenderer->Flush();
+					mRenderer->Begin();
+
+					mFrameAvailable = ESX_TRUE;
+
+					mVBlankEnded = ESX_TRUE;
+				}
+				else if (mCurrentScanLine >= mVerticalRangeEnd && !mVBlankStarted) {
+					mTimer->startVblank();
+					mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
+					mVBlankStarted = ESX_TRUE;
+				}
+			}
+			else {
+				mVBlankEnded = mVBlankStarted = ESX_FALSE;
 			}
 
 			if (mCurrentScanLine >= mScanlinesPerFrame) {
@@ -278,13 +307,6 @@ namespace esx {
 					mGPUStat.InterlaceField = !mGPUStat.DrawOddLines;
 				}
 
-				mRenderer->Flush();
-				mRenderer->Begin();
-
-				mFrameAvailable = ESX_TRUE;
-
-				mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
-				mTimer->vblank();
 				mFrames++;
 			}
 		}
@@ -336,7 +358,6 @@ namespace esx {
 		mDotClocks = 0;
 		mNumDots = 0;
 		mCurrentScanLine = 0;
-		mVBlank = ESX_FALSE;
 		mFrameAvailable = ESX_FALSE;
 
 		mTimer = {};

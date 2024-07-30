@@ -28,6 +28,7 @@ namespace esx {
 		U16 CurrentValue = 0;
 		U16 TargetValue = 0;
 		BIT Pause = ESX_FALSE;
+		BIT IRQHappened = ESX_FALSE;
 	};
 
 	class Timer : public BusDevice {
@@ -44,8 +45,13 @@ namespace esx {
 		virtual void reset() override;
 
 		virtual void clock(U64 clocks) override;
-		void hblank();
-		void vblank();
+
+		void startHblank();
+		void endHblank();
+
+		void startVblank();
+		void endVblank();
+
 		void dot();
 
 	private:

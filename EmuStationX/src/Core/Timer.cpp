@@ -147,16 +147,35 @@ namespace esx {
 		}
 	}
 
-	void Timer::hblank()
+	void Timer::startHblank()
 	{
 		Counter& timer0 = mCounters[0];
 		Counter& timer1 = mCounters[1];
 
 		if (timer0.Mode.SyncEnable) {
-			if (timer0.Mode.SyncMode == 1) {
-				timer0.CurrentValue = 0x0000;
-			} else if (timer0.Mode.SyncMode == 3) {
-				timer0.Mode.SyncEnable = ESX_FALSE;
+			switch (timer0.Mode.SyncMode) {
+				case 0: {
+					//Pause counter during Hblank(s)
+					timer0.Pause = ESX_TRUE;
+					break;
+				}
+				case 1: {
+					//Reset counter to 0000h at Hblank(s)
+					timer0.CurrentValue = 0x0000;
+					break;
+				}
+				case 2: {
+					//Reset counter to 0000h at Hblank(s) and pause outside of Hblank
+					timer0.CurrentValue = 0x0000;
+					timer0.Pause = ESX_FALSE;
+					break;
+				}
+				case 3: {
+					//Pause until Hblank occurs once, then switch to Free Run
+					timer0.Mode.SyncEnable = ESX_FALSE;
+					timer0.Pause = ESX_FALSE;
+					break;
+				}
 			}
 		}
 
@@ -165,16 +184,72 @@ namespace esx {
 		}
 	}
 
-	void Timer::vblank()
+	void Timer::endHblank()
+	{
+		Counter& timer0 = mCounters[0];
+		if (timer0.Mode.SyncEnable) {
+			switch (timer0.Mode.SyncMode) {
+				case 0: {
+					//Pause counter during Hblank(s)
+					timer0.Pause = ESX_FALSE;
+					break;
+				}
+				case 2: {
+					//Reset counter to 0000h at Hblank(s) and pause outside of Hblank
+					timer0.Pause = ESX_TRUE;
+					break;
+				}
+			}
+		}
+	}
+
+	void Timer::startVblank()
 	{
 		Counter& timer1 = mCounters[1];
 
 		if (timer1.Mode.SyncEnable) {
-			if (timer1.Mode.SyncMode == 1) {
-				timer1.CurrentValue = 0x0000;
+			switch (timer1.Mode.SyncMode) {
+				case 0: {
+					//Pause counter during Vblank(s)
+					timer1.Pause = ESX_TRUE;
+					break;
+				}
+				case 1: {
+					//Reset counter to 0000h at Vblank(s)
+					timer1.CurrentValue = 0x0000;
+					break;
+				}
+				case 2: {
+					//Reset counter to 0000h at Vblank(s) and pause outside of Hblank
+					timer1.CurrentValue = 0x0000;
+					timer1.Pause = ESX_FALSE;
+					break;
+				}
+				case 3: {
+					//Pause until Vblank occurs once, then switch to Free Run
+					timer1.Mode.SyncEnable = ESX_FALSE;
+					timer1.Pause = ESX_FALSE;
+					break;
+				}
 			}
-			else if (timer1.Mode.SyncMode == 3) {
-				timer1.Mode.SyncEnable = ESX_FALSE;
+		}
+	}
+
+	void Timer::endVblank()
+	{
+		Counter& timer1 = mCounters[1];
+		if (timer1.Mode.SyncEnable) {
+			switch (timer1.Mode.SyncMode) {
+				case 0: {
+					//Pause counter during Vblank(s)
+					timer1.Pause = ESX_FALSE;
+					break;
+				}
+				case 2: {
+					//Reset counter to 0000h at Vblank(s) and pause outside of Vblank
+					timer1.Pause = ESX_TRUE;
+					break;
+				}
 			}
 		}
 	}
@@ -209,12 +284,15 @@ namespace esx {
 		mCounters[counter].Mode.IRQToggle = (value >> 7) & 0x1;
 		mCounters[counter].Mode.ClockSource = (value >> 8) & 0x3;
 
-		mCounters[counter].Mode.InterruptRequest = ESX_FALSE;
+		mCounters[counter].Mode.InterruptRequest = !mCounters[counter].Mode.IRQToggle;
+
 		mCounters[counter].CurrentValue = 0x0000;
 
-		if (counter == 0 && mCounters[counter].Mode.SyncEnable && mCounters[counter].Mode.SyncMode == 3) mCounters[counter].Pause = ESX_TRUE;
-		if (counter == 1 && mCounters[counter].Mode.SyncEnable && mCounters[counter].Mode.SyncMode == 3) mCounters[counter].Pause = ESX_TRUE;
+		if (counter == 0 && mCounters[counter].Mode.SyncEnable && (mCounters[counter].Mode.SyncMode == 3 || mCounters[counter].Mode.SyncMode == 2)) mCounters[counter].Pause = ESX_TRUE;
+		if (counter == 1 && mCounters[counter].Mode.SyncEnable && (mCounters[counter].Mode.SyncMode == 3 || mCounters[counter].Mode.SyncMode == 2)) mCounters[counter].Pause = ESX_TRUE;
 		if (counter == 2 && mCounters[counter].Mode.SyncEnable && (mCounters[counter].Mode.SyncMode & 1) == 0) mCounters[counter].Pause = ESX_TRUE;
+
+		mCounters[counter].IRQHappened = ESX_FALSE;
 	}
 
 	U32 Timer::getCounterMode(U8 counter)
@@ -277,21 +355,20 @@ namespace esx {
 			InterruptType::Timer2
 		};
 
-		if (!modeRegister.IRQRepeat) {
-			ESX_CORE_LOG_WARNING("Timer {} one-shot mode not implemented yet", timer.Number);
+		if (!modeRegister.IRQRepeat && timer.IRQHappened) {
+			return;
 		}
 
-		if (!modeRegister.IRQToggle) {
-			ESX_CORE_LOG_WARNING("Timer {} pulse mode not implemented yet", timer.Number);
-		}
-
-		//TODO: this is Repeat mode do pulse and toggle
 		BIT newInterruptRequest = !modeRegister.InterruptRequest;
 
 		SharedPtr<InterruptControl> ic = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 		ic->requestInterrupt(interruptTypes[timer.Number], !modeRegister.InterruptRequest, !newInterruptRequest);
 
-		modeRegister.InterruptRequest = newInterruptRequest;
+		if (modeRegister.IRQToggle) {
+			modeRegister.InterruptRequest = newInterruptRequest;
+		}
+
+		timer.IRQHappened = ESX_TRUE;
 	}
 
 }
