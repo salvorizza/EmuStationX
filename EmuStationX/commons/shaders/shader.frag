@@ -7,6 +7,7 @@ in vec2 oClutUV;
 flat in uint oBPP;
 flat in uint oSemiTransparency;
 flat in uint oDither;
+flat in uint oRawTexture;
 
 layout(binding=0) uniform sampler2D uVRAM;   
 
@@ -80,12 +81,12 @@ void main() {
 
         switch (oBPP) {
             case BPP_4: {
-                uvColor = ivec2(oClutUV.x + texel_4bit(ivec2(oUV.x, oUV.y)),511 - oClutUV.y);  
+                uvColor = ivec2(oClutUV.x + texel_4bit(ivec2(oUV)),511 - oClutUV.y);  
                 break;
             }
 
             case BPP_8: {
-                uvColor = ivec2(oClutUV.x + texel_8bit(ivec2(oUV.x, oUV.y)),511 - oClutUV.y);  
+                uvColor = ivec2(oClutUV.x + texel_8bit(ivec2(oUV)),511 - oClutUV.y);  
                 break;
             }
 
@@ -97,7 +98,10 @@ void main() {
        
         color = sample_vram(uvColor);
         if(color.rgb == vec3(0,0,0)) discard;
-        color = (color * vec4(oColor,1.0)) / (128.0 / 255.0);
+        if(oRawTexture == 0u) {
+            color = (color * vec4(oColor,1.0)) / (128.0 / 255.0);
+            //TODO: Dither
+        }
 
         if(color.a == 1) {
             switch(oSemiTransparency) {
@@ -140,7 +144,7 @@ void main() {
         color.b = color8.b / 31.0;
         color.a = 0;
 
-         switch(oSemiTransparency) {
+        switch(oSemiTransparency) {
             case B2PlusF2: {
                 color = 0.5 * previousColor + 0.5 * color;
                 break;

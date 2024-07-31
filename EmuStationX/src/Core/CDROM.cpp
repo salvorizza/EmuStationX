@@ -237,6 +237,8 @@ namespace esx {
 					if (response.Number > 1) {
 						response.Code = INT1;
 					}
+				} else {
+					mResponses = {};
 				}
 
 				response.TargetCycle = clocks + (mMode.DoubleSpeed ? CD_READ_DELAY_2X : CD_READ_DELAY);
@@ -454,9 +456,9 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 
-		ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
+		/*ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
 			cpu->mCurrentInstruction.Address, requestRegister.WantData, requestRegister.BFWR, requestRegister.WantCommandStartInterrupt,
-			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);
+			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);*/
 
 		if (requestRegister.WantData) {
 			if (CDROM_REG0.DataFifoEmpty == ESX_TRUE) {

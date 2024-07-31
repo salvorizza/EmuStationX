@@ -60,6 +60,7 @@ namespace esx {
 		U8 bpp = 0x00;
 		U8 semiTransparency = 0x00;
 		U8 dither = 0x00;
+		U8 rawTexture = 0x00;
 	};
 
 	struct VRAMColor {

@@ -8,6 +8,7 @@ layout(location = 4) in uvec2 aClutUV;
 layout(location = 5) in uint aBPP;
 layout(location = 6) in uint aSemiTransparency;
 layout(location = 7) in uint aDither;
+layout(location = 8) in uint aRawTexture;
 
 out vec3 oColor;
 out vec2 oUV;
@@ -16,6 +17,7 @@ out vec2 oClutUV;
 flat out uint oBPP;
 flat out uint oSemiTransparency;
 flat out uint oDither;
+flat out uint oRawTexture;
 
 vec2 mapPointToRange(vec2 point, vec2 topLeft, vec2 bottomRight) {
     vec2 range = bottomRight - topLeft;
@@ -46,4 +48,5 @@ void main() {
     oBPP = aBPP;
     oSemiTransparency = aSemiTransparency;
     oDither = aDither;
+    oRawTexture = aRawTexture;
 }

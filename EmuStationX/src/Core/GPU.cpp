@@ -447,7 +447,6 @@ namespace esx {
 
 		Color color = unpackColor(command & 0xFFFFFF);
 
-		//ESX_CORE_LOG_TRACE("GPU::gp0QuickRectangleFillCommand");
 		mRenderer->Clear(XPos, YPos, XSiz, YSiz, color);
 	}
 
@@ -505,8 +504,9 @@ namespace esx {
 			vertices[i].vertex = unpackVertex(mCommandBuffer.pop());
 			vertices[i].color = gourad ? unpackColor(mCommandBuffer.pop()) : flatColor;
 			vertices[i].textured = textured;
-			vertices[i].dither = mGPUStat.DitherEnabled && !textured;
+			vertices[i].dither = mGPUStat.DitherEnabled && (gourad || !rawTexture);
 			vertices[i].semiTransparency = (semiTransparent && !textured) ? (U8)mGPUStat.SemiTransparency : 255;
+			vertices[i].rawTexture = rawTexture;
 		}
 
 		if (textured) {
@@ -666,6 +666,7 @@ namespace esx {
 			vertex.clutUV = clutUV;
 			vertex.bpp = bpp;
 			vertex.semiTransparency = semiTransparent ? (U8)mGPUStat.SemiTransparency : 255;
+			vertex.rawTexture = rawTexture;
 		}
 		
 		vertices[0].vertex = Vertex(vertex.x + width, vertex.y + height);
@@ -918,40 +919,20 @@ namespace esx {
 
 	void GPU::gp1Reset()
 	{
-		mGPUStat.TexturePageX = 0;
-		mGPUStat.TexturePageYBase1 = 0;
-		mGPUStat.SemiTransparency = SemiTransparency::B2PlusF2;
-		mGPUStat.TexturePageColors = TexturePageColors::T4Bit;
-		mTextureWindowMaskX = 0;
-		mTextureWindowMaskY = 0;
-		mTextureWindowOffsetX = 0;
-		mTextureWindowOffsetY = 0;
-		mGPUStat.DitherEnabled = ESX_FALSE;
-		mGPUStat.DrawToDisplay = ESX_FALSE;
-		mGPUStat.TexturePageYBase2 = 0;
-		mTexturedRectangleXFlip = 0;
-		mTexturedRectangleYFlip = 0;
-		mDrawAreaTopLeftX = 0;
-		mDrawAreaTopLeftY = 0;
-		mDrawAreaBottomRightX = 0;
-		mDrawAreaBottomRightY = 0;
-		mDrawOffsetX = 0;
-		mDrawOffsetY = 0;
-		mGPUStat.SetMaskWhenDrawingPixels = ESX_FALSE;
-		mGPUStat.DrawPixels = ESX_FALSE;
-		mGPUStat.DMADirection = DMADirection::Off;
-		mGPUStat.DisplayEnable = ESX_TRUE;
-		mVRAMStartX = 0;
-		mVRAMStartY = 0;
-		mGPUStat.HorizontalResolution = HorizontalResolution::H256;
-		mGPUStat.VerticalResolution = VerticalResolution::V240;
-		mGPUStat.VideoMode = VideoMode::NTSC;
-		mGPUStat.InterlaceField = ESX_TRUE;
-		mHorizontalRangeStart = 0x200;
-		mHorizontalRangeEnd = 0xC00;
-		mVerticalRangeStart = 0x10;
-		mVerticalRangeEnd = 0x100;
-		mGPUStat.ColorDepth = ColorDepth::C15Bit;
+		gp1ResetCommandBuffer();
+		gp1AckInterrupt();
+		gp1SetDisplayEnable(1);
+		gp1SetDMADirection(0);
+		gp1SetVRAMStart(0);
+		gp1SetHorizontalRange(0x200 | ((0x200 + 256 * 10) << 12));
+		gp1SetVerticalRange(0x010 | ((0x010 + 240) << 10));
+		gp1SetDisplayMode(0);
+		gp0DrawSettingCommand();
+		mCommandBuffer.push(0); gp0TextureWindowSettingCommand();
+		mCommandBuffer.push(0); gp0SetDrawingAreaTopLeftCommand();
+		mCommandBuffer.push(0); gp0SetDrawingAreaBottomRightCommand();
+		mCommandBuffer.push(0); gp0SetDrawingOffsetCommand();
+		mCommandBuffer.push(0); gp0MaskBitSettingCommand();
 	}
 
 	void GPU::gp1ResetCommandBuffer()

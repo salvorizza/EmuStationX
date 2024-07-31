@@ -20,7 +20,8 @@ namespace esx {
 			BufferElement("aClutUV", ShaderType::UShort2),
 			BufferElement("aBPP", ShaderType::UByte1),
 			BufferElement("aSemiTransparency", ShaderType::UByte1),
-			BufferElement("aDither", ShaderType::UByte1)
+			BufferElement("aDither", ShaderType::UByte1),
+			BufferElement("aRawTexture", ShaderType::UByte1)
 		};
 
 		mTriVBO = MakeShared<VertexBuffer>();
@@ -180,7 +181,7 @@ namespace esx {
 	void BatchRenderer::Clear(U16 x, U16 y, U16 w, U16 h, Color& color)
 	{
 		mFBO->bind();
-		glScissor(x, 511 - y - h, w, h);
+		glScissor(x, 511 - y - (h - 1), w, h);
 		glClearColor(floorf(color.r / 8) / 31.0, floorf(color.g / 8) / 31.0, floorf(color.b / 8) / 31.0, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 		mFBO->unbind();
@@ -200,7 +201,7 @@ namespace esx {
 			vertex.vertex.x += mDrawOffset.x;
 			vertex.vertex.y += mDrawOffset.y;
 
-			//ESX_CORE_LOG_TRACE(" Vertex({},{}),Color({},{},{}),UV({},{}),Textured({})", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v, vertex.textured);
+			//ESX_CORE_LOG_TRACE(" Vertex({},{}),Color({},{},{}),UV({},{}),ClutUV({},{}),Textured({})", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v, vertex.clutUV.u,vertex.clutUV.v, vertex.textured);
 		}
 
 		for (U64 i = 0; i < 3; i++) {
@@ -258,6 +259,7 @@ namespace esx {
 			mFBO->getColorAttachment()->bind();
 			mFBO->getColorAttachment()->getPixels(&data);
 			mFBO->getColorAttachment()->unbind();
+
 			mRefreshVRAMData = ESX_FALSE;
 		}
 

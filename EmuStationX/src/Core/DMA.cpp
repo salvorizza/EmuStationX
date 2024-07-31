@@ -417,7 +417,7 @@ namespace esx {
 		channel.TransferStatus.BlockCurrentAddress = channel.BaseAddress;
 		channel.TransferStatus.BlockRemainingSize = transferSize;
 
-		ESX_CORE_LOG_TRACE("DMA - Starting Block Transfer of {:08x}h size with starting address {:08x}h on port {} direction {}", channel.TransferStatus.BlockRemainingSize, channel.TransferStatus.BlockCurrentAddress, (U8)channel.Port, (channel.Direction == Direction::ToMainRAM) ? "ToMainRAM" : "FromMainRAM");
+		//ESX_CORE_LOG_TRACE("DMA - Starting Block Transfer of {:08x}h size with starting address {:08x}h on port {} direction {}", channel.TransferStatus.BlockRemainingSize, channel.TransferStatus.BlockCurrentAddress, (U8)channel.Port, (channel.Direction == Direction::ToMainRAM) ? "ToMainRAM" : "FromMainRAM");
 	}
 
 	void DMA::clockBlockTransfer(Channel& channel)

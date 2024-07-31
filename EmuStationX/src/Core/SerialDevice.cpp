@@ -15,7 +15,12 @@ namespace esx {
 	{
 		mRX.Push(value);
 		if (mRX.Size == 8) {
+			ESX_CORE_LOG_TRACE("TX {:02x}h", mRX.Data);
+
 			U8 tx = receive(mRX.Data);
+
+			ESX_CORE_LOG_TRACE("RX {:02x}h", tx);
+
 			mTX.Set(tx);
 			mRX = {};
 		}

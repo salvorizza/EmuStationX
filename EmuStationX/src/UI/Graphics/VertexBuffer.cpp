@@ -52,7 +52,7 @@ namespace esx {
 			size_t typeSize = getShaderDataTypeSize(bufferElement.Type);
 			currentStride += (uint32_t)typeSize;
 		}
-		mStride = currentStride + 1;
+		mStride = currentStride;
 	}
 
 	VertexBuffer::VertexBuffer() 

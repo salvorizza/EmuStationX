@@ -80,10 +80,12 @@ namespace esx {
 			mRXShift.Push(value);
 
 			if (mRXShift.Size == 8) {
+
 				U8 rx = mRXShift.Data;
 				mRXShift = {};
 
 				mRX.Push(rx);
+				//ESX_CORE_LOG_TRACE("RX {:02x}h RXEnable {} DTR {}", rx, mControlRegister.RXEnable, mControlRegister.DTROutputLevel);
 
 				mStatRegister.RXFifoNotEmpty = ESX_TRUE;
 				if (mControlRegister.RXEnable) mControlRegister.RXEnable = ESX_FALSE;
@@ -367,7 +369,7 @@ namespace esx {
 		BIT portSwitch = prevControlRegister.PortSelect && !mControlRegister.PortSelect;
 
 		if (deselected || portSwitch) {
-			//ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
+			ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
 
 			for (auto& device : mPorts[SerialPort::Port1]) {
 				if (device) {
