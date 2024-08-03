@@ -70,6 +70,70 @@ int texel_4bit(ivec2 coords) {
     return texel;
 }
 
+vec4 saturate_5bit(ivec4 color8) {
+    vec4 result = vec4(0);
+
+    color8.r = clamp(color8.r,0,255) >> 3;
+    color8.g = clamp(color8.g,0,255) >> 3;
+    color8.b = clamp(color8.b,0,255) >> 3;
+
+    result.r = color8.r / 31.0;
+    result.g = color8.g / 31.0;
+    result.b = color8.b / 31.0;
+    result.a = color8.a / 255.0;
+
+    return result;
+}
+
+vec4 apply_dither(vec4 color) {
+    vec4 result = vec4(0);
+
+    ivec4 color8 = ivec4(color * 255);
+
+    int x = int(mod(gl_FragCoord.x,4));
+    int y = int(mod(gl_FragCoord.y,4));
+    color8 += int(dither[x][y]);
+
+    result = saturate_5bit(color8);
+
+    return result;
+}
+
+vec4 blend_colors(vec4 background, vec4 foreground, uint blendFunc) {
+    vec4 result = vec4(0);
+
+    switch(blendFunc) {
+        case B2PlusF2: {
+            result = 0.5 * background + 0.5 * foreground;
+            break;
+        }
+
+        case BPlusF: {
+            result = 1.0 * background + 1.0 * foreground;
+            break;
+        }
+
+        case BMinusF: {
+            result = 1.0 * background - 1.0 * foreground;
+            break;
+        }
+
+        case BPlusF4: {
+            result = 1.0 * background + 0.25 * foreground;
+            break;
+        }
+
+        default: {
+            result = foreground;
+            break;
+        }
+    }
+
+    result = clamp(result,vec4(0),vec4(1));
+
+    return result;
+}
+
 void main() {
     vec4 color = vec4(oColor,1.0);
     vec4 previousColor = texelFetch(uVRAM,ivec2(gl_FragCoord.xy),0);
@@ -97,74 +161,28 @@ void main() {
         }
        
         color = sample_vram(uvColor);
-        if(color.rgb == vec3(0,0,0)) discard;
+        if(color == vec4(0,0,0,0)) discard;
         if(oRawTexture == 0u) {
             color = (color * vec4(oColor,1.0)) / (128.0 / 255.0);
-            //TODO: Dither
+            if(oDither == 1u) {
+                //color = apply_dither(color);
+            }
         }
 
-        if(color.a == 1) {
-            switch(oSemiTransparency) {
-                case B2PlusF2: {
-                    color = 0.5 * previousColor + 0.5 * color;
-                    break;
-                }
-
-                case BPlusF: {
-                    color = 1.0 * previousColor + 1.0 * color;
-                    break;
-                }
-
-                case BMinusF: {
-                    color = 1.0 * previousColor - 1.0 * color;
-                    break;
-                }
-
-                case BPlusF4: {
-                    color = 1.0 * previousColor + 0.25 * color;
-                    break;
-                }
-            }
+        if(color.a > 0) {
+            color = blend_colors(previousColor, color, oSemiTransparency);
         }
     } else {
-        ivec4 color8 = ivec4(color * 255);
 
         if(oDither == 1u) {
-            int x = int(mod(gl_FragCoord.x,4));
-            int y = int(mod(gl_FragCoord.y,4));
-            color8 += int(dither[x][y]);
+            color = apply_dither(color);
+        } else {
+            ivec4 color8 = ivec4(color * 255);
+            color = saturate_5bit(color8);
         }
-
-        color8.r = clamp(color8.r,0,255) >> 3;
-        color8.g = clamp(color8.g,0,255) >> 3;
-        color8.b = clamp(color8.b,0,255) >> 3;
-
-        color.r = color8.r / 31.0;
-        color.g = color8.g / 31.0;
-        color.b = color8.b / 31.0;
         color.a = 0;
 
-        switch(oSemiTransparency) {
-            case B2PlusF2: {
-                color = 0.5 * previousColor + 0.5 * color;
-                break;
-            }
-
-            case BPlusF: {
-                color = 1.0 * previousColor + 1.0 * color;
-                break;
-            }
-
-            case BMinusF: {
-                color = 1.0 * previousColor - 1.0 * color;
-                break;
-            }
-
-            case BPlusF4: {
-                color = 1.0 * previousColor + 0.25 * color;
-                break;
-            }
-        }
+        color = blend_colors(previousColor, color, oSemiTransparency);
     }
 
     if(uForceAlpha == 1) {

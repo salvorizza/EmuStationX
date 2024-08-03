@@ -21,8 +21,8 @@ namespace esx {
 
 	void SIO::clock(U64 clocks)
 	{
-		if (mStatRegister.BaudrateTimer > 0) {
-			mStatRegister.BaudrateTimer--;
+		if (mStatRegister.BaudrateTimer >= 0) {
+			if (mStatRegister.BaudrateTimer > 0) mStatRegister.BaudrateTimer--;
 			if (mStatRegister.BaudrateTimer == 0) {
 				if (mSerialClock == ESX_TRUE) {
 					fallingEdge();
@@ -472,7 +472,7 @@ namespace esx {
 	void SIO::reloadBaudTimer()
 	{
 		U8 baudFactor = (U8)mModeRegister.BaudrateReloadFactor;
-		if (mID == 0) {
+		if (mID == 0 && baudFactor == 0) {
 			baudFactor = (U8)BaudrateReloadFactor::MUL1;
 		}
 

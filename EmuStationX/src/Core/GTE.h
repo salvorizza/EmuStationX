@@ -205,9 +205,9 @@ namespace esx {
 
 		template<typename TVec>
 		void Multiply(const Array<I32, 3>& T, const Array<TVec, 3>& V, const Array<I16, 9>& M, I64& MAC1, I64& MAC2, I64& MAC3, BIT sf) {
-			I44 RES1 = (I44(I64(T[0]) << 12) + I64(M[0 * 3 + 0]) * V[0] + I64(M[0 * 3 + 1]) * V[1] + I64(M[0 * 3 + 2]) * V[2]);
-			I44 RES2 = (I44(I64(T[1]) << 12) + I64(M[1 * 3 + 0]) * V[0] + I64(M[1 * 3 + 1]) * V[1] + I64(M[1 * 3 + 2]) * V[2]);
-			I44 RES3 = (I44(I64(T[2]) << 12) + I64(M[2 * 3 + 0]) * V[0] + I64(M[2 * 3 + 1]) * V[1] + I64(M[2 * 3 + 2]) * V[2]);
+			I44 RES1 = I44(I64(T[0]) << 12) + (I64(M[0 * 3 + 0]) * V[0]) + (I64(M[0 * 3 + 1]) * V[1]) + (I64(M[0 * 3 + 2]) * V[2]);
+			I44 RES2 = I44(I64(T[1]) << 12) + (I64(M[1 * 3 + 0]) * V[0]) + (I64(M[1 * 3 + 1]) * V[1]) + (I64(M[1 * 3 + 2]) * V[2]);
+			I44 RES3 = I44(I64(T[2]) << 12) + (I64(M[2 * 3 + 0]) * V[0]) + (I64(M[2 * 3 + 1]) * V[1]) + (I64(M[2 * 3 + 2]) * V[2]);
 
 			MAC1 = RES1.value();
 			MAC2 = RES2.value();
@@ -222,7 +222,7 @@ namespace esx {
 		void overflowCheckMAC(U8 index, I44 value, BIT sf, BIT set = ESX_TRUE);
 		void overfowCheckIR(U8 index, I64 value, BIT lm, BIT set = ESX_TRUE);
 		void pushSZ(I32 value);
-		void pushSXY(Array<I32,2>& value);
+		void pushSXY(Array<I64,2>& value);
 		void pushColor(I32 r, I32 g, I32 b);
 
 	private:

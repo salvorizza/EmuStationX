@@ -525,23 +525,15 @@ namespace esx {
 	void GTE::GPF() {
 		I64 MAC1, MAC2, MAC3;
 
-		/*[MAC1,MAC2,MAC3] = [0,0,0]*/
-		MAC1 = 0;
-		MAC2 = 0;
-		MAC3 = 0;
-
-		overflowCheckMAC(1, MAC1, ESX_FALSE);
-		overflowCheckMAC(2, MAC2, ESX_FALSE);
-		overflowCheckMAC(3, MAC3, ESX_FALSE);
-
+		/*[MAC1,MAC2,MAC3] = 0*/
 		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3]) SAR (sf*12)*/
-		MAC1 = ((mRegisters.IR1 * mRegisters.IR0) + mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
-		MAC2 = ((mRegisters.IR2 * mRegisters.IR0) + mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
-		MAC3 = ((mRegisters.IR3 * mRegisters.IR0) + mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
+		MAC1 = (I64(mRegisters.IR1) * mRegisters.IR0);
+		MAC2 = (I64(mRegisters.IR2) * mRegisters.IR0);
+		MAC3 = (I64(mRegisters.IR3) * mRegisters.IR0);
 
-		overflowCheckMAC(1, MAC1, ESX_FALSE);
-		overflowCheckMAC(2, MAC2, ESX_FALSE);
-		overflowCheckMAC(3, MAC3, ESX_FALSE);
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
 
 		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
 		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
@@ -560,18 +552,14 @@ namespace esx {
 		MAC2 = (I64)mRegisters.MACV[1] << (mCurrentCommand.ShiftFraction * 12);
 		MAC3 = (I64)mRegisters.MACV[2] << (mCurrentCommand.ShiftFraction * 12);
 
-		overflowCheckMAC(1, MAC1, ESX_FALSE);
-		overflowCheckMAC(2, MAC2, ESX_FALSE);
-		overflowCheckMAC(3, MAC3, ESX_FALSE);
-
 		/*[MAC1,MAC2,MAC3] = (([IR1,IR2,IR3] * IR0) + [MAC1,MAC2,MAC3]) SAR (sf*12)*/
-		MAC1 = ((mRegisters.IR1 * mRegisters.IR0) + mRegisters.MACV[0]) >> (mCurrentCommand.ShiftFraction * 12);
-		MAC2 = ((mRegisters.IR2 * mRegisters.IR0) + mRegisters.MACV[1]) >> (mCurrentCommand.ShiftFraction * 12);
-		MAC3 = ((mRegisters.IR3 * mRegisters.IR0) + mRegisters.MACV[2]) >> (mCurrentCommand.ShiftFraction * 12);
+		MAC1 = (I64(mRegisters.IR1) * mRegisters.IR0) + MAC1;
+		MAC2 = (I64(mRegisters.IR2) * mRegisters.IR0) + MAC2;
+		MAC3 = (I64(mRegisters.IR3) * mRegisters.IR0) + MAC3;
 
-		overflowCheckMAC(1, MAC1, ESX_FALSE);
-		overflowCheckMAC(2, MAC2, ESX_FALSE);
-		overflowCheckMAC(3, MAC3, ESX_FALSE);
+		overflowCheckMAC(1, MAC1, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(2, MAC2, mCurrentCommand.ShiftFraction);
+		overflowCheckMAC(3, MAC3, mCurrentCommand.ShiftFraction);
 
 		/*Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE]*/
 		pushColor(mRegisters.MACV[0] >> 4, mRegisters.MACV[1] >> 4, mRegisters.MACV[2] >> 4);
@@ -680,7 +668,7 @@ namespace esx {
 
 	void GTE::Internal_RTPS(const Array<I16, 3>& V, BIT lm, BIT sf, I32& H_CALC)
 	{
-		Array<I32, 2> SXY2 = {};
+		Array<I64, 2> SXY2 = {};
 		I64 MAC0, MAC1, MAC2, MAC3;
 
 		Multiply(mRegisters.TR, V, mRegisters.RT, MAC1, MAC2, MAC3, sf);
@@ -700,13 +688,13 @@ namespace esx {
 
 		H_CALC = 0;
 		if (mRegisters.H < (mRegisters.SZ3 * 2)) {
-			U32 z = std::countl_zero<U16>(mRegisters.SZ3);
-			H_CALC = (U32)mRegisters.H << z;
-			U16 d = mRegisters.SZ3 << z;
-			U16 u = unr_table[(d - 0x7FC0u) >> 7] + 0x101;
-			U32 d2 = ((0x2000080 - (d * u)) >> 8);
-			d2 = ((0x0000080 + (d2 * u)) >> 8);
-			H_CALC = std::min(0x1FFFFu, (((H_CALC * d2) + 0x8000) >> 16));
+			I32 shift = std::countl_zero<U16>(mRegisters.SZ3);
+			I32 r1 = (mRegisters.SZ3 << shift) & 0x7fff;
+			I32 r2 = unr_table[((r1 + 0x40) >> 7)] + 0x101;
+			I32 r3 = ((0x80 - (r2 * (r1 + 0x8000))) >> 8) & 0x1ffff;
+			U32 reciprocal = ((r2 * r3) + 0x80) >> 8;
+			U32 res = ((((U64)reciprocal * (mRegisters.H << shift)) + 0x8000) >> 16);
+			H_CALC = std::min<uint32_t>(0x1FFFF, res);
 		} else {
 			H_CALC = 0x1FFFF;
 			mRegisters.FLAG |= FlagRegisterDivOver;
@@ -965,15 +953,15 @@ namespace esx {
 		mRegisters.SZ3 = static_cast<U16>(value);
 	}
 
-	void GTE::pushSXY(Array<I32, 2>& value)
+	void GTE::pushSXY(Array<I64, 2>& value)
 	{
 		if (value[0] < -0x400 || value[0] > 0x3FF) {
-			value[0] = std::clamp<I32>(value[0], -0x400, 0x3FF);
+			value[0] = std::clamp<I64>(value[0], -0x400, 0x3FF);
 			mRegisters.FLAG |= FlagRegisterSX2Sat;
 		}
 
 		if (value[1] < -0x400 || value[1] > 0x3FF) {
-			value[1] = std::clamp<I32>(value[1], -0x400, 0x3FF);
+			value[1] = std::clamp<I64>(value[1], -0x400, 0x3FF);
 			mRegisters.FLAG |= FlagRegisterSY2Sat;
 		}
 

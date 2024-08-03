@@ -61,7 +61,6 @@ namespace esx {
 		mDrawBottomRight = glm::uvec2(640, 240);
 
 		glEnable(GL_SCISSOR_TEST);
-
 	}
 
 	void BatchRenderer::Begin()
@@ -106,6 +105,8 @@ namespace esx {
 			if (numLineStripIndices > 0) {
 
 				glEnable(GL_PRIMITIVE_RESTART);
+				glLineWidth(1);
+				glDisable(GL_LINE_SMOOTH);
 				glPrimitiveRestartIndex(-1);
 
 				mLineStripVBO->bind();
