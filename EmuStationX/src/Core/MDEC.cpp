@@ -402,6 +402,7 @@ namespace esx {
 					F32 z10 = src[0 * 8 + i] + src[4 * 8 + i]; F32 z11 = src[0 * 8 + i] - src[4 * 8 + i];
 					F32 z13 = src[2 * 8 + i] + src[6 * 8 + i]; F32 z12 = src[2 * 8 + i] - src[6 * 8 + i];
 					z12 = (1.414213562f * z12) - z13;
+
 					F32 tmp0 = z10 + z13; F32 tmp3 = z10 - z13; F32 tmp1 = z11 + z12; F32 tmp2 = z11 - z12;
 					z13 = src[3 * 8 + i] + src[5 * 8 + i]; z10 = src[3 * 8 + i] - src[5 * 8 + i];
 					z11 = src[1 * 8 + i] + src[7 * 8 + i]; z12 = src[1 * 8 + i] - src[7 * 8 + i];

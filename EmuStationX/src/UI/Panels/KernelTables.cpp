@@ -8,6 +8,14 @@
 
 namespace esx {
 
+	static StringView fromThreadStatusToString(U32 status) {
+		switch (status) {
+		case 0x1000: return ESX_TEXT("Free TCB");
+		case 0x4000: return ESX_TEXT("Used TCB");
+		}
+		return ESX_TEXT("None");
+	}
+
 	static StringView fromStatusToString(U32 status) {
 		switch (status) {
 			case 0x0000: return ESX_TEXT("Free");
@@ -120,50 +128,173 @@ namespace esx {
 
 	void KernelTables::onImGuiRender()
 	{
-		U32 tableStartAddress = R3000::toPhysicalAddress(mBus->load<U32>(0x120));
-		U32 tableSize = mBus->load<U32>(0x120 + 4);
-		U32 entrySize = 0x1C;
+		if (ImGui::CollapsingHeader("Exception Chain Entrypoints")) {
+			U32 tableStartAddress = R3000::toPhysicalAddress(mBus->load<U32>(0x100));
+			U32 tableSize = mBus->load<U32>(0x100 + 4);
+			U32 entrySize = 0x08;
 
-		if (tableStartAddress != 0) {
-			if (ImGui::BeginTable("KernelTable", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
-				ImGui::TableSetupColumn("Class");
-				ImGui::TableSetupColumn("Status");
-				ImGui::TableSetupColumn("Spec");
-				ImGui::TableSetupColumn("Mode");
-				ImGui::TableSetupColumn("Handler");
-				ImGui::TableHeadersRow();
+			if (tableStartAddress != 0) {
+				if (ImGui::BeginTable("ExCB", 1, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+					ImGui::TableSetupColumn("ptr to first element of exception chain");
+					ImGui::TableHeadersRow();
 
-				for (U32 entryAddress = tableStartAddress; entryAddress < tableStartAddress + tableSize; entryAddress += entrySize) {
-					U32 entryClass = mBus->load<U32>(entryAddress + 0x00);
-					U32 entryStatus = mBus->load<U32>(entryAddress + 0x04);
-					U32 entrySpec = mBus->load<U32>(entryAddress + 0x08);
-					U32 entryMode = mBus->load<U32>(entryAddress + 0x0C);
-					U32 entryHandler = mBus->load<U32>(entryAddress + 0x10);
+					for (U32 entryAddress = tableStartAddress; entryAddress < tableStartAddress + tableSize; entryAddress += entrySize) {
+						U32 pointer = mBus->load<U32>(entryAddress + 0x00);
 
-					StringView classString = fromClassToString(entryClass);
-					StringView specString = fromSpecToString(entrySpec);
-					StringView statusString = fromStatusToString(entryStatus);
-					StringView modeString = fromModeToString(entryMode);
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", pointer);
 
-					ImGui::TableNextColumn();
-					ImGui::Text(classString.data());
-
-					ImGui::TableNextColumn();
-					ImGui::Text("0x%04X: %s", entryStatus, statusString.data());
-
-					ImGui::TableNextColumn();
-					ImGui::Text("0x%04X: %s", entrySpec, specString.data());
-
-					ImGui::TableNextColumn();
-					ImGui::Text(modeString.data());
-
-					ImGui::TableNextColumn();
-					ImGui::Text("0x%08X", entryHandler);
-
-
-					ImGui::TableNextRow();
+						ImGui::TableNextRow();
+					}
+					ImGui::EndTable();
 				}
-				ImGui::EndTable();
+			}
+		}
+
+		if (ImGui::CollapsingHeader("Process Control Block")) {
+			U32 tableStartAddress = R3000::toPhysicalAddress(mBus->load<U32>(0x108));
+			U32 tableSize = mBus->load<U32>(0x108 + 4);
+			U32 entrySize = 0x04;
+
+			if (tableStartAddress != 0) {
+				if (ImGui::BeginTable("PCB", 1, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+					ImGui::TableSetupColumn("ptr to TCB of current thread");
+					ImGui::TableHeadersRow();
+
+					for (U32 entryAddress = tableStartAddress; entryAddress < tableStartAddress + tableSize; entryAddress += entrySize) {
+						U32 pointer = mBus->load<U32>(entryAddress + 0x00);
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", pointer);
+
+						ImGui::TableNextRow();
+					}
+					ImGui::EndTable();
+				}
+			}
+		}
+
+		if (ImGui::CollapsingHeader("Thread Control Blocks")) {
+			constexpr static std::array<StringView, 32> registersMnemonics = {
+				ESX_TEXT("$zero"),
+				ESX_TEXT("$at"),
+				ESX_TEXT("$v0"),ESX_TEXT("$v1"),
+				ESX_TEXT("$a0"),ESX_TEXT("$a1"),ESX_TEXT("$a2"),ESX_TEXT("$a3"),
+				ESX_TEXT("$t0"),ESX_TEXT("$t1"),ESX_TEXT("$t2"),ESX_TEXT("$t3"),ESX_TEXT("$t4"),ESX_TEXT("$t5"),ESX_TEXT("$t6"),ESX_TEXT("$t7"),
+				ESX_TEXT("$s0"),ESX_TEXT("$s1"),ESX_TEXT("$s2"),ESX_TEXT("$s3"),ESX_TEXT("$s4"),ESX_TEXT("$s5"),ESX_TEXT("$s6"),ESX_TEXT("$s7"),
+				ESX_TEXT("$t8"),ESX_TEXT("$t9"),
+				ESX_TEXT("$k0"),ESX_TEXT("$k1"),
+				ESX_TEXT("$gp"),
+				ESX_TEXT("$sp"),
+				ESX_TEXT("$fp"),
+				ESX_TEXT("$ra")
+			};
+
+			U32 tableStartAddress = R3000::toPhysicalAddress(mBus->load<U32>(0x110));
+			U32 tableSize = mBus->load<U32>(0x110 + 4);
+			U32 entrySize = 0xC0;
+
+			float oneCharSize = ImGui::CalcTextSize("A").x;
+
+			if (tableStartAddress != 0) {
+				if (ImGui::BeginTable("TCB", 38, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollX | ImGuiTableFlags_SizingFixedFit)) {
+					ImGui::TableSetupColumn("status", ImGuiTableColumnFlags_WidthFixed, oneCharSize * 10);
+					for (auto& mnemonic : registersMnemonics) {
+						ImGui::TableSetupColumn(mnemonic.data(), ImGuiTableColumnFlags_WidthFixed, oneCharSize * 10);
+					}
+					ImGui::TableSetupColumn("epc", ImGuiTableColumnFlags_WidthFixed, oneCharSize * 10);
+					ImGui::TableSetupColumn("hi", ImGuiTableColumnFlags_WidthFixed, oneCharSize * 10);
+					ImGui::TableSetupColumn("lo", ImGuiTableColumnFlags_WidthFixed, oneCharSize * 10);
+					ImGui::TableSetupColumn("sr", ImGuiTableColumnFlags_WidthFixed, oneCharSize * 10);
+					ImGui::TableSetupColumn("cause", ImGuiTableColumnFlags_WidthFixed, oneCharSize * 10);
+					ImGui::TableHeadersRow();
+
+					for (U32 entryAddress = tableStartAddress; entryAddress < tableStartAddress + tableSize; entryAddress += entrySize) {
+						U32 status = mBus->load<U32>(entryAddress + 0x00);
+						U32 epc = mBus->load<U32>(entryAddress + 0x88);
+						U32 hi = mBus->load<U32>(entryAddress + 0x8C);
+						U32 lo = mBus->load<U32>(entryAddress + 0x90);
+						U32 sr = mBus->load<U32>(entryAddress + 0x94);
+						U32 cause = mBus->load<U32>(entryAddress + 0x98);
+
+						StringView statusString = fromThreadStatusToString(status);
+
+						ImGui::TableNextColumn();
+						ImGui::Text("%s", statusString.data());
+
+						for (I32 i = 0; i < registersMnemonics.size(); i++) {
+							ImGui::TableNextColumn();
+							ImGui::Text("0x%08X", mBus->load<U32>(entryAddress + 0x08 + i * 0x04));
+						}
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", epc);
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", hi);
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", lo);
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", sr);
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", cause);
+
+						ImGui::TableNextRow();
+					}
+					ImGui::EndTable();
+				}
+			}
+		}
+
+		if (ImGui::CollapsingHeader("Event Control Blocks")) {
+			U32 tableStartAddress = R3000::toPhysicalAddress(mBus->load<U32>(0x120));
+			U32 tableSize = mBus->load<U32>(0x120 + 4);
+			U32 entrySize = 0x1C;
+
+			if (tableStartAddress != 0) {
+				if (ImGui::BeginTable("EvCB", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+					ImGui::TableSetupColumn("Class");
+					ImGui::TableSetupColumn("Status");
+					ImGui::TableSetupColumn("Spec");
+					ImGui::TableSetupColumn("Mode");
+					ImGui::TableSetupColumn("Handler");
+					ImGui::TableHeadersRow();
+
+					for (U32 entryAddress = tableStartAddress; entryAddress < tableStartAddress + tableSize; entryAddress += entrySize) {
+						U32 entryClass = mBus->load<U32>(entryAddress + 0x00);
+						U32 entryStatus = mBus->load<U32>(entryAddress + 0x04);
+						U32 entrySpec = mBus->load<U32>(entryAddress + 0x08);
+						U32 entryMode = mBus->load<U32>(entryAddress + 0x0C);
+						U32 entryHandler = mBus->load<U32>(entryAddress + 0x10);
+
+						StringView classString = fromClassToString(entryClass);
+						StringView specString = fromSpecToString(entrySpec);
+						StringView statusString = fromStatusToString(entryStatus);
+						StringView modeString = fromModeToString(entryMode);
+
+						ImGui::TableNextColumn();
+						ImGui::Text(classString.data());
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%04X: %s", entryStatus, statusString.data());
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%04X: %s", entrySpec, specString.data());
+
+						ImGui::TableNextColumn();
+						ImGui::Text(modeString.data());
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%08X", entryHandler);
+
+
+						ImGui::TableNextRow();
+					}
+					ImGui::EndTable();
+				}
 			}
 		}
 
