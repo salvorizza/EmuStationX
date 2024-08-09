@@ -22,12 +22,14 @@ namespace esx {
 	enum DataType {
 		UnsignedByte,
 		UnsignedShort,
-		UnsignedShort555_1
+		UnsignedShort555_1,
+		UnsignedShort1_555
 	};
 
 	class Texture2D {
 	public:
 		Texture2D(U32 slot = 0);
+		Texture2D(U32 renderedID, U32 slot);
 		~Texture2D();
 
 		void bind();
@@ -39,6 +41,7 @@ namespace esx {
 		void setPixel(U32 x,U32 y, const void* pixelData);
 		void setPixels(U32 x, U32 y, U32 width, U32 height, const void* pixelData);
 		void getPixel(U32 x, U32 y, void** pixelData);
+		SharedPtr<Texture2D> createView(InternalFormat viewFormat);
 
 		U32 getRendererID() const { return mRendererID; }
 

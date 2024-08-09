@@ -66,12 +66,14 @@ namespace esx {
 	{
 		if (canReceiveData()) {
 			U8 value = 1;
+			BIT somethingSelected = ESX_FALSE;
 
 			for (auto& device : mPorts[mControlRegister.PortSelect]) {
 				if (device) {
 					U8 misoValue = device->miso();
 					if (device->isSelected()) {
 						value = misoValue;
+						somethingSelected = ESX_TRUE;
 						break;
 					}
 				}
@@ -84,8 +86,11 @@ namespace esx {
 				U8 rx = mRXShift.Data;
 				mRXShift = {};
 
-				mRX.Push(rx);
-				//ESX_CORE_LOG_TRACE("RX {:02x}h RXEnable {} DTR {}", rx, mControlRegister.RXEnable, mControlRegister.DTROutputLevel);
+
+				if (!mRX.Push(rx)) {
+					mStatRegister.RXFifoOverrun = ESX_TRUE;
+				}
+
 
 				mStatRegister.RXFifoNotEmpty = ESX_TRUE;
 				if (mControlRegister.RXEnable) mControlRegister.RXEnable = ESX_FALSE;
@@ -247,7 +252,7 @@ namespace esx {
 		mTXShift = {};
 		mRXShift = {};
 
-		mRX.Data.fill(0x00);
+		mRX = {};
 	}
 
 	void SIO::setDataRegister(U32 value)
@@ -256,6 +261,8 @@ namespace esx {
 
 		if (mStatRegister.TXFifoNotFull == ESX_FALSE) mTXShift.Set(value);
 		if (canTransferStart()) {
+			//ESX_CORE_LOG_TRACE("TX {:02x}h {}", mTX, mRX.Size());
+
 			mTXShift.Set(mTX);
 			mStatRegister.TXFifoNotFull = ESX_FALSE;
 			mStatRegister.TXIdle = ESX_FALSE;
@@ -268,10 +275,11 @@ namespace esx {
 	{
 		U32 result = 0;
 
-		result |= (mRX.Data[(mRX.ReadP + 0) % mRX.Size()] << 0);
-		result |= (mRX.Data[(mRX.ReadP + 1) % mRX.Size()] << 8);
-		result |= (mRX.Data[(mRX.ReadP + 2) % mRX.Size()] << 16);
-		result |= (mRX.Data[(mRX.ReadP + 3) % mRX.Size()] << 24);
+		for (I32 i = 0; i < 4; i++) {
+			if (!mRX.Empty()) {
+				result |= (*(mRX.Data.begin() + i)) << (i* 8);
+			}
+		}
 
 		if (dataAccess == 32) {
 			for (I32 i = 0; i < 4; i++) {
@@ -285,6 +293,8 @@ namespace esx {
 		if (mRX.Empty()) {
 			mStatRegister.RXFifoNotEmpty = ESX_FALSE;
 		}
+
+		//ESX_CORE_LOG_TRACE("RX {:02x}h", result & 0xFF);
 
 		return result;
 	}
@@ -364,61 +374,55 @@ namespace esx {
 		mControlRegister.DSRInterruptEnable = ((value >> 12) & 0x1);
 		mControlRegister.PortSelect = ((value >> 13) & 0x1);
 
-		BIT selected = !prevControlRegister.DTROutputLevel && mControlRegister.DTROutputLevel;
 		BIT deselected = prevControlRegister.DTROutputLevel && !mControlRegister.DTROutputLevel;
+		BIT selected = !prevControlRegister.DTROutputLevel && mControlRegister.DTROutputLevel;
 		BIT portSwitch = prevControlRegister.PortSelect && !mControlRegister.PortSelect;
 
 		if (deselected || portSwitch) {
-			ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
+			//ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
 
-			for (auto& device : mPorts[SerialPort::Port1]) {
-				if (device) {
-					device->cs();
-				}
-			}
-			for (auto& device : mPorts[SerialPort::Port2]) {
-				if (device) {
-					device->cs();
+			for (auto& port : mPorts) {
+				for (auto& device : port) {
+					if (device) {
+						device->cs();
+					}
 				}
 			}
 		}
 
 		if (mControlRegister.Acknowledge) {
+			/*Reset SIO_STAT.Bits 3,4,5,9*/
 			mStatRegister.RXParityError = ESX_FALSE;
 			mStatRegister.RXFifoOverrun = ESX_FALSE;
 			mStatRegister.RXBadStopBit = ESX_FALSE;
 			mStatRegister.InterruptRequest = ESX_FALSE;
+			mControlRegister.Acknowledge = ESX_FALSE;
 		}
 
 		if (mControlRegister.Reset) {
 			mRX.Clear();
 			mStatRegister.RXFifoNotEmpty = ESX_FALSE;
 
-			for (auto& device : mPorts[SerialPort::Port1]) {
-				if (device) {
-					device->cs();
-				}
-			}
-			for (auto& device : mPorts[SerialPort::Port2]) {
-				if (device) {
-					device->cs();
+			for (auto& port : mPorts) {
+				for (auto& device : port) {
+					if (device) {
+						device->cs();
+					}
 				}
 			}
 
 			mStatRegister.TXFifoNotFull = ESX_TRUE;
 			mStatRegister.TXIdle = ESX_TRUE;
 
-			//mModeRegister = {};
-			//mControlRegister = {};
-			//mBaudRegister = {};
-
-			//mTX = 0xFF;
-
 			mControlRegister.Reset = ESX_FALSE;
 		}
 
 		if (mControlRegister.RXEnable == ESX_FALSE && mID == 1) {
 			mRX.Clear();
+		}
+
+		if (mControlRegister.TXInterruptEnable) {
+			mStatRegister.InterruptRequest = ESX_TRUE;
 		}
 
 		if (wasReady == ESX_FALSE && canTransferStart()) {

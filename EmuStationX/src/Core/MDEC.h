@@ -39,6 +39,15 @@ namespace esx {
 		NoFunction = 4
 	};
 
+	union MDECRGB {
+		U32 WORD;
+		struct {
+			U8 R;
+			U8 G;
+			U8 B;
+		};
+	};
+
 	class MDEC : public BusDevice {
 	public:
 		MDEC();
@@ -69,10 +78,12 @@ namespace esx {
 		void decodeMacroblock();
 
 		BIT decode_colored_macroblock();
+		BIT decode_monochrome_macroblock();
 		BIT rl_decode_block(Array<I16, 64>& blk, U64& src, const Array<U8, 64>& qt);
 		void real_idct_core(Array<I16, 64>& blk);
 		void fast_idct_core(Array<I16, 64>& blk);
 		void yuv_to_rgb(const Array<I16, 64>& Crblk, const Array<I16, 64>& Cbblk, const Array<I16, 64>& Yblk, U64 xx, U64 yy);
+		void y_to_mono(const Array<I16, 64>& Yblk);
 
 		void copy_to_out();
 
@@ -90,7 +101,7 @@ namespace esx {
 		U64 mCurrentSrc = 0;
 		BIT mDecoding = ESX_FALSE;
 		U32 mTidyPack24BitBytesToFill = 0;
-		Array<U32, 256> mCurrentDecodedBlock = {};
+		Array<MDECRGB, 256> mCurrentDecodedBlock = {};
 	};
 
 }

@@ -197,7 +197,7 @@ namespace esx {
 			float oneCharSize = ImGui::CalcTextSize("A").x;
 
 			if (tableStartAddress != 0) {
-				if (ImGui::BeginTable("TCB", 38, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollX | ImGuiTableFlags_SizingFixedFit)) {
+				if (ImGui::BeginTable("TCB", 38, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollX)) {
 					ImGui::TableSetupColumn("status", ImGuiTableColumnFlags_WidthFixed, oneCharSize * 10);
 					for (auto& mnemonic : registersMnemonics) {
 						ImGui::TableSetupColumn(mnemonic.data(), ImGuiTableColumnFlags_WidthFixed, oneCharSize * 10);

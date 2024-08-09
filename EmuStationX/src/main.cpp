@@ -210,8 +210,8 @@ public:
 		sio0->plugDevice(SerialPort::Port1, memoryCard);
 		memoryCard->setMaster(sio0);
 
-		sio0->plugDevice(SerialPort::Port2, memoryCard2);
-		memoryCard2->setMaster(sio0);
+		/*sio0->plugDevice(SerialPort::Port2, memoryCard2);
+		memoryCard2->setMaster(sio0);*/
 
 		root->sortRanges();
 

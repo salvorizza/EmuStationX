@@ -927,7 +927,7 @@ namespace esx {
 		gp1SetHorizontalRange(0x200 | ((0x200 + 256 * 10) << 12));
 		gp1SetVerticalRange(0x010 | ((0x010 + 240) << 10));
 		gp1SetDisplayMode(0);
-		gp0DrawSettingCommand();
+		mCommandBuffer.push(0); gp0DrawSettingCommand();
 		mCommandBuffer.push(0); gp0TextureWindowSettingCommand();
 		mCommandBuffer.push(0); gp0SetDrawingAreaTopLeftCommand();
 		mCommandBuffer.push(0); gp0SetDrawingAreaBottomRightCommand();
@@ -983,6 +983,8 @@ namespace esx {
 		mGPUStat.ColorDepth = (ColorDepth)((instruction >> 4) & 0x1);
 		mGPUStat.VerticalInterlace = (instruction >> 5) & 0x1;
 		mGPUStat.ReverseFlag = (instruction >> 7) & 0x1;
+
+		mRenderer->SetDisplayMode24(mGPUStat.ColorDepth == ColorDepth::C24Bit);
 	}
 
 	void GPU::gp1SetTextureDisable(U32 instruction)

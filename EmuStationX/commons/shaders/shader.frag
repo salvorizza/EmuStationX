@@ -33,7 +33,7 @@ const mat4 dither = mat4(
 );
 
 int float_5bit(float value) {
-    return int(round(value * 31.0 + 0.5));
+    return int(round(value * 31.0));
 }
 
 vec4 sample_vram(ivec2 coords) {

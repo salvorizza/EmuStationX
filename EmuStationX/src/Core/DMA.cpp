@@ -499,7 +499,7 @@ namespace esx {
 		}
 
 		channel.TransferStatus.BlockCurrentAddress += increment;
-		channel.TransferStatus.BlockRemainingSize--;
+		if(channel.TransferStatus.BlockRemainingSize > 0) channel.TransferStatus.BlockRemainingSize--;
 
 		if (channel.SyncMode == SyncMode::Slice) {
 			channel.BaseAddress = channel.TransferStatus.BlockCurrentAddress;

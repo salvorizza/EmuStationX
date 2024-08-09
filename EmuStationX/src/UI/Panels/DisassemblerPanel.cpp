@@ -48,19 +48,23 @@ namespace esx {
 				setDebugState(DebugState::Running);
 				break;
 
-			case DebugState::Running:
+			case DebugState::Running: {
+				U64 beginClocks = mInstance->getClocks();
 				do {
 					if (breakFunction(mInstance->mPC)) {
 						setDebugState(DebugState::Breakpoint);
 						break;
-					} else {
+					}
+					else {
 						mInstance->clock();
 						if (mInstance->mPC == 0x80030000 && mEXE) {
 							sideLoad();
 						}
 					}
 				} while (!mGPU->isNewFrameAvailable());
+				U64 endClocks = mInstance->getClocks();
 				break;
+			}
 
 			case DebugState::Step:
 				mInstance->clock();

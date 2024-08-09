@@ -28,13 +28,14 @@ namespace esx {
 		void SetDrawBottomRight(U16 x, U16 y) override;
 		void SetForceAlpha(BIT value) override;
 		void SetCheckMask(BIT value) override;
+		virtual void SetDisplayMode24(BIT value) override;
 		void Clear(U16 x, U16 y, U16 w, U16 h, Color& color) override;
 		void DrawPolygon(Vector<PolygonVertex>& vertices) override;
 		void DrawLineStrip(Vector<PolygonVertex>& vertices) override;
 		void VRAMWrite(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels) override;
 		void VRAMRead(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels) override;
 
-		const SharedPtr<FrameBuffer>& getPreviousFrame() { return mFBO; }
+		const SharedPtr<FrameBuffer>& getPreviousFrame() { return m24Bit ? mFBO24 : mFBO16; }
 
 		virtual void Reset() override;
 
@@ -66,7 +67,11 @@ namespace esx {
 		Vector<U32>::iterator mLineStripCurrentIndex;
 
 
-		SharedPtr<FrameBuffer> mFBO;
+		SharedPtr<FrameBuffer> mFBO16;
+		SharedPtr<Texture2D> mTexture16;
+
+		SharedPtr<FrameBuffer> mFBO24;
+		SharedPtr<Texture2D> mTexture24;
 
 		glm::ivec2 mDrawOffset = glm::ivec2(0,0);
 		glm::uvec2 mDrawTopLeft = glm::uvec2(0,0);
@@ -74,8 +79,10 @@ namespace esx {
 		BIT mForceAlpha = ESX_FALSE;
 		BIT mCheckMask = ESX_FALSE;
 
-		Vector<VRAMColor> mVRAM24;
+		Vector<VRAMColor> mVRAM16;
 		BIT mRefreshVRAMData = ESX_FALSE;
+
+		BIT m24Bit = ESX_FALSE;
 	};
 
 }

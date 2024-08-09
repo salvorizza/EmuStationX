@@ -63,12 +63,12 @@ namespace esx {
 		U8 rawTexture = 0x00;
 	};
 
-	struct VRAMColor {
-		U8 r = 0;
-		U8 g = 0;
-		U8 b = 0;
-		U8 a = 0;
+
+	union VRAMColor {
+		U16 data;
 	};
+
+	constexpr size_t p = sizeof(VRAMColor);
 
 	class IRenderer {
 	public:
@@ -81,6 +81,7 @@ namespace esx {
 		virtual void SetDrawBottomRight(U16 x, U16 y) = 0;
 		virtual void SetForceAlpha(BIT value) = 0;
 		virtual void SetCheckMask(BIT value) = 0;
+		virtual void SetDisplayMode24(BIT value) = 0;
 		virtual void Clear(U16 x, U16 y, U16 w, U16 h, Color& color) = 0;
 		virtual void DrawPolygon(Vector<PolygonVertex>& vertices) = 0;
 		virtual void DrawLineStrip(Vector<PolygonVertex>& vertices) = 0;
@@ -91,32 +92,28 @@ namespace esx {
 		virtual void VRAMRead(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels) = 0;
 
 		static VRAMColor fromU16(U16 value) {
-			VRAMColor color = {
-				.r = U8(((value >> 0) & 0x1F) << 3),
-				.g = U8(((value >> 5) & 0x1F) << 3),
-				.b = U8(((value >> 10) & 0x1F) << 3),
-				.a = U8((value >> 15) != 0 ? 255 : 0)
-			};
+			VRAMColor color;
+			
+			/*U8 r = (value >> 0) & 0x1F;
+			U8 g = (value >> 5) & 0x1F;
+			U8 b = (value >> 10) & 0x1F;
+			U8 a = (value >> 15) & 0x1;
+
+			color.data = (r << 11) | (g << 6) | (b << 1) | a;*/
+			color.data = value;
+
 			return color;
 
 		}
 
 		static U16 toU16(const VRAMColor& color) {
-			return ((color.a == 255 ? 1 : 0) << 15) | ((color.b >> 3) << 10) | ((color.g >> 3) << 5) | (color.r >> 3);
-		}
+			/*U8 r = (color.data >> 11) & 0x1F;
+			U8 g = (color.data >> 6) & 0x1F;
+			U8 b = (color.data >> 1) & 0x1F;
+			U8 a = (color.data >> 0) & 0x1;
 
-		static VRAMColor fromU24(U16 value) {
-			VRAMColor color = {
-				.r = U8((value >> 0) & 0xFF),
-				.g = U8((value >> 8) & 0xFF),
-				.b = U8((value >> 16) & 0xFF),
-				.a = 0,
-			};
-			return color;
-		}
-
-		static U32 toU24(const VRAMColor& color) {
-			return (color.b << 16) | (color.g << 8) | (color.r << 0);
+			return (a << 15) | (b << 10) | (g << 5) | r;*/
+			return color.data;
 		}
 	};
 }

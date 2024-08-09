@@ -43,17 +43,21 @@ namespace esx {
 		mLineStripVAO->unbind();
 		mLineStripVBO->unbind();
 
-		mFBO = MakeShared<FrameBuffer>(1024, 512);
-		SharedPtr<Texture2D> colorAttachment = MakeShared<Texture2D>(0);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		colorAttachment->setData(nullptr, 1024, 512, InternalFormat::RGBA8, DataType::UnsignedByte, DataFormat::RGBA);
-		mFBO->setColorAttachment(colorAttachment);
-		mFBO->init();
+		
+		
+		mFBO16 = MakeShared<FrameBuffer>(1024, 512);
+		mTexture16 = MakeShared<Texture2D>(0);
+		mTexture16->setData(nullptr, 1024, 512, InternalFormat::RGB5_A1, DataType::UnsignedShort1_555, DataFormat::RGBA);
+		mFBO16->setColorAttachment(mTexture16);
+		mFBO16->init();
 
-		mVRAM24.resize(1024 * 512);
+		mFBO24 = MakeShared<FrameBuffer>(1024, 512);
+		mTexture24 = MakeShared<Texture2D>(1);
+		mTexture24->setData(nullptr, 1024, 512, InternalFormat::RGB8, DataType::UnsignedByte, DataFormat::RGB);
+		mFBO24->setColorAttachment(mTexture24);
+		mFBO24->init();
+
+		mVRAM16.resize(1024 * 512);
 
 		mShader = Shader::LoadFromFile("commons/shaders/shader.vert","commons/shaders/shader.frag");
 
@@ -81,8 +85,9 @@ namespace esx {
 		ptrdiff_t numLineStripIndices = std::distance(mLineStripVerticesBase.begin(), mLineStripCurrentVertex);
 
 		if (numTriIndices > 0 || numLineStripIndices > 0) {
-			mFBO->bind();
-			glViewport(0, 0, mFBO->width(), mFBO->height());
+			mFBO16->bind();
+
+			glViewport(0, 0, mFBO16->width(), mFBO16->height());
 			glScissor(mDrawTopLeft.x, 511 - mDrawBottomRight.y, (mDrawBottomRight.x - mDrawTopLeft.x) + 1, (mDrawBottomRight.y - mDrawTopLeft.y) + 1);
 
 			mShader->start();
@@ -90,16 +95,13 @@ namespace esx {
 			mShader->uploadUniform("uCheckMask", mCheckMask);
 			mShader->uploadUniform("uForceAlpha", mForceAlpha);
 
-			mFBO->getColorAttachment()->bind();
+			mFBO16->getColorAttachment()->bind();
 
 			if (numTriIndices > 0) {
 				mTriVBO->bind();
 				mTriVBO->copyData(mTriVerticesBase.data(), numTriIndices * sizeof(PolygonVertex));
 				mTriVAO->bind();
 				glDrawArrays(GL_TRIANGLES, 0, (GLsizei)numTriIndices);
-				glFinish();
-				mTriVAO->unbind();
-				mTriVBO->unbind();
 			}
 
 			if (numLineStripIndices > 0) {
@@ -116,20 +118,29 @@ namespace esx {
 
 				mLineStripVAO->bind();
 				glDrawElements(GL_LINE_STRIP, numLineStripIndices, GL_UNSIGNED_INT, nullptr);
-				glFinish();
-				mLineStripVAO->unbind();
-				mLineStripVBO->unbind();
-				mLineStripIBO->unbind();
 
 
 				glDisable(GL_PRIMITIVE_RESTART);
 			}
 
-			mFBO->getColorAttachment()->unbind();
+			mFBO16->getColorAttachment()->unbind();
 			mShader->stop();
-			mFBO->unbind();
+			mFBO16->unbind();
 
 			mRefreshVRAMData = ESX_TRUE;
+		}
+
+		if (m24Bit) {
+			void* data = mVRAM16.data();
+			mTexture16->bind();
+			mTexture16->getPixels(&data);
+			mTexture16->unbind();
+
+			mTexture24->bind();
+			mTexture24->setPixels(0, 0, 682, 511, data);
+			mTexture24->unbind();
+
+			mRefreshVRAMData = ESX_FALSE;
 		}
 	}
 
@@ -179,13 +190,18 @@ namespace esx {
 		mCheckMask = value;
 	}
 
+	void BatchRenderer::SetDisplayMode24(BIT value)
+	{
+		m24Bit = value;
+	}
+
 	void BatchRenderer::Clear(U16 x, U16 y, U16 w, U16 h, Color& color)
 	{
-		mFBO->bind();
+		mFBO16->bind();
 		glScissor(x, 511 - y - (h - 1), w, h);
 		glClearColor(floorf(color.r / 8) / 31.0, floorf(color.g / 8) / 31.0, floorf(color.b / 8) / 31.0, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
-		mFBO->unbind();
+		mFBO16->unbind();
 		mRefreshVRAMData = ESX_TRUE;
 	}
 
@@ -256,15 +272,15 @@ namespace esx {
 		Begin();
 
 		if (mRefreshVRAMData) {
-			void* data = mVRAM24.data();
-			mFBO->getColorAttachment()->bind();
-			mFBO->getColorAttachment()->getPixels(&data);
-			mFBO->getColorAttachment()->unbind();
+			void* data = mVRAM16.data();
+			mTexture16->bind();
+			mTexture16->getPixels(&data);
+			mTexture16->unbind();
 
 			mRefreshVRAMData = ESX_FALSE;
 		}
 
-		mFBO->getColorAttachment()->bind();
+		mTexture16->bind();
 		for (I32 yOff = 0; yOff < height; yOff++) {
 			for (I32 xOff = 0; xOff < width; xOff++) {
 				U16 xImage = x + xOff;
@@ -275,14 +291,14 @@ namespace esx {
 
 				VRAMColor color = pixels.at(yOff * width + xOff);
 
-				if (mCheckMask && mVRAM24[yImage * 1024 + xImage].a == 255) continue;
-				if (mForceAlpha) color.a = 255;
+				if (mCheckMask && (mVRAM16[yImage * 1024 + xImage].data & 0x8000) == 0x8000) continue;
+				if (mForceAlpha) color.data |= 0x8000;
 
-				mFBO->getColorAttachment()->setPixel(xImage, yImage, &color);
-				mVRAM24[yImage * 1024 + xImage] = color;
+				mTexture16->setPixel(xImage, yImage, &color);
+				mVRAM16[yImage * 1024 + xImage] = color;
 			}
 		}
-		mFBO->getColorAttachment()->unbind();
+		mTexture16->unbind();
 	}
 
 	void BatchRenderer::VRAMRead(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels)
@@ -291,10 +307,10 @@ namespace esx {
 		Begin();
 
 		if (mRefreshVRAMData) {
-			void* data = mVRAM24.data();
-			mFBO->getColorAttachment()->bind();
-			mFBO->getColorAttachment()->getPixels(&data);
-			mFBO->getColorAttachment()->unbind();
+			void* data = mVRAM16.data();
+			mTexture16->bind();
+			mTexture16->getPixels(&data);
+			mTexture16->unbind();
 			mRefreshVRAMData = ESX_FALSE;
 		}
 
@@ -308,7 +324,7 @@ namespace esx {
 
 				U64 index = (yImage * 1024) + xImage;
 
-				pixels.emplace_back(mVRAM24.at(index));
+				pixels.emplace_back(mVRAM16.at(index));
 			}
 		}
 	}
@@ -321,13 +337,13 @@ namespace esx {
 		std::fill(mLineStripIndicesBase.begin(), mLineStripIndicesBase.end(), 0);
 		mLineStripCurrentIndex = mLineStripIndicesBase.begin();
 
-		mFBO->bind();
+		mFBO16->bind();
 		glClearColor(0, 0, 0, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
-		mFBO->unbind();
+		mFBO16->unbind();
 
-		mVRAM24.resize(1024 * 512);
-		std::fill(mVRAM24.begin(), mVRAM24.end(), VRAMColor());
+		mVRAM16.resize(1024 * 512);
+		std::fill(mVRAM16.begin(), mVRAM16.end(), VRAMColor());
 
 		mDrawTopLeft = glm::uvec2(0, 0);
 		mDrawBottomRight = glm::uvec2(640, 240);

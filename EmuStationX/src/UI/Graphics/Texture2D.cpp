@@ -30,6 +30,7 @@ namespace esx {
 			case DataType::UnsignedByte: return GL_UNSIGNED_BYTE;
 			case DataType::UnsignedShort: return GL_UNSIGNED_SHORT;
 			case DataType::UnsignedShort555_1: return GL_UNSIGNED_SHORT_5_5_5_1;
+			case DataType::UnsignedShort1_555: return GL_UNSIGNED_SHORT_1_5_5_5_REV;
 		}
 		return 0;
 	}
@@ -38,6 +39,22 @@ namespace esx {
 		: mSlot(slot)
 	{
 		glGenTextures(1, &mRendererID);
+		glActiveTexture(GL_TEXTURE0 + slot);
+		glBindTexture(GL_TEXTURE_2D, mRendererID);
+
+		/* Set the texture wrapping parameters. */
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		/* Set texture filtering parameters. */
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+
+	Texture2D::Texture2D(U32 renderedID, U32 slot)
+		:	mRendererID(renderedID),
+			mSlot(slot)
+	{
 		glActiveTexture(GL_TEXTURE0 + slot);
 		glBindTexture(GL_TEXTURE_2D, mRendererID);
 
@@ -69,6 +86,7 @@ namespace esx {
 
 	void Texture2D::setData(void* data, U32 width, U32 height, InternalFormat internalFormat, DataType type, DataFormat format)
 	{
+		glTexStorage2D(GL_TEXTURE_2D, 1, fromInternalFormat(internalFormat), width, height);
 		glTexImage2D(GL_TEXTURE_2D, 0, fromInternalFormat(internalFormat), width, height, 0, fromDataFormat(format), fromDataType(type), data);
 		mWidth = width;
 		mHeight = height;
@@ -100,6 +118,19 @@ namespace esx {
 	void Texture2D::getPixel(U32 x, U32 y, void** pixelData)
 	{
 		glGetTexImage(GL_TEXTURE_2D, 0, fromDataFormat(mDataFormat), fromDataType(mDataType), *pixelData);
+	}
+
+	SharedPtr<Texture2D> Texture2D::createView(InternalFormat viewFormat)
+	{
+		U32 viewTextureID;
+
+		glBindTexture(GL_TEXTURE_2D, mRendererID);
+
+		glGenTextures(1, &viewTextureID);
+
+		glTextureView(viewTextureID, GL_TEXTURE_2D, mRendererID, fromInternalFormat(viewFormat), 0, 1, 0, 1);
+
+		return MakeShared<Texture2D>(viewTextureID, -1);
 	}
 
 	void Texture2D::getPixels(void** pixels)

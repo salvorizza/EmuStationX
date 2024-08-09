@@ -517,12 +517,14 @@ namespace esx {
 				//ESX_CORE_LOG_TRACE("Load {:08x}", mCurrentInstruction.Address);
 			}
 
-			if (physicalAddress >= 0x1F801000 && physicalAddress < 0x1F802000) {
-				const StringView& ioName = IOMap.contains(address & ~0x3) ? IOMap.at(address & ~0x3) : IOMap.at(address & ~0x1);
-				ESX_CORE_LOG_INFO("{:08x}h - I/O Read from {}[{:08x}h]", mCurrentInstruction.Address, ioName, address);
-			}
+			T output = mRootBus->load<T>(physicalAddress);
 
-			return mRootBus->load<T>(physicalAddress);
+			/*if (physicalAddress >= 0x1F801000 && physicalAddress < 0x1F802000) {
+				const StringView& ioName = IOMap.contains(address & ~0x1) ? IOMap.at(address & ~0x1) : IOMap.at(address & ~0x3);
+				ESX_CORE_LOG_INFO("{:08x}h - I/O Read from {}[{:08x}h] value {:08x}h", mCurrentInstruction.Address, ioName, address, output);
+			}*/
+
+			return output;
 		}
 
 		template<typename T>
@@ -541,10 +543,10 @@ namespace esx {
 				//ESX_CORE_LOG_TRACE("Store {:08x} value {:08x}h", mCurrentInstruction.Address, value);
 			}
 
-			if (physicalAddress >= 0x1F801000 && physicalAddress < 0x1F802000) {
-				const StringView& ioName = IOMap.contains(address & ~0x3) ? IOMap.at(address & ~0x3) : IOMap.at(address & ~0x1);
+			/*if (physicalAddress >= 0x1F801000 && physicalAddress < 0x1F802000) {
+				const StringView& ioName = IOMap.contains(address & ~0x1) ? IOMap.at(address & ~0x1) : IOMap.at(address & ~0x3);
 				ESX_CORE_LOG_INFO("{:08x}h - I/O Write {:08x}h to {}[{:08x}h]", mCurrentInstruction.Address, value, ioName, address);
-			}
+			}*/
 
 			mRootBus->store<T>(physicalAddress, value);
 		}

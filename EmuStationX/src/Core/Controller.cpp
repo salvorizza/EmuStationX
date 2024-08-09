@@ -27,14 +27,15 @@ namespace esx {
 				}
 				else {
 					mPhase = CommunicationPhase::NotSelected;
+					mSelected = ESX_FALSE;
 				}
 				break;
 			}
 
 			case CommunicationPhase::Command: {
-				mCommandResponse.emplace((U8)(((U16)mType) >> 8));
-				mCommandResponse.emplace((U8)mState);
-				mCommandResponse.emplace((U8)(mState >> 8));
+				mCommandResponse.emplace(U8(U16(mType) >> 8));
+				mCommandResponse.emplace(mState & 0xFF);
+				mCommandResponse.emplace((mState >> 8) & 0xFF);
 				mPhase = CommunicationPhase::Data;
 			}
 

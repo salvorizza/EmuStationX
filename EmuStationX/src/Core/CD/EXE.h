@@ -26,8 +26,6 @@ namespace esx {
 		Array<U8, 0x7B4> ASCIIMarker_ZeroFilled = {};
 	};
 
-	constexpr size_t p = sizeof(EXEHeader);
-
 	class EXE : public CompactDisk {
 	public:
 		EXE(const std::filesystem::path& exePath);

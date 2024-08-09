@@ -55,6 +55,13 @@ namespace esx {
 		mCurrentCommand = MDECCommand::None;
 		mDataIn.clear();
 		mDataOut.clear();
+		mQuantTableLuminance = {};
+		mQuantTableColor = {};
+		mScaleTable = {};
+		mCurrentSrc = 0;
+		mDecoding = ESX_FALSE;
+		mTidyPack24BitBytesToFill = 0;
+		mCurrentDecodedBlock = {};
 	}
 
 	void MDEC::channelIn(U32 word)
@@ -73,18 +80,27 @@ namespace esx {
 
 		if (mDataOut.size() == 0 && mDecoding) {
 			switch (mStatusRegister.DataOutputDepth) {
-			case MDECOutputDepth::Bit15:
-			case MDECOutputDepth::Bit24: {
-				if (!decode_colored_macroblock()) {
-					mDecoding = ESX_FALSE;
+				case MDECOutputDepth::Bit15:
+				case MDECOutputDepth::Bit24: {
+					if (!decode_colored_macroblock()) {
+						mDecoding = ESX_FALSE;
+					}
+					break;
 				}
-				break;
-			}
+
+				case MDECOutputDepth::Bit8:
+				case MDECOutputDepth::Bit4: {
+					if (!decode_monochrome_macroblock()) {
+						mDecoding = ESX_FALSE;
+					}
+					break;
+				}
 			}
 			if (mDecoding) {
 				copy_to_out();
 			} else {
 				mDataIn.clear();
+				mStatusRegister.DataInFIFOFull = ESX_FALSE;
 			}
 		}
 
@@ -144,13 +160,7 @@ namespace esx {
 
 	U32 MDEC::getDataOrResponse()
 	{
-		U32 word = 0;
-		if (mDataOut.size() != 0) {
-			word = mDataOut.front();
-			mDataOut.pop_front();
-		}
-		mStatusRegister.DataOutFIFOEmpty = mDataOut.size() == 0;
-		return word;
+		return channelOut();
 	}
 
 	void MDEC::setCommandOrParameters(U32 value)
@@ -217,7 +227,6 @@ namespace esx {
 				}
 
 				mStatusRegister.CommandBusy = ESX_FALSE;
-				mStatusRegister.DataInFIFOFull = ESX_FALSE;
 			}
 		}
 
@@ -236,6 +245,7 @@ namespace esx {
 		}
 
 		mDataIn.clear();
+		mStatusRegister.DataInFIFOFull = ESX_FALSE;
 	}
 
 	void MDEC::setScaleTable()
@@ -245,6 +255,7 @@ namespace esx {
 		}
 
 		mDataIn.clear();
+		mStatusRegister.DataInFIFOFull = ESX_FALSE;
 	}
 
 	void MDEC::decodeMacroblock()
@@ -256,6 +267,14 @@ namespace esx {
 			case MDECOutputDepth::Bit15:
 			case MDECOutputDepth::Bit24: {
 				if (!decode_colored_macroblock()) {
+					mDecoding = ESX_FALSE;
+				}
+				break;
+			}
+
+			case MDECOutputDepth::Bit8:
+			case MDECOutputDepth::Bit4: {
+				if (!decode_monochrome_macroblock()) {
 					mDecoding = ESX_FALSE;
 				}
 				break;
@@ -300,7 +319,6 @@ namespace esx {
 		return result;
 	}
 
-
 	constexpr Array<U8, 64> zagzig = calc_zagzig();
 	constexpr Array<F32, 64> scalezag = calc_scalezag();
 
@@ -326,19 +344,28 @@ namespace esx {
 		}
 
 		yuv_to_rgb(blocks[0], blocks[1], blocks[2], 0, 0);
-		yuv_to_rgb(blocks[0], blocks[1], blocks[3], 0, 8);
-		yuv_to_rgb(blocks[0], blocks[1], blocks[4], 8, 0);
+		yuv_to_rgb(blocks[0], blocks[1], blocks[3], 8, 0);
+		yuv_to_rgb(blocks[0], blocks[1], blocks[4], 0, 8);
 		yuv_to_rgb(blocks[0], blocks[1], blocks[5], 8, 8);
 
 		return ESX_TRUE;
 	}
 
+	BIT MDEC::decode_monochrome_macroblock() {
+		Array<I16, 64> Yblk = {};
+		if (!rl_decode_block(Yblk, mCurrentSrc, mQuantTableLuminance)) return ESX_FALSE;
+		y_to_mono(Yblk);
+
+		return ESX_TRUE;
+	}
+
+
 	BIT MDEC::rl_decode_block(Array<I16, 64>& blk, U64& src, const Array<U8, 64>& qt)
 	{
-		std::fill(blk.begin(), blk.end(), 0);
+		U16 n = 0, k= 0;
 
-		U16 n = 0;
-		U64 k = 0;
+		std::fill(blk.begin(), blk.end(), 0);
+		
 		do {
 			if (src >= (mDataIn.size() * 2)) {
 				return ESX_FALSE;
@@ -346,29 +373,32 @@ namespace esx {
 			n = reinterpret_cast<U16*>(mDataIn.data())[src++];
 		} while (n == 0xFE00);
 
-		U16 q_scale = (n >> 10) & 0x3F;
-		I32 val = signed10bit(n & 0x3FF) * qt[k];
-		if (q_scale == 0) val = signed10bit(n & 0x3FF) * 2;
-		val = std::clamp(val, -0x400, 0x3FF);
-		val = val * scalezag[k]; //fast_idct_core only
-		blk[(q_scale > 0) ? zagzig[k] : k] = val;
+		I32 q_scale = (n >> 10) & 0x3F;
+		I16 val = signed10bit(n & 0x3FF) * qt[k];
 
 		while (k < 64) {
+			if (q_scale == 0) val = signed10bit(n & 0x3FF) * 2;
+
+			val = std::clamp<I16>(val, -0x400, 0x3FF);
+
+			val *= scalezag[k]; //fast_idct_core only
+
+			blk[(q_scale > 0) ? zagzig[k] : k] = val;
+
+
+			if (k == 63) {
+				break;
+			}
+
 			if (src >= (mDataIn.size() * 2)) {
 				return ESX_FALSE;
 			}
-			n = reinterpret_cast<U16*>(mDataIn.data())[src++];
+
+			n = reinterpret_cast<U16*>(mDataIn.data())[src];
+			src++;
+
 			k += ((n >> 10) & 0x3F) + 1;
-			if (k < 64) {
-				val = (signed10bit(n & 0x3FF) * qt[k] * q_scale + 4) / 8;
-				if (q_scale == 0) val = signed10bit(n & 0x3FF) * 2;
-				val = std::clamp(val, -0x400, 0x3FF);
-				blk[(q_scale > 0) ? zagzig[k] : k] = val;
-			}
-			
-			if (k >= 63) {
-				k = 64;
-			}
+			val = (signed10bit(n & 0x3FF) * qt[k] * q_scale + 4) / 8;
 		}
 
 		fast_idct_core(blk);
@@ -425,23 +455,23 @@ namespace esx {
 
 	void MDEC::real_idct_core(Array<I16, 64>& blk)
 	{
-		Array<I16, 64> src = blk;
-		Array<I16, 64> dst = {};
+		Array<I16, 64> buf = {};
+
+		Array<I16, 64>* src = &blk;
+		Array<I16, 64>* dst = &buf;
 
 		for (I32 pass = 0; pass < 2; pass++) {
 			for (I32 x = 0; x < 8; x++) {
 				for (I32 y = 0; y < 8; y++) {
 					I32 sum = 0;
 					for (I32 z = 0; z < 8; z++) {
-						sum += src[y + z * 8] * (mScaleTable[x + z * 8] / 8);
+						sum += I32((*src)[y + z * 8]) * (I32(mScaleTable[x + z * 8]) / 8);
 					}
-					dst[x + y * 8] = (sum + 0x0FFF) / 0x2000;
+					(*dst)[x + y * 8] = (sum + 0x0FFF) / 0x2000;
 				}
 			}
 			std::swap(src, dst);
 		}
-
-		blk = src;
 	}
 
 	void MDEC::yuv_to_rgb(const Array<I16, 64>& Crblk, const Array<I16, 64>& Cbblk, const Array<I16, 64>& Yblk, U64 xx, U64 yy)
@@ -456,58 +486,115 @@ namespace esx {
 				R = static_cast<I16>((1.402f * static_cast<F32>(R)));
 				B = static_cast<I16>((1.772f * static_cast<F32>(B)));
 
-				I32 Y = Yblk[x + y * 8];
-				R = static_cast<I16>(std::clamp(Y + R, -128, 127));
-				G = static_cast<I16>(std::clamp(Y + G, -128, 127));
-				B = static_cast<I16>(std::clamp(Y + B, -128, 127));
+				I16 Y = Yblk[x + y * 8];
+				R = std::clamp<I16>(Y + R, -128, 127);
+				G = std::clamp<I16>(Y + G, -128, 127);
+				B = std::clamp<I16>(Y + B, -128, 127);
 
 				U32 BGR = (static_cast<U8>(B & 0xFF) << 16) | (static_cast<U8>(G & 0xFF) << 8) | (static_cast<U8>(R & 0xFF) << 0);
-				if (mStatusRegister.DataOutputSigned == ESX_FALSE) BGR ^= 0x808080;
-				mCurrentDecodedBlock[(x + xx) + (y + yy) * 16] = BGR;
+
+				if (mStatusRegister.DataOutputSigned == ESX_FALSE) {
+					R ^= 0x80;
+					G ^= 0x80;
+					B ^= 0x80;
+				}
+
+				mCurrentDecodedBlock[(x + xx) + (y + yy) * 16].R = R;
+				mCurrentDecodedBlock[(x + xx) + (y + yy) * 16].G = G;
+				mCurrentDecodedBlock[(x + xx) + (y + yy) * 16].B = B;
 			}
+		}
+	}
+
+
+	void MDEC::y_to_mono(const Array<I16, 64>& Yblk)
+	{
+		for (I32 i = 0; i < 64; i++) {
+			I32 Y = Yblk[i];
+
+			Y = signed9bit(Y);
+			Y = std::clamp<I32>(Y, -128, 127);
+			if (mStatusRegister.DataOutputSigned == ESX_FALSE) {
+				Y += 0x80;
+			}
+
+			mCurrentDecodedBlock[i].WORD = static_cast<U32>(Y);
 		}
 	}
 
 	void MDEC::copy_to_out()
 	{
-		if (mStatusRegister.DataOutputDepth == MDECOutputDepth::Bit24) {
-			for (I32 i = 0; i < mCurrentDecodedBlock.size(); i++) {
-				U32 word = mCurrentDecodedBlock[i];
+		switch (mStatusRegister.DataOutputDepth) {
+			case MDECOutputDepth::Bit24: {
+				for (I32 i = 0; i < mCurrentDecodedBlock.size(); i++) {
+					U32 word = mCurrentDecodedBlock[i].WORD;
 
-				if (mTidyPack24BitBytesToFill != 0) {
-					U32 bytesToAppend = (word & (0xFFFFFF >> ((3 - mTidyPack24BitBytesToFill) * 8))) << ((4 - mTidyPack24BitBytesToFill) * 8);
-					mDataOut.back() = mDataOut.back() | bytesToAppend;
-					word >>= (mTidyPack24BitBytesToFill * 8);
+					if (mTidyPack24BitBytesToFill != 0) {
+						U32 bytesToAppend = (word & (0xFFFFFF >> ((3 - mTidyPack24BitBytesToFill) * 8))) << ((4 - mTidyPack24BitBytesToFill) * 8);
+						mDataOut.back() = mDataOut.back() | bytesToAppend;
+						word >>= (mTidyPack24BitBytesToFill * 8);
+					}
+
+					if (mTidyPack24BitBytesToFill != 3) {
+						mDataOut.emplace_back(word);
+					}
+
+					mTidyPack24BitBytesToFill = (mTidyPack24BitBytesToFill + 1) % 4;
 				}
+				break;
+			}
+			case MDECOutputDepth::Bit15: {
+				U16 a = mStatusRegister.DataOutputBit15Set;
+				for (I32 i = 0; i < mCurrentDecodedBlock.size();) {
+					MDECRGB& rgb1 = mCurrentDecodedBlock[i++];
+					U8 r = (rgb1.R >> 3) & 0x1F;
+					U8 g = (rgb1.G >> 3) & 0x1F;
+					U8 b = (rgb1.B >> 3) & 0x1F;
+					U16 pixel1 = (a << 15) | (b << 10) | (g << 5) | r;
 
-				if (mTidyPack24BitBytesToFill != 3) {
-					mDataOut.emplace_back(word);
+
+					MDECRGB& rgb2 = mCurrentDecodedBlock[i++];
+					r = (rgb2.R >> 3) & 0x1F;
+					g = (rgb2.G >> 3) & 0x1F;
+					b = (rgb2.B >> 3) & 0x1F;
+					U16 pixel2 = (a << 15) | (b << 10) | (g << 5) | r;
+
+					U32 packet = (U32(pixel2) << 16) | pixel1;
+
+					mDataOut.emplace_back(packet);
 				}
+				break;
+			}
+			case MDECOutputDepth::Bit4: {
+				for (I32 i = 0; i < 64; ) {
+					U32 packet = mCurrentDecodedBlock[i++].WORD >> 4;
+					packet |= (mCurrentDecodedBlock[i++].WORD >> 4) << 4;
+					packet |= (mCurrentDecodedBlock[i++].WORD >> 4) << 8;
+					packet |= (mCurrentDecodedBlock[i++].WORD >> 4) << 12;
+					packet |= (mCurrentDecodedBlock[i++].WORD >> 4) << 16;
+					packet |= (mCurrentDecodedBlock[i++].WORD >> 4) << 20;
+					packet |= (mCurrentDecodedBlock[i++].WORD >> 4) << 24;
+					packet |= (mCurrentDecodedBlock[i++].WORD >> 4) << 28;
 
-				mTidyPack24BitBytesToFill = (mTidyPack24BitBytesToFill + 1) % 4;
+					mDataOut.emplace_back(packet);
+				}
+				break;
+			}
+			case MDECOutputDepth::Bit8: {
+				for (I32 i = 0; i < 64; ) {
+					U32 packet = mCurrentDecodedBlock[i++].WORD;
+					packet |= mCurrentDecodedBlock[i++].WORD << 8;
+					packet |= mCurrentDecodedBlock[i++].WORD << 16;
+					packet |= mCurrentDecodedBlock[i++].WORD << 24;
+
+					mDataOut.emplace_back(packet);
+				}
+				break;
 			}
 		}
-		else {
-			U16 a = mStatusRegister.DataOutputBit15Set;
-			for (I32 i = 0; i < mCurrentDecodedBlock.size();) {
-				U32 word1 = mCurrentDecodedBlock[i++];
-				U8 r = (word1 >> 3) & 0x1F;
-				U8 g = (word1 >> 11) & 0x1F;
-				U8 b = (word1 >> 19) & 0x1F;
-				U16 pixel1 = (a << 15) | (b << 10) | (g << 5) | r;
-
-
-				U32 word2 = mCurrentDecodedBlock[i++];
-				r = (word2 >> 3) & 0x1F;
-				g = (word2 >> 11) & 0x1F;
-				b = (word2 >> 19) & 0x1F;
-				U16 pixel2 = (a << 15) | (b << 10) | (g << 5) | r;
-
-				mDataOut.emplace_back((pixel2 << 16) | pixel1);
-			}
-		}
-
+		
 		mStatusRegister.DataOutFIFOEmpty = mDataOut.size() == 0;
 	}
+
 
 }

@@ -6,35 +6,35 @@
 
 namespace esx {
 
-	template<typename T, size_t S>
 	struct TransmissionFIFO {
-		Array<T, S> Data = { 0xFF };
-		U8 WriteP = 0;
-		U8 ReadP = 0;
+		Deque<U8> Data;
 
-		void Push(T& value) {
-			Data[WriteP] = value;
-			if(WriteP != (ReadP - 1)) WriteP = (WriteP + 1) % S;
+		BIT Push(U8 value) {
+			if (Data.size() == Size()) {
+				Data.back() = value;
+				return ESX_FALSE;
+			}
+			Data.push_back(value);
+			return ESX_TRUE;
 		}
 
-		T Pop() {
-			ESX_ASSERT(ReadP != WriteP, "Empty");
-			T& data = Data[ReadP];
-			ReadP = (ReadP + 1) % S;
+		U8 Pop() {
+			ESX_ASSERT(Data.size() != 0, "Empty");
+			U8& data = Data.front();
+			Data.pop_front();
 			return data;
 		}
 
 		bool Empty() {
-			return ReadP == WriteP;
+			return Data.empty();
 		}
 
 		void Clear() {
-			Data = { 0xFF };
-			ReadP = WriteP;
+			Data.clear();
 		}
 
-		size_t Size() {
-			return S;
+		static size_t Size() {
+			return 8;
 		}
 	};
 
@@ -187,7 +187,7 @@ namespace esx {
 		U8 mID;
 
 		U8 mTX = 0xFF;
-		TransmissionFIFO<U8, 8> mRX;
+		TransmissionFIFO mRX;
 		StatRegister mStatRegister;
 		ModeRegister mModeRegister;
 		SIOControlRegister mControlRegister;
