@@ -7,8 +7,8 @@ namespace esx {
 
 
 
-	RAM::RAM(const StringView& name, U32 startAddress, U32 addressingSize, U64 size)
-		: BusDevice(name)
+	RAM::RAM(const StringView& name, U32 startAddress, U32 addressingSize, U64 size, BIT checkLock)
+		: BusDevice(name), mCheckLock(checkLock)
 	{
 		mMemory.resize(size);
 		reset();
@@ -73,15 +73,21 @@ namespace esx {
 
 	void RAM::checkLocked(U32 address)
 	{
-		if (address >= mMemoryControl->getRAMLockedRegionStart()) {
-			getBus("Root")->getDevice<R3000>("R3000")->raiseException(ExceptionType::AddressErrorStore);
+		if (mCheckLock) {
+			if (address >= mMemoryControl->getRAMLockedRegionStart()) {
+				getBus("Root")->getDevice<R3000>("R3000")->raiseException(ExceptionType::AddressErrorStore);
+			}
 		}
 	}
 
 	BIT RAM::isHiZ(U32 address)
 	{
-		auto range = mMemoryControl->getRAMHiZRegionRange();
-		return address >= range.first && address <= range.second;
+		if (mCheckLock) {
+			auto range = mMemoryControl->getRAMHiZRegionRange();
+			return address >= range.first && address <= range.second;
+		} else {
+			return ESX_FALSE;
+		}
 	}
 
 }

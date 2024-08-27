@@ -539,8 +539,9 @@ namespace esx {
 			}
 
 			U32 physicalAddress = toPhysicalAddress(address);
-			if (physicalAddress == 0x1ffeb8) {
-				//ESX_CORE_LOG_TRACE("Store {:08x} value {:08x}h", mCurrentInstruction.Address, value);
+			//if (physicalAddress == 0x1901b0) {
+			if(physicalAddress == 0x1D048C) {
+				ESX_CORE_LOG_TRACE("Store {:08x} value {:08x}h", mCurrentInstruction.Address, value);
 			}
 
 			/*if (physicalAddress >= 0x1F801000 && physicalAddress < 0x1F802000) {

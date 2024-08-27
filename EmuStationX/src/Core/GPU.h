@@ -147,6 +147,7 @@ namespace esx {
 
 		virtual void clock(U64 clocks) override;
 		virtual void reset() override;
+		virtual void init() override;
 
 		BIT isNewFrameAvailable() { 
 			BIT tempFrame = mFrameAvailable;

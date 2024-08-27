@@ -128,19 +128,12 @@ namespace esx {
 			mFBO16->unbind();
 
 			mRefreshVRAMData = ESX_TRUE;
-		}
 
-		if (m24Bit) {
-			void* data = mVRAM16.data();
-			mTexture16->bind();
-			mTexture16->getPixels(&data);
-			mTexture16->unbind();
-
-			mTexture24->bind();
-			mTexture24->setPixels(0, 0, 682, 511, data);
-			mTexture24->unbind();
-
-			mRefreshVRAMData = ESX_FALSE;
+			if (m24Bit) {
+				refresh16BitData();
+				refresh24BitTexture();
+				mRefreshVRAMData = ESX_FALSE;
+			}
 		}
 	}
 
@@ -272,11 +265,7 @@ namespace esx {
 		Begin();
 
 		if (mRefreshVRAMData) {
-			void* data = mVRAM16.data();
-			mTexture16->bind();
-			mTexture16->getPixels(&data);
-			mTexture16->unbind();
-
+			refresh16BitData();
 			mRefreshVRAMData = ESX_FALSE;
 		}
 
@@ -299,6 +288,8 @@ namespace esx {
 			}
 		}
 		mTexture16->unbind();
+
+		refresh24BitTexture();
 	}
 
 	void BatchRenderer::VRAMRead(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels)
@@ -307,10 +298,7 @@ namespace esx {
 		Begin();
 
 		if (mRefreshVRAMData) {
-			void* data = mVRAM16.data();
-			mTexture16->bind();
-			mTexture16->getPixels(&data);
-			mTexture16->unbind();
+			refresh16BitData();
 			mRefreshVRAMData = ESX_FALSE;
 		}
 
@@ -353,6 +341,21 @@ namespace esx {
 		glEnable(GL_SCISSOR_TEST);
 
 		mRefreshVRAMData = ESX_TRUE;
+	}
+
+	void BatchRenderer::refresh16BitData()
+	{
+		void* data = mVRAM16.data();
+		mTexture16->bind();
+		mTexture16->getPixels(&data);
+		mTexture16->unbind();
+	}
+
+	void BatchRenderer::refresh24BitTexture()
+	{
+		mTexture24->bind();
+		mTexture24->setPixels(0, 0, 682, 511, mVRAM16.data());
+		mTexture24->unbind();
 	}
 
 }

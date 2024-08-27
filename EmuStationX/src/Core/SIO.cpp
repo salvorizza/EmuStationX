@@ -259,13 +259,21 @@ namespace esx {
 	{
 		mTX = (value & 0xFF);
 
-		if (mStatRegister.TXFifoNotFull == ESX_FALSE) mTXShift.Set(value);
+		if (mStatRegister.TXFifoNotFull == ESX_FALSE) {
+			mTXShift.Set(value);
+		}
+
 		if (canTransferStart()) {
 			//ESX_CORE_LOG_TRACE("TX {:02x}h {}", mTX, mRX.Size());
 
 			mTXShift.Set(mTX);
 			mStatRegister.TXFifoNotFull = ESX_FALSE;
 			mStatRegister.TXIdle = ESX_FALSE;
+
+
+			reloadBaudTimer();
+			mRX.Clear();
+			mStatRegister.RXFifoNotEmpty = ESX_FALSE;
 		}
 
 		mLatchedTXEN = mControlRegister.TXEnable;
@@ -276,7 +284,7 @@ namespace esx {
 		U32 result = 0;
 
 		for (I32 i = 0; i < 4; i++) {
-			if (!mRX.Empty()) {
+			if (i < mRX.Data.size()) {
 				result |= (*(mRX.Data.begin() + i)) << (i* 8);
 			}
 		}
@@ -378,7 +386,7 @@ namespace esx {
 		BIT selected = !prevControlRegister.DTROutputLevel && mControlRegister.DTROutputLevel;
 		BIT portSwitch = prevControlRegister.PortSelect && !mControlRegister.PortSelect;
 
-		if (deselected || portSwitch) {
+		if (selected || portSwitch) {
 			//ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
 
 			for (auto& port : mPorts) {

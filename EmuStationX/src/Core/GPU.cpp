@@ -245,9 +245,6 @@ namespace esx {
 	{
 		U8 dotClocks = DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
 
-		if (!mTimer) mTimer = getBus("Root")->getDevice<Timer>("Timer");
-		if (!mInterruptControl) mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
-
 		U64 gpuClocks = (clocks * 11) / 7;
 		gpuClocks -= (mFrames * mScanlinesPerFrame * mClocksPerScanline);
 
@@ -259,14 +256,19 @@ namespace esx {
 		}
 
 		if (scanlineClocks <= mHorizontalRangeStart || scanlineClocks >= mHorizontalRangeEnd) {
-			if (scanlineClocks >= mHorizontalRangeStart && !mHBlankEnded) {
-				mTimer->endHblank();
+			if (scanlineClocks >= mHorizontalRangeEnd) {
+				if (!mHBlankStarted) {
+					mTimer->startHblank();
 
-				mHBlankEnded = ESX_TRUE;
-			} else if (scanlineClocks >= mHorizontalRangeEnd && !mHBlankStarted) {
-				mTimer->startHblank();
-				mHBlankStarted = ESX_TRUE;
-			}
+					mHBlankStarted = ESX_TRUE;
+				}
+			} else if (scanlineClocks >= mHorizontalRangeStart) {
+				if (!mHBlankEnded) {
+					mTimer->endHblank();
+
+					mHBlankEnded = ESX_TRUE;
+				}
+			} 
 		} else {
 			mHBlankEnded = mHBlankStarted = ESX_FALSE;
 		}
@@ -280,23 +282,25 @@ namespace esx {
 			}
 
 			if (mCurrentScanLine <= mVerticalRangeStart || mCurrentScanLine >= mVerticalRangeEnd) {
-				if (mCurrentScanLine >= mVerticalRangeStart && !mVBlankEnded) {
-					mTimer->endVblank();
+				if (mCurrentScanLine >= mVerticalRangeEnd) {
+					if (!mVBlankStarted) {
+						mTimer->startVblank();
+						mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
+						mVBlankStarted = ESX_TRUE;
+					}
+				} else if (mCurrentScanLine >= mVerticalRangeStart) {
+					if (!mVBlankEnded) {
+						mTimer->endVblank();
 
-					mRenderer->Flush();
-					mRenderer->Begin();
+						mRenderer->Flush();
+						mRenderer->Begin();
 
-					mFrameAvailable = ESX_TRUE;
+						mFrameAvailable = ESX_TRUE;
 
-					mVBlankEnded = ESX_TRUE;
+						mVBlankEnded = ESX_TRUE;
+					}
 				}
-				else if (mCurrentScanLine >= mVerticalRangeEnd && !mVBlankStarted) {
-					mTimer->startVblank();
-					mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
-					mVBlankStarted = ESX_TRUE;
-				}
-			}
-			else {
+			} else {
 				mVBlankEnded = mVBlankStarted = ESX_FALSE;
 			}
 
@@ -360,9 +364,6 @@ namespace esx {
 		mCurrentScanLine = 0;
 		mFrameAvailable = ESX_FALSE;
 
-		mTimer = {};
-		mInterruptControl = {};
-
 		mScanlinesPerFrame = 0;
 		mClocksPerScanline = 0;
 
@@ -372,6 +373,12 @@ namespace esx {
 		mClocksPerScanline = NTSC_CLOCKS_PER_SCANLINE;
 
 		mRenderer->Reset();
+	}
+
+	void GPU::init()
+	{
+		mTimer = getBus("Root")->getDevice<Timer>("Timer");
+		mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 	}
 
 	Command GPU::gp0MiscCommands(U32 instruction) const
@@ -452,7 +459,7 @@ namespace esx {
 
 	void GPU::gp0InterruptRequest()
 	{
-		getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::GPU, mGPUStat.InterruptRequest, ESX_TRUE);
+		mInterruptControl->requestInterrupt(InterruptType::GPU, mGPUStat.InterruptRequest, ESX_TRUE);
 		mGPUStat.InterruptRequest = ESX_TRUE;
 	}
 

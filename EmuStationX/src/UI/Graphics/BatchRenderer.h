@@ -39,6 +39,10 @@ namespace esx {
 
 		virtual void Reset() override;
 
+	private:
+		void refresh16BitData();
+		void refresh24BitTexture();
+
 	public:
 		static const size_t QUAD_VERTEX_SIZE = sizeof(PolygonVertex);
 		static const size_t TRI_SIZE = QUAD_VERTEX_SIZE * 3;

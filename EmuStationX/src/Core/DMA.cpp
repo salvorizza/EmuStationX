@@ -163,7 +163,6 @@ namespace esx {
 	{
 		mControlRegister = {};
 		mInterruptRegister = {};
-		mChannels = {};
 		mPriorityPorts = {
 			Port::MDECin,
 			Port::MDECout,
@@ -179,6 +178,7 @@ namespace esx {
 		setControlRegister(0x07654321);
 		setInterruptRegister(0);
 
+		mChannels = {};
 		for (U8 port = 0; port < (U8)Port::Max; port++) {
 			mChannels[port].Port = (Port)port;
 		}
@@ -301,6 +301,8 @@ namespace esx {
 		mInterruptRegister.IRQFlags &= IRQResetMask;
 
 		mInterruptControl->requestInterrupt(InterruptType::DMA, oldIRQ, mInterruptRegister.IRQMasterFlag());
+
+		ESX_CORE_LOG_TRACE("IRQEnable => {:06b}b, IRQFlags => {:06b}b", mInterruptRegister.IRQEnable, mInterruptRegister.IRQFlags);
 	}
 
 	U32 DMA::getInterruptRegister()
@@ -417,7 +419,7 @@ namespace esx {
 		channel.TransferStatus.BlockCurrentAddress = channel.BaseAddress;
 		channel.TransferStatus.BlockRemainingSize = transferSize;
 
-		//ESX_CORE_LOG_TRACE("DMA - Starting Block Transfer of {:08x}h size with starting address {:08x}h on port {} direction {}", channel.TransferStatus.BlockRemainingSize, channel.TransferStatus.BlockCurrentAddress, (U8)channel.Port, (channel.Direction == Direction::ToMainRAM) ? "ToMainRAM" : "FromMainRAM");
+		ESX_CORE_LOG_TRACE("DMA - Starting Block Transfer of {:08x}h size with starting address {:08x}h on port {} direction {}", channel.TransferStatus.BlockRemainingSize, channel.TransferStatus.BlockCurrentAddress, (U8)channel.Port, (channel.Direction == Direction::ToMainRAM) ? "ToMainRAM" : "FromMainRAM");
 	}
 
 	void DMA::clockBlockTransfer(Channel& channel)
@@ -459,6 +461,11 @@ namespace esx {
 						U8 b1 = mCDROM->popData();
 
 						valueToWrite = (b1 << 24) | (b2 << 16) | (b3 << 8) | (b4 << 0);
+						break;
+					}
+
+					case Port::SPU: {
+						ESX_CORE_LOG_ERROR("SPU Read DMA {} not supported yet", (U8)channel.Port);
 						break;
 					}
 

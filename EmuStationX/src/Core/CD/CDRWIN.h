@@ -52,8 +52,8 @@ namespace esx {
 
 		void computeCurrentFile();
 		U64 computeGapLBA();
+		U8 computeCurrentTrack();
 
-		virtual U64 getCurrentPos() { return mCurrentLBA + CompactDisk::calculateBinaryPosition(0,2,0); }
 	private:
 		void parse(const std::filesystem::path& cuePath);
 

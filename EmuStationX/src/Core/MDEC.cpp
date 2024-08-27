@@ -151,7 +151,7 @@ namespace esx {
 		mControlRegister.EnableDataOutRequest = (value >> 29) & 0x1;
 
 		if (mControlRegister.Reset) {
-			ESX_CORE_LOG_TRACE("TODO: MDEC Abort commands");
+			mCurrentCommand = MDECCommand::None;
 			setStatusRegister(0x80040000);
 			mDataIn.clear();
 			mDataOut.clear();

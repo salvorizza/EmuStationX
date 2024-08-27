@@ -204,6 +204,19 @@ namespace esx {
 				break;
 			}
 			
+			case CommandType::Play: {				
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Play {}", cpu->mCurrentInstruction.Address, response.Number);
+
+				mStat.Rotating = ESX_TRUE;
+
+				mStat.Read = ESX_FALSE;
+				mStat.Play = ESX_TRUE;
+				mStat.Seek = ESX_FALSE;
+
+				mResponses = {};
+				break;
+			}
+
 			case CommandType::ReadS:
 			case CommandType::ReadN: {
 
@@ -213,10 +226,15 @@ namespace esx {
 					ESX_CORE_LOG_INFO("{:08x}h - CDROM - ReadN {}", cpu->mCurrentInstruction.Address, response.Number);
 				}
 
-				if (mSetLocUnprocessed) {
+				mStat.Rotating = ESX_TRUE;
+
+				if (mSetLocUnprocessed && response.Number == 1) {
 					mCD->seek(mSeekLBA);
 
+					mStat.Read = ESX_FALSE;
+					mStat.Play = ESX_FALSE;
 					mStat.Seek = ESX_TRUE;
+
 					response.Clear();
 					response.Push(getStatus());
 					mStat.Seek = ESX_FALSE;
@@ -225,6 +243,8 @@ namespace esx {
 				}
 
 				mStat.Read = ESX_TRUE;
+				mStat.Play = ESX_FALSE;
+				mStat.Seek = ESX_FALSE;
 
 				response.NumberOfResponses++;
 				if (response.Number > 1) {
@@ -232,6 +252,7 @@ namespace esx {
 					mCurrentSector = mNextSector;
 					mNextSector = (mNextSector + 1) % mSectors.size();
 
+					mLastSubQ = generateSubChannelQ();
 					mCD->readSector(&mSectors[mCurrentSector]);
 
 					if (response.Number > 1) {
@@ -242,6 +263,22 @@ namespace esx {
 				}
 
 				response.TargetCycle = clocks + (mMode.DoubleSpeed ? CD_READ_DELAY_2X : CD_READ_DELAY);
+				break;
+			}
+
+			case CommandType::Stop: {
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Stop {}", cpu->mCurrentInstruction.Address, response.Number);
+
+				response.NumberOfResponses = 2;
+
+				if (response.Number == 1) {
+					mResponses = {};
+					mStat.Read = ESX_FALSE;
+					response.Clear();
+					response.Push(getStatus());
+					mStat.Rotating = ESX_FALSE;
+				}
+
 				break;
 			}
 
@@ -263,6 +300,10 @@ namespace esx {
 
 			case CommandType::Init: {
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Init {}", cpu->mCurrentInstruction.Address, response.Number);
+
+				mStat.Read = ESX_FALSE;
+				mStat.Play = ESX_FALSE;
+				mStat.Seek = ESX_FALSE;
 
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
@@ -295,6 +336,21 @@ namespace esx {
 				break;
 			}
 
+			case CommandType::GetlocP: {
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetlocP", cpu->mCurrentInstruction.Address);
+
+				response.Clear();
+				response.Push(mLastSubQ.Track);
+				response.Push(mLastSubQ.Index);
+				response.Push(mLastSubQ.Relative.Minute);
+				response.Push(mLastSubQ.Relative.Second);
+				response.Push(mLastSubQ.Relative.Sector);
+				response.Push(mLastSubQ.Absolute.Minute);
+				response.Push(mLastSubQ.Absolute.Second);
+				response.Push(mLastSubQ.Absolute.Sector);
+				break;
+			}
+
 			case CommandType::GetTN: {
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetTN", cpu->mCurrentInstruction.Address);
 
@@ -318,7 +374,10 @@ namespace esx {
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - SeekL {}", cpu->mCurrentInstruction.Address, response.Number);
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
+					mStat.Read = ESX_FALSE;
+					mStat.Play = ESX_FALSE;
 					mStat.Seek = ESX_TRUE;
+
 					mStat.Rotating = ESX_TRUE;
 					response.Clear();
 					response.Push(getStatus());
@@ -456,9 +515,9 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 
-		/*ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
+		ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
 			cpu->mCurrentInstruction.Address, requestRegister.WantData, requestRegister.BFWR, requestRegister.WantCommandStartInterrupt,
-			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);*/
+			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);
 
 		if (requestRegister.WantData) {
 			if (CDROM_REG0.DataFifoEmpty == ESX_TRUE) {
@@ -650,6 +709,30 @@ namespace esx {
 		mMode.WholeSector = (value >> 5) & 0x1;
 		mMode.XAADPCM = (value >> 6) & 0x1;
 		mMode.DoubleSpeed = (value >> 7) & 0x1;
+	}
+
+	SubchannelQ CDROM::generateSubChannelQ()
+	{
+		SubchannelQ subq = {};
+
+		U64 currentPos = mCD->getCurrentPos();
+
+		U8 trackNumber = mCD->getTrackNumber();
+		MSF trackStart = mCD->getTrackStart(trackNumber);
+		U64 trackStartLBA = CompactDisk::calculateBinaryPosition(trackStart.Minute, trackStart.Second, trackStart.Sector);
+		MSF absolutePos = CompactDisk::fromBinaryPositionToMSF(mCD->getCurrentPos());
+		MSF relativePos = CompactDisk::fromBinaryPositionToMSF(mCD->getCurrentPos() - trackStartLBA);
+
+		subq.Track = toBCD(trackNumber);
+		subq.Index = toBCD(0x01);
+		subq.Relative.Minute = toBCD(relativePos.Minute);
+		subq.Relative.Second = toBCD(relativePos.Second);
+		subq.Relative.Sector = toBCD(relativePos.Sector);
+		subq.Absolute.Minute = toBCD(absolutePos.Minute);
+		subq.Absolute.Second = toBCD(absolutePos.Second);
+		subq.Absolute.Sector = toBCD(absolutePos.Sector);
+
+		return subq;
 	}
 
 }

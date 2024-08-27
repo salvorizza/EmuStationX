@@ -9,6 +9,7 @@
 #include "UI/Panels/SPUStatusPanel.h"
 #include "UI/Panels/TTYPanel.h"
 #include "UI/Panels/FileDialogPanel.h"
+#include "UI/Panels/ISOBrowser.h"
 
 #include "UI/Graphics/BatchRenderer.h"
 #include "UI/Window/FontAwesome5.h"
@@ -51,6 +52,9 @@
 #include "miniaudio.h"
 
 #include "Core/CD/CDRWIN.h"
+#include "Core/CD/ISO.h"
+
+#include "Core/ISO9660/ISO9660.h"
 
 
 
@@ -71,7 +75,7 @@ public:
 
 		auto& items = mConsolePanel->getInternalConsole().System().Items();
 		if (items.size() > 1000) {
-			items.pop_front();
+			//items.pop_front();
 		}
 
 		if (mConsolePanel) {
@@ -132,6 +136,7 @@ public:
 		mSPUStatusPanel = MakeShared<SPUStatusPanel>();
 		mTTYPanel = MakeShared<TTYPanel>();
 		mFileDialogPanel = MakeShared<FileDialogPanel>();
+		mISOBrowser = MakeShared<ISOBrowser>();
 
 		mFileDialogPanel->setCurrentPath("commons/games");
 		mFileDialogPanel->setOnFileSelectedCallback(std::bind(&EmuStationXApp::onFileSelected, this, std::placeholders::_1));
@@ -139,7 +144,7 @@ public:
 		root = MakeShared<Bus>(ESX_TEXT("Root"));
 		cpu = MakeShared<R3000>();
 		mainRAM = MakeShared<RAM>("RAM", 0x00000000, MIBI(8), MIBI(2));
-		scratchPad = MakeShared<RAM>("Scratchpad", 0x1F800000, 0x400, KIBI(1));
+		scratchPad = MakeShared<RAM>("Scratchpad", 0x1F800000, 0x400, KIBI(1), ESX_FALSE);
 		memoryControl = MakeShared<MemoryControl>();
 		interruptControl = MakeShared<InterruptControl>();
 		spu = MakeShared<SPU>();
@@ -245,14 +250,45 @@ public:
 		mPlayedSamples = mPreRendered.size();
 	}
 
+	using HandlerFunction = std::function<SharedPtr<CompactDisk>(const std::filesystem::path&)>;
+
+	String getBootNameFromSystemConfig() {
+		auto cnfData = mISO9660->GetFileData("\\SYSTEM.CNF;1");
+		String systemCnf = String(cnfData.begin(), cnfData.end());
+		size_t end = systemCnf.find(String(";1"));
+		size_t start = systemCnf.find(String(":\\")) + 2;
+		return systemCnf.substr(start, (end - start));
+	}
+
 	void onFileSelected(const std::filesystem::path& filePath) {
-		if (filePath.extension().string().find("exe") != std::string::npos) {
-			mDisassemblerPanel->loadEXE(filePath);
+		static UnorderedMap<String, HandlerFunction> handlers = {
+		   { ".exe", [&](const std::filesystem::path& filePath) {
+			   mDisassemblerPanel->loadEXE(filePath);
+			   return nullptr;
+		   }},
+		   { ".cue", [&](const std::filesystem::path& filePath) {
+			   return MakeShared<CDRWIN>(filePath);
+		   }},
+		   { ".iso", [&](const std::filesystem::path& filePath) {
+			   return MakeShared<ISO>(filePath);
+		   }}
+		};
+
+		const auto& extension = filePath.extension().string();
+		if (handlers.contains(extension)) {
+			auto cd = handlers[extension](filePath);
+			if (cd) {
+				cdrom->insertCD(cd);
+				mISO9660 = MakeShared<ISO9660>(cd);
+				mISOBrowser->setInstance(mISO9660);
+				mCurrentGame = getBootNameFromSystemConfig();
+
+				hardReset();
+			}
+			ESX_CORE_LOG_INFO("File {} loaded", filePath.stem().string());
 		} else {
-			SharedPtr<CDRWIN> cdrwin = MakeShared<CDRWIN>(filePath);
-			cdrom->insertCD(cdrwin);
+			ESX_CORE_LOG_ERROR("File not supported yet");
 		}
-		hardReset();
 	}
 
 	static void audioCallback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
@@ -369,6 +405,8 @@ public:
 
 			ImGui::Text("FPS: %d", (int)(1 / loopTimer.getDeltaTimeInSeconds()));
 
+			ImGui::TextUnformatted(mCurrentGame.c_str());
+
 			ImGui::EndMenuBar();
 		}
 
@@ -387,6 +425,7 @@ public:
 		mSPUStatusPanel->render(pManager);
 		mTTYPanel->render(pManager);
 		mFileDialogPanel->render(pManager);
+		mISOBrowser->render(pManager);
 	}
 
 	void hardReset() {
@@ -444,11 +483,15 @@ private:
 	SharedPtr<SPUStatusPanel> mSPUStatusPanel;
 	SharedPtr<TTYPanel> mTTYPanel;
 	SharedPtr<FileDialogPanel> mFileDialogPanel;
+	SharedPtr<ISOBrowser> mISOBrowser;
 	glm::mat4 mProjectionMatrix;
 
 	ma_device mAudioDevice;
 	Array<AudioFrame, 441 * 64> mPreRendered; 
 	U32 mPlayedSamples;
+
+	SharedPtr<ISO9660> mISO9660;
+	String mCurrentGame = "";
 };
 
 int

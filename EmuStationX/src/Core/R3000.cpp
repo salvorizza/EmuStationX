@@ -43,53 +43,55 @@ namespace esx {
 
 	void R3000::clock()
 	{
-		if (!mStall) {
-			U32 opcode = fetch(mPC);
+		if (mCyclesToWait == 0) {
+			if (!mStall) {
+				U32 opcode = fetch(mPC);
 
-			if (opcode != 0) {
-				decode(mCurrentInstruction, opcode, mPC);
-			}
+				if (opcode != 0) {
+					decode(mCurrentInstruction, opcode, mPC);
+				}
 
-			mCurrentPC = mPC;
-			mPC = mNextPC;
-			mNextPC += 4;
+				mCurrentPC = mPC;
+				mPC = mNextPC;
+				mNextPC += 4;
 
-			mBranchSlot = mBranch;
-			mTookBranchSlot = mTookBranch;
-			mBranch = ESX_FALSE;
-			mTookBranch = ESX_FALSE;
+				mBranchSlot = mBranch;
+				mTookBranchSlot = mTookBranch;
+				mBranch = ESX_FALSE;
+				mTookBranch = ESX_FALSE;
 
-			if (opcode != 0 && mCurrentInstruction.Execute) {
-				(this->*mCurrentInstruction.Execute)();
-			}
+				if (opcode != 0 && mCurrentInstruction.Execute) {
+					(this->*mCurrentInstruction.Execute)();
+				}
 
-
-			if (mMemoryLoad.first != mPendingLoad.first) {
 				mRegisters[mMemoryLoad.first] = mMemoryLoad.second;
 				mRegisters[0] = 0;
-			}
-			mMemoryLoad = mPendingLoad;
-			resetPendingLoad();
+				mMemoryLoad = mPendingLoad;
+				resetPendingLoad();
 
-			mRegisters[mWriteBack.first] = mWriteBack.second;
-			mWriteBack.first = RegisterIndex(0);
-			mRegisters[0] = 0;
+				mRegisters[mWriteBack.first] = mWriteBack.second;
+				mWriteBack.first = RegisterIndex(0);
+				mRegisters[0] = 0;
 
-			switch (mCurrentPC) {
-				case 0xA0: {
-					BiosA0(mCallPC);
-					break;
-				}
-				case 0xB0: {
-					BiosB0(mCallPC);
-					break;
-				}
-				case 0xC0: {
-					BiosC0(mCallPC);
-					break;
+
+				switch (mCurrentPC) {
+					case 0xA0: {
+						BiosA0(mCallPC);
+						break;
+					}
+					case 0xB0: {
+						BiosB0(mCallPC);
+						break;
+					}
+					case 0xC0: {
+						BiosC0(mCallPC);
+						break;
+					}
 				}
 			}
+			mCyclesToWait = 2;
 		}
+		mCyclesToWait--;
 
 		mGPU->clock(mCycles);
 		mTimer->clock(mCycles);
@@ -134,7 +136,6 @@ namespace esx {
 				return cacheMiss(address, cacheLineNumber, tag, index);
 			}
 		} else {
-			if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
 			return mRootBus->load<U32>(toPhysicalAddress(address));
 		}
 	}
@@ -191,25 +192,31 @@ namespace esx {
 		U32 primaryOpCode = result.Opcode();
 		U32 secondaryOpCode = result.Function();
 
-		if (primaryOpCode == 0x00) {
-			if (secondaryOpCode < secondaryOpCodeDecode.size()) {
-				result.Execute = secondaryOpCodeDecode[secondaryOpCode];
+		switch (primaryOpCode) {
+			case 0x00: {
+				if (secondaryOpCode < secondaryOpCodeDecode.size()) {
+					result.Execute = secondaryOpCodeDecode[secondaryOpCode];
+				}
+				break;
 			}
-		} else if (primaryOpCode == 0x01) {
-			if (result.RegisterTarget().Value < branchOpCodeDecode.size()) {
-				result.Execute = branchOpCodeDecode[result.RegisterTarget().Value];
+
+			case 0x01: {
+				if (result.RegisterTarget().Value < branchOpCodeDecode.size()) {
+					result.Execute = branchOpCodeDecode[result.RegisterTarget().Value];
+				}
+				break;
 			}
-		} else {
-			if (primaryOpCode < primaryOpCodeDecode.size()) {
-				result.Execute = primaryOpCodeDecode[primaryOpCode];
+
+			default: {
+				if (primaryOpCode < primaryOpCodeDecode.size()) {
+					result.Execute = primaryOpCodeDecode[primaryOpCode];
+				}
 			}
 		}
 	}
 
 	void R3000::reset()
 	{
-		mRootBus = {};
-
 		mRegisters = {};
 		mCP0Registers = {};
 		mGTE.reset();
@@ -1373,8 +1380,6 @@ namespace esx {
 
 	U32 R3000::cacheMiss(U32 address, U32 cacheLineNumber, U32 tag, U32 startIndex)
 	{
-		if (!mRootBus) mRootBus = getBus(ESX_TEXT("Root"));
-
 		auto& cacheLine = mICache.CacheLines[cacheLineNumber];
 		cacheLine.Tag = tag;
 
@@ -1696,20 +1701,24 @@ namespace esx {
 		U32 cause = getCP0Register(COP0Register::Cause);
 		U32 sr = getCP0Register(COP0Register::SR);
 
-		if (mInterruptControl->interruptPending()) {
-			cause |= (1 << 10);
-		} else {
-			cause &= ~(1 << 10);
-		}
+		U32 opcodeNextInstruction = fetch(mPC);
+		if ((opcodeNextInstruction >> 26) != 0x12) {
+			if (mInterruptControl->interruptPending()) {
+				cause |= (1 << 10);
+			}
+			else {
+				cause &= ~(1 << 10);
+			}
 
-		setCP0Register(COP0Register::Cause, cause);
+			setCP0Register(COP0Register::Cause, cause);
 
-		BIT IEC = sr & 0x1;
-		U8 IM = (sr >> 8) & 0xFF;
-		U8 IP = (cause >> 8) & 0xFF;
+			BIT IEC = sr & 0x1;
+			U8 IM = (sr >> 8) & 0xFF;
+			U8 IP = (cause >> 8) & 0xFF;
 
-		if (IEC && ((IM & IP) > 0)) {
-			raiseException(ExceptionType::Interrupt);
+			if (IEC && ((IM & IP) > 0)) {
+				raiseException(ExceptionType::Interrupt);
+			}
 		}
 	}
 

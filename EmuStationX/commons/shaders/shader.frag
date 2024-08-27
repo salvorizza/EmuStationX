@@ -164,16 +164,16 @@ void main() {
         if(color == vec4(0,0,0,0)) discard;
         if(oRawTexture == 0u) {
             color = (color * vec4(oColor,1.0)) / (128.0 / 255.0);
-            if(oDither == 1u) {
-                //color = apply_dither(color);
-            }
         }
 
         if(color.a > 0) {
             color = blend_colors(previousColor, color, oSemiTransparency);
         }
-    } else {
 
+        if(oRawTexture == 0u && oDither == 1u) {
+            color = apply_dither(color);
+        }
+    } else {
         if(oDither == 1u) {
             color = apply_dither(color);
         } else {

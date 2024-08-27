@@ -162,12 +162,14 @@
     <ClInclude Include="src\Core\CD\CompactDisk.h" />
     <ClInclude Include="src\Core\CD\EXE.h" />
     <ClInclude Include="src\Core\CDROM.h" />
+    <ClInclude Include="src\Core\CD\ISO.h" />
     <ClInclude Include="src\Core\Controller.h" />
     <ClInclude Include="src\Core\DMA.h" />
     <ClInclude Include="src\Core\GPU.h" />
     <ClInclude Include="src\Core\GTE.h" />
     <ClInclude Include="src\Core\IRenderer.h" />
     <ClInclude Include="src\Core\InterruptControl.h" />
+    <ClInclude Include="src\Core\ISO9660\ISO9660.h" />
     <ClInclude Include="src\Core\MDEC.h" />
     <ClInclude Include="src\Core\MemoryCard.h" />
     <ClInclude Include="src\Core\MemoryControl.h" />
@@ -193,6 +195,7 @@
     <ClInclude Include="src\UI\Panels\ConsolePanel.h" />
     <ClInclude Include="src\UI\Panels\DisassemblerPanel.h" />
     <ClInclude Include="src\UI\Panels\FileDialogPanel.h" />
+    <ClInclude Include="src\UI\Panels\ISOBrowser.h" />
     <ClInclude Include="src\UI\Panels\KernelTables.h" />
     <ClInclude Include="src\UI\Panels\MemoryEditor.h" />
     <ClInclude Include="src\UI\Panels\MemoryEditorPanel.h" />
@@ -213,11 +216,13 @@
     <ClCompile Include="src\Core\CD\CDRWIN.cpp" />
     <ClCompile Include="src\Core\CD\EXE.cpp" />
     <ClCompile Include="src\Core\CDROM.cpp" />
+    <ClCompile Include="src\Core\CD\ISO.cpp" />
     <ClCompile Include="src\Core\Controller.cpp" />
     <ClCompile Include="src\Core\DMA.cpp" />
     <ClCompile Include="src\Core\GPU.cpp" />
     <ClCompile Include="src\Core\GTE.cpp" />
     <ClCompile Include="src\Core\InterruptControl.cpp" />
+    <ClCompile Include="src\Core\ISO9660\ISO9660.cpp" />
     <ClCompile Include="src\Core\MDEC.cpp" />
     <ClCompile Include="src\Core\MemoryCard.cpp" />
     <ClCompile Include="src\Core\MemoryControl.cpp" />
@@ -241,6 +246,7 @@
     <ClCompile Include="src\UI\Panels\ConsolePanel.cpp" />
     <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp" />
     <ClCompile Include="src\UI\Panels\FileDialogPanel.cpp" />
+    <ClCompile Include="src\UI\Panels\ISOBrowser.cpp" />
     <ClCompile Include="src\UI\Panels\KernelTables.cpp" />
     <ClCompile Include="src\UI\Panels\MemoryEditorPanel.cpp" />
     <ClCompile Include="src\UI\Panels\Panel.cpp" />

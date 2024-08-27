@@ -50,12 +50,15 @@ namespace esx {
 		None = 0x00,
 		GetStat = 0x01,
 		Setloc = 0x02,
+		Play = 0x03,
 		ReadN = 0x06,
+		Stop = 0x08,
 		Pause = 0x09,
 		Init = 0x0A,
 		Mute = 0x0B,
 		Demute = 0x0C,
 		Setmode = 0x0E,
+		GetlocP = 0x11,
 		GetTN = 0x13,
 		GetTD = 0x14,
 		SeekL = 0x15,
@@ -181,6 +184,8 @@ namespace esx {
 		U8 getMode();
 		void setMode(U8 value);
 
+		SubchannelQ generateSubChannelQ();
+
 
 	private:
 		IndexStatusRegister CDROM_REG0;
@@ -209,6 +214,8 @@ namespace esx {
 		SharedPtr<CompactDisk> mCD;
 		U64 mSeekLBA;
 		BIT mSetLocUnprocessed = ESX_FALSE;
+
+		SubchannelQ mLastSubQ = {};
 	};
 
 }

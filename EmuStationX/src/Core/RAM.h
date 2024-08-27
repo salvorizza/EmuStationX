@@ -15,7 +15,7 @@ namespace esx {
 		friend class MemoryEditorPanel;
 		friend class DisassemblerPanel;
 
-		RAM(const StringView& name,U32 startAddress, U32 addressingSize, U64 size);
+		RAM(const StringView& name,U32 startAddress, U32 addressingSize, U64 size, BIT checkLock = ESX_TRUE);
 		~RAM();
 
 		virtual void init() override;
@@ -37,6 +37,7 @@ namespace esx {
 	private:
 		Vector<U8> mMemory;
 		SharedPtr<MemoryControl> mMemoryControl;
+		BIT mCheckLock;
 	};
 
 }

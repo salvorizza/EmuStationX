@@ -68,6 +68,7 @@ namespace esx {
 
 			case DebugState::Step:
 				mInstance->clock();
+				mInstance->clock();
 
 				//disassemble(mInstance->mPC - 4 * disassembleRange, 4 * disassembleRange * 2);
 				mScrollToCurrent = true;

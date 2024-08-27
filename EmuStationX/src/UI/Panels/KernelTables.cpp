@@ -119,7 +119,7 @@ namespace esx {
 	}
 
 	KernelTables::KernelTables()
-		: Panel("Kernel Tables", false, true)
+		: Panel("Kernel Tables", false)
 	{}
 
 	KernelTables::~KernelTables()

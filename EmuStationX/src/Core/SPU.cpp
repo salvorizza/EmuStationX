@@ -84,7 +84,7 @@ namespace esx {
 	}
 
 
-	//static Array<std::ofstream, 24> sStreams;
+	static Array<std::ofstream, 24> sStreams;
 
 	SPU::SPU()
 		: BusDevice(ESX_TEXT("SPU"))
@@ -95,6 +95,7 @@ namespace esx {
 
 	SPU::~SPU()
 	{
+		sStreams[0].close();
 	}
 
 	const Array<I16, 5> pos_xa_adpcm_table = { 0, 60, 115, 98, 122 };
@@ -172,7 +173,7 @@ namespace esx {
 			I16 left = static_cast<I16>((SATURATE(leftSum) * processVolume(mMainVolumeLeft)) >> 15);
 			I16 right = static_cast<I16>((SATURATE(rightSum) * processVolume(mMainVolumeRight)) >> 15);
 
-			//sStreams[0].write((char*)&left, 2);
+			sStreams[0].write((char*)&left, 2);
 
 			std::scoped_lock<std::mutex> lc(mSamplesMutex);
 			mSamples[mSamplesWrite].Left = left;
@@ -548,6 +549,22 @@ namespace esx {
 		}
 	}
 
+	void SPU::store(const StringView& busName, U32 address, U32 value)
+	{
+		store(busName, address + 0x0, static_cast<U16>((value >> 0) & 0xFFFF));
+		store(busName, address + 0x2, static_cast<U16>((value >> 16) & 0xFFFF));
+	}
+
+	void SPU::load(const StringView& busName, U32 address, U32& output)
+	{
+		U16 lower, upper;
+		
+		load(busName, address + 0x0, lower);
+		load(busName, address + 0x2, upper);
+
+		output = (static_cast<U32>(upper) << 16) | lower;
+	}
+
 	void SPU::reset()
 	{
 		mVoices = {};
@@ -583,7 +600,7 @@ namespace esx {
 		std::fill(mRAM.begin(),mRAM.end(),0x00);
 		for (U32 i = 0; i < 24; i++) {
 			mVoices[i].Number = i;
-			//sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
+			if(i==0 && !sStreams[i].is_open()) sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
 		}
 	}
 
