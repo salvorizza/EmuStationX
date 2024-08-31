@@ -1,0 +1,19 @@
+﻿{
+  "version": "2.0.0",
+  "tasks": [{
+    "type": "shell",
+    "label": "C/C++: build",
+    "command": "clear && time make Glad -r -j$(nproc)",
+    "args": [],
+    "options": {
+      "cwd": "${workspaceFolder}/../"
+    },
+    "problemMatcher": [
+      "$gcc"
+    ],
+    "group": {
+      "kind": "build",
+      "isDefault": true
+    }
+  }]
+}

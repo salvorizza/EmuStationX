@@ -49,7 +49,6 @@ namespace esx {
 				break;
 
 			case DebugState::Running: {
-				U64 beginClocks = mInstance->getClocks();
 				do {
 					if (breakFunction(mInstance->mPC)) {
 						setDebugState(DebugState::Breakpoint);
@@ -62,7 +61,6 @@ namespace esx {
 						}
 					}
 				} while (!mGPU->isNewFrameAvailable());
-				U64 endClocks = mInstance->getClocks();
 				break;
 			}
 

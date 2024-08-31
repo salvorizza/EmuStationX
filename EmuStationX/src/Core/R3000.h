@@ -27,6 +27,26 @@ namespace esx {
 
 	#define ESX_CORE_BIOS_LOG_TRACE(x,...) //ESX_CORE_LOG_TRACE(x,__VA_ARGS__)
 
+	#define PRINT_LOAD(x)
+	#define PRINT_STORE(x,v)
+
+	#ifdef IO_TRACE
+		#define PRINT_IO_LOAD(x, o) \
+		if (x >= 0x1F801000 && x < 0x1F802000) { \
+			const StringView& ioName = IOMap.contains(x & ~0x1) ? IOMap.at(x & ~0x1) : IOMap.at(x & ~0x3); \
+			ESX_CORE_LOG_INFO("{:08x}h - I/O Read from {}[{:08x}h] value {:08x}h", mCurrentInstruction.Address, ioName, x, o); \
+		}
+
+		#define PRINT_IO_STORE(x, v) \
+		if (x >= 0x1F801000 && x < 0x1F802000) { \
+			const StringView& ioName = IOMap.contains(x & ~0x1) ? IOMap.at(x & ~0x1) : IOMap.at(x & ~0x3); \
+			ESX_CORE_LOG_INFO("{:08x}h - I/O Write {:08x}h to {}[{:08x}h]", mCurrentInstruction.Address, v, ioName, x); \
+		}
+	#else
+		#define PRINT_IO_LOAD(x, o)
+		#define PRINT_IO_STORE(x, v)
+	#endif
+
 	static const UnorderedMap<U32, StringView> IOMap = {
 		{ 0x1F801000, "EXP1_BASE_ADDRESS" },
 		{ 0x1F801004, "EXP2_BASE_ADDRESS" },
@@ -303,7 +323,6 @@ namespace esx {
 		{ 0x1F801E5C, "SPU_VOICE23_CURRENT_VOLUME_LEFT_RIGHT" },
 	};
 
-
 	constexpr Array<U32, 8> SEGS_MASKS = {
 		//KUSEG:2048MB
 		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
@@ -320,30 +339,11 @@ namespace esx {
 		at,
 		v0, 
 		v1,
-		a0, 
-		a1, 
-		a2, 
-		a3,
-		t0,
-		t1,
-		t2, 
-		t3, 
-		t4,
-		t5, 
-		t6, 
-		t7,
-		s0, 
-		s1, 
-		s2, 
-		s3, 
-		s4, 
-		s5, 
-		s6, 
-		s7,
-		t8, 
-		t9,
-		k0, 
-		k1,
+		a0,a1,a2,a3,
+		t0,t1,t2,t3,t4,t5,t6,t7,
+		s0,s1,s2,s3,s4,s5,s6,s7,
+		t8,t9,
+		k0,k1,
 		gp,
 		sp,
 		fp,
@@ -484,6 +484,12 @@ namespace esx {
 	struct iCache {
 		Array<CacheLine, 256> CacheLines = {};
 	};
+
+	struct StoreOperation {
+		U32 Address = 0;
+		U32 Data = 0;
+		U32 Size = 0;
+	};
 	
 	class R3000 : public BusDevice {
 	public:
@@ -513,17 +519,21 @@ namespace esx {
 			}
 
 			U32 physicalAddress = toPhysicalAddress(address);
-			if (physicalAddress == 0x1CED68) {
-				//ESX_CORE_LOG_TRACE("Load {:08x}", mCurrentInstruction.Address);
+
+			if (isWriteQueueActive(address)) {
+				if (flushWriteQueue(physicalAddress) == ESX_FALSE) {
+					flushWriteQueueFirst();
+				}
+			} else {
+				flushWriteQueueAll(); //TODO: Write queue stall
 			}
+
+			PRINT_LOAD(physicalAddress);
 
 			T output = mRootBus->load<T>(physicalAddress);
 
-			/*if (physicalAddress >= 0x1F801000 && physicalAddress < 0x1F802000) {
-				const StringView& ioName = IOMap.contains(address & ~0x1) ? IOMap.at(address & ~0x1) : IOMap.at(address & ~0x3);
-				ESX_CORE_LOG_INFO("{:08x}h - I/O Read from {}[{:08x}h] value {:08x}h", mCurrentInstruction.Address, ioName, address, output);
-			}*/
-
+			PRINT_IO_LOAD(physicalAddress, output);
+			
 			return output;
 		}
 
@@ -534,22 +544,29 @@ namespace esx {
 				return;
 			}
 
-			if (mDMA->isRunning()) {
-				mStall = ESX_TRUE;
-			}
-
 			U32 physicalAddress = toPhysicalAddress(address);
-			//if (physicalAddress == 0x1901b0) {
-			if(physicalAddress == 0x1D048C) {
-				ESX_CORE_LOG_TRACE("Store {:08x} value {:08x}h", mCurrentInstruction.Address, value);
+
+			PRINT_STORE(physicalAddress, value);
+			PRINT_IO_STORE(physicalAddress,value);
+
+			if (isWriteQueueActive(address)) {
+				if (isWriteQueueFull()) {
+					if (mDMA->isRunning()) {
+						mStall = ESX_TRUE;
+					} else {
+						flushWriteQueueAll();
+					}
+				}
+
+				if(!mStall) addWriteQueueOperation({ .Address = physicalAddress, .Data = value, .Size = sizeof(T) });
+			} else {
+				if (mDMA->isRunning()) {
+					mStall = ESX_TRUE;
+				} else {
+					flushWriteQueueAll(); //TODO: Stall cause by write queue
+					mRootBus->store<T>(physicalAddress, value);
+				}
 			}
-
-			/*if (physicalAddress >= 0x1F801000 && physicalAddress < 0x1F802000) {
-				const StringView& ioName = IOMap.contains(address & ~0x1) ? IOMap.at(address & ~0x1) : IOMap.at(address & ~0x3);
-				ESX_CORE_LOG_INFO("{:08x}h - I/O Write {:08x}h to {}[{:08x}h]", mCurrentInstruction.Address, value, ioName, address);
-			}*/
-
-			mRootBus->store<T>(physicalAddress, value);
 		}
 
 		static U32 toPhysicalAddress(U32 address) {
@@ -557,6 +574,10 @@ namespace esx {
 		}
 
 		static inline BIT isCacheActive(U32 address) {
+			return (address & (1 << 29)) == 0;
+		}
+
+		static inline BIT isWriteQueueActive(U32 address) {
 			return (address & (1 << 29)) == 0;
 		}
 
@@ -684,6 +705,14 @@ namespace esx {
 		void BiosC0(U32 callPC);
 
 		void iCacheStore(U32 address, U32 value);
+
+		inline BIT isWriteQueueFull() { return (mWriteQueue.size() == 4) ? ESX_TRUE : ESX_FALSE; }
+		void addWriteQueueOperation(const StoreOperation& writeOp);
+		void doWriteQueueOperation(const StoreOperation& writeOp);
+		BIT flushWriteQueue(U32 address);
+		void flushWriteQueueFirst();
+		void flushWriteQueueAll();
+
 	private:
 		SharedPtr<Bus> mRootBus;
 		StringStream mTTY = {};
@@ -703,6 +732,7 @@ namespace esx {
 		U32 mHI = 0;
 		U32 mLO = 0;
 		iCache mICache = {};
+		Vector<StoreOperation> mWriteQueue = {};
 		BIT mStall = ESX_FALSE;
 
 		BIT mBranch = ESX_FALSE;

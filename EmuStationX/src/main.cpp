@@ -253,7 +253,9 @@ public:
 	using HandlerFunction = std::function<SharedPtr<CompactDisk>(const std::filesystem::path&)>;
 
 	String getBootNameFromSystemConfig() {
-		auto cnfData = mISO9660->GetFileData("\\SYSTEM.CNF;1");
+		const DirectoryRecord& info = mISO9660->GetFileInfo("\\SYSTEM.CNF;1");
+		Vector<U8> cnfData = Vector<U8>(info.DataSizeLE);
+		mISO9660->GetFileData("\\SYSTEM.CNF;1", cnfData);
 		String systemCnf = String(cnfData.begin(), cnfData.end());
 		size_t end = systemCnf.find(String(";1"));
 		size_t start = systemCnf.find(String(":\\")) + 2;
@@ -282,9 +284,8 @@ public:
 				mISO9660 = MakeShared<ISO9660>(cd);
 				mISOBrowser->setInstance(mISO9660);
 				mCurrentGame = getBootNameFromSystemConfig();
-
-				hardReset();
 			}
+			hardReset();
 			ESX_CORE_LOG_INFO("File {} loaded", filePath.stem().string());
 		} else {
 			ESX_CORE_LOG_ERROR("File not supported yet");

@@ -47,7 +47,9 @@ namespace esx {
 					}
 
 					if (ImGui::IsItemActive()) {
-						selectedFileData = mISO9660->GetFileData(filePath);
+						const DirectoryRecord& info = mISO9660->GetFileInfo(filePath);
+						selectedFileData.resize(info.DataSizeLE);
+						mISO9660->GetFileData(filePath, selectedFileData);
 					}
 				}
 

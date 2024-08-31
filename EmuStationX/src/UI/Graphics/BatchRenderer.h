@@ -87,6 +87,8 @@ namespace esx {
 		BIT mRefreshVRAMData = ESX_FALSE;
 
 		BIT m24Bit = ESX_FALSE;
+
+		SharedPtr<PixelBuffer> mPBO24Up;
 	};
 
 }

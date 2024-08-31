@@ -56,15 +56,11 @@ namespace esx {
 		return SearchFile(filePath);
 	}
 
-	Vector<U8> ISO9660::GetFileData(const StringView& filePath)
+	void ISO9660::GetFileData(const StringView& filePath, Vector<U8>& data)
 	{
-		Vector<U8> data = {};
-		
 		ReadPathTable();
 		const DirectoryRecord& file = SearchFile(filePath);
 		ReadFileData(file, data);
-
-		return data;
 	}
 
 	void ISO9660::ReadPrimaryVolumeDecriptor()
@@ -86,8 +82,9 @@ namespace esx {
 		FileSystemDirectory* currentNode = &mFileSystem;
 		BIT firstIteration = ESX_TRUE;
 		I32 directoryNumber = 1;
-		String lastName = "";
+		String lastChildName = "";
 		char directoryNameBuffer[9] = "\0";
+		UnorderedMap<U32, FileSystemDirectory*> dirMap = {};
 		for (I32 bufferPointer = 0; bufferPointer < mPVD.PathTableSizeLE;) {
 			FileSystemDirectory node;
 
@@ -114,17 +111,23 @@ namespace esx {
 			}
 
 
+			FileSystemDirectory* refNode;
 			if (firstIteration) {
 				*currentNode = node;
+				dirMap[node.Number] = currentNode;
 			} else {
-				if (currentNode->Number == node.PathTableRecord.ParentDirectoryNumber) {
-					currentNode->ChildDirectories[node.PathTableRecord.DirectoryName] = node;
-				} else {
-					currentNode = &currentNode->ChildDirectories[lastName];
+				if (dirMap.contains(node.PathTableRecord.ParentDirectoryNumber)) {
+					dirMap[node.PathTableRecord.ParentDirectoryNumber]->ChildDirectories[node.PathTableRecord.DirectoryName] = node;
+					dirMap[node.Number] = &(dirMap[node.PathTableRecord.ParentDirectoryNumber]->ChildDirectories[node.PathTableRecord.DirectoryName]);
+				}
+				else {
+					currentNode = &currentNode->ChildDirectories[lastChildName];
+					dirMap[node.Number] = &(currentNode->ChildDirectories[lastChildName]);
 				}
 			}
 
-			lastName = node.PathTableRecord.DirectoryName;
+
+			lastChildName = node.PathTableRecord.DirectoryName;
 			firstIteration = ESX_FALSE;
 			directoryNumber++;
 		}
@@ -197,17 +200,14 @@ namespace esx {
 	{
 		Sector fileData = {};
 		
-		data.resize(file.DataSizeLE);
-
-		
 		U32 sector = file.DataLogicalBlockNumberLE;
-		U32 numSectors = file.DataSizeLE / 0x800;
-		if ((file.DataSizeLE % 0x800) != 0) {
+		U32 numSectors = data.size() / 0x800;
+		if ((data.size() % 0x800) != 0) {
 			numSectors++;
 		}
 
 		U32 bufferPointer = 0;
-		U32 remainingSize = file.DataSizeLE;
+		U32 remainingSize = data.size();
 		for (I32 i = 0; i < numSectors; i++) {
 			Sector fileData = {};
 			U64 binPos = CompactDisk::calculateBinaryPosition(0, 2, file.DataLogicalBlockNumberLE + i);

@@ -1,0 +1,83 @@
+﻿{
+  "version": "0.2.0",
+  "configurations": [
+  {
+    "name": "Glad: Build and debug",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "C:/dev_nuovo/C++/EmuStationX/EmuStationX/vendor/Glad/bin/Debug-windows-x86_64/Glad/Glad",
+    "args": [],
+    "stopAtEntry": false,
+    "cwd": "${workspaceFolder}/../",
+    "environment": [],
+    "externalConsole": false,
+    "MIMode": "gdb",
+    "setupCommands": [
+      {
+      "description": "Enable pretty-printing for gdb",
+      "text": "-enable-pretty-printing",
+      "ignoreFailures": true
+      },
+      {
+      "description": "Enable break on all-exceptions",
+      "text": "catch throw",
+      "ignoreFailures": true
+      }
+    ],
+    "preLaunchTask": "C/C++: build",
+    "miDebuggerPath": "/usr/bin/gdb"
+  }
+  ,{
+    "name": "Glad: Build and debug",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "C:/dev_nuovo/C++/EmuStationX/EmuStationX/vendor/Glad/bin/Release-windows-x86_64/Glad/Glad",
+    "args": [],
+    "stopAtEntry": false,
+    "cwd": "${workspaceFolder}/../",
+    "environment": [],
+    "externalConsole": false,
+    "MIMode": "gdb",
+    "setupCommands": [
+      {
+      "description": "Enable pretty-printing for gdb",
+      "text": "-enable-pretty-printing",
+      "ignoreFailures": true
+      },
+      {
+      "description": "Enable break on all-exceptions",
+      "text": "catch throw",
+      "ignoreFailures": true
+      }
+    ],
+    "preLaunchTask": "C/C++: build",
+    "miDebuggerPath": "/usr/bin/gdb"
+  }
+  ,{
+    "name": "Glad: Build and debug",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "C:/dev_nuovo/C++/EmuStationX/EmuStationX/vendor/Glad/bin/Dist-windows-x86_64/Glad/Glad",
+    "args": [],
+    "stopAtEntry": false,
+    "cwd": "${workspaceFolder}/../",
+    "environment": [],
+    "externalConsole": false,
+    "MIMode": "gdb",
+    "setupCommands": [
+      {
+      "description": "Enable pretty-printing for gdb",
+      "text": "-enable-pretty-printing",
+      "ignoreFailures": true
+      },
+      {
+      "description": "Enable break on all-exceptions",
+      "text": "catch throw",
+      "ignoreFailures": true
+      }
+    ],
+    "preLaunchTask": "C/C++: build",
+    "miDebuggerPath": "/usr/bin/gdb"
+  }
+  ]
+}

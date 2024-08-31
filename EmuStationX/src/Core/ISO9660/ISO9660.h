@@ -119,7 +119,7 @@ namespace esx {
 
         Vector<String> ListFiles(const StringView& directoryPath);
         const DirectoryRecord& GetFileInfo(const StringView& filePath);
-        Vector<U8> GetFileData(const StringView& filePath);
+        void GetFileData(const StringView& filePath, Vector<U8>& data);
 
     private:
         void ReadPrimaryVolumeDecriptor();

@@ -224,10 +224,10 @@ namespace esx {
 		Array<I16, 3> V = {};
 		Array<I16, 9> M = {};
 
-		Array<I16, 3> IR = { mRegisters.IR1, mRegisters.IR2, mRegisters.IR3 };
+		Array<I16, 3> IR = { (I16)mRegisters.IR1, (I16)mRegisters.IR2, (I16)mRegisters.IR3 };
 		Array<I32, 3> Zero = { 0,0,0 };
 		Array<I16, 9> GarbageMatrix = {
-			-(U16)mRegisters.RGBC[0] << 4,+(U16)mRegisters.RGBC[0] << 4,mRegisters.IR0,
+			I16(I32(-1) * I16(U16(mRegisters.RGBC[0]) << 4)), I16(U16(mRegisters.RGBC[0]) << 4), I16(mRegisters.IR0),
 			mRegisters.RT[0 * 3 + 2],mRegisters.RT[0 * 3 + 2],mRegisters.RT[0 * 3 + 2],
 			mRegisters.RT[1 * 3 + 1],mRegisters.RT[1 * 3 + 1],mRegisters.RT[1 * 3 + 1]
 		};

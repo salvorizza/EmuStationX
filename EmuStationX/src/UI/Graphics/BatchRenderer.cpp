@@ -53,9 +53,13 @@ namespace esx {
 
 		mFBO24 = MakeShared<FrameBuffer>(1024, 512);
 		mTexture24 = MakeShared<Texture2D>(1);
-		mTexture24->setData(nullptr, 1024, 512, InternalFormat::RGB8, DataType::UnsignedByte, DataFormat::RGB);
+		mTexture24->setData(nullptr, 682, 512, InternalFormat::RGB8, DataType::UnsignedByte, DataFormat::RGB);
 		mFBO24->setColorAttachment(mTexture24);
 		mFBO24->init();
+
+		mPBO24Up = MakeShared<PixelBuffer>();
+		mPBO24Up->setData(nullptr, 682 * 512 * sizeof(U8) * 3, BufferMode::Write);
+		mPBO24Up->unbind();
 
 		mVRAM16.resize(1024 * 512);
 
@@ -83,6 +87,14 @@ namespace esx {
 	{
 		ptrdiff_t numTriIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
 		ptrdiff_t numLineStripIndices = std::distance(mLineStripVerticesBase.begin(), mLineStripCurrentVertex);
+
+		if (m24Bit) {
+			if (mRefreshVRAMData) {
+				refresh16BitData();
+				mRefreshVRAMData = ESX_FALSE;
+			}
+			refresh24BitTexture();
+		}
 
 		if (numTriIndices > 0 || numLineStripIndices > 0) {
 			mFBO16->bind();
@@ -128,12 +140,6 @@ namespace esx {
 			mFBO16->unbind();
 
 			mRefreshVRAMData = ESX_TRUE;
-
-			if (m24Bit) {
-				refresh16BitData();
-				refresh24BitTexture();
-				mRefreshVRAMData = ESX_FALSE;
-			}
 		}
 	}
 
@@ -288,8 +294,6 @@ namespace esx {
 			}
 		}
 		mTexture16->unbind();
-
-		refresh24BitTexture();
 	}
 
 	void BatchRenderer::VRAMRead(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels)
@@ -353,9 +357,20 @@ namespace esx {
 
 	void BatchRenderer::refresh24BitTexture()
 	{
+
+		/*mTexture24->bind();
+		mTexture24->copy(mPBO24Up);
+		void* mVRAM24DMA = mPBO24Up->mapBuffer();
+		if (mVRAM24DMA) {
+			std::memcpy(mVRAM24DMA, mVRAM16.data(), mVRAM16.size() * sizeof(VRAMColor));
+			mPBO24Up->unmapBuffer();
+		}
+		mPBO24Up->unbind();*/
+
 		mTexture24->bind();
-		mTexture24->setPixels(0, 0, 682, 511, mVRAM16.data());
+		mTexture24->setPixels(0, 0, 682, 512, mVRAM16.data());
 		mTexture24->unbind();
+
 	}
 
 }

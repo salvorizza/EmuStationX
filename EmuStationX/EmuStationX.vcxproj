@@ -104,7 +104,7 @@
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>src;vendor\glfw\include;vendor\imgui;vendor\Glad\include;vendor\glm;vendor\stb;vendor\imgui-console\include;vendor\optick\src;vendor\miniaudio;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <Optimization>Full</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <MinimalRebuild>false</MinimalRebuild>
@@ -113,6 +113,12 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ExternalWarningLevel>Level3</ExternalWarningLevel>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -123,6 +129,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Dist|x64'">
@@ -161,15 +168,15 @@
     <ClInclude Include="src\Core\CD\CDRWIN.h" />
     <ClInclude Include="src\Core\CD\CompactDisk.h" />
     <ClInclude Include="src\Core\CD\EXE.h" />
-    <ClInclude Include="src\Core\CDROM.h" />
     <ClInclude Include="src\Core\CD\ISO.h" />
+    <ClInclude Include="src\Core\CDROM.h" />
     <ClInclude Include="src\Core\Controller.h" />
     <ClInclude Include="src\Core\DMA.h" />
     <ClInclude Include="src\Core\GPU.h" />
     <ClInclude Include="src\Core\GTE.h" />
     <ClInclude Include="src\Core\IRenderer.h" />
-    <ClInclude Include="src\Core\InterruptControl.h" />
     <ClInclude Include="src\Core\ISO9660\ISO9660.h" />
+    <ClInclude Include="src\Core\InterruptControl.h" />
     <ClInclude Include="src\Core\MDEC.h" />
     <ClInclude Include="src\Core\MemoryCard.h" />
     <ClInclude Include="src\Core\MemoryControl.h" />
@@ -215,14 +222,14 @@
     <ClCompile Include="src\Core\Bios.cpp" />
     <ClCompile Include="src\Core\CD\CDRWIN.cpp" />
     <ClCompile Include="src\Core\CD\EXE.cpp" />
-    <ClCompile Include="src\Core\CDROM.cpp" />
     <ClCompile Include="src\Core\CD\ISO.cpp" />
+    <ClCompile Include="src\Core\CDROM.cpp" />
     <ClCompile Include="src\Core\Controller.cpp" />
     <ClCompile Include="src\Core\DMA.cpp" />
     <ClCompile Include="src\Core\GPU.cpp" />
     <ClCompile Include="src\Core\GTE.cpp" />
-    <ClCompile Include="src\Core\InterruptControl.cpp" />
     <ClCompile Include="src\Core\ISO9660\ISO9660.cpp" />
+    <ClCompile Include="src\Core\InterruptControl.cpp" />
     <ClCompile Include="src\Core\MDEC.cpp" />
     <ClCompile Include="src\Core\MemoryCard.cpp" />
     <ClCompile Include="src\Core\MemoryControl.cpp" />

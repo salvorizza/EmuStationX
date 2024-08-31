@@ -17,6 +17,7 @@
 #include <functional>
 #include <tuple>
 #include <filesystem>
+#include <mutex>
 
 
 namespace esx {
@@ -81,6 +82,8 @@ namespace esx {
 #define ANSI_COLOR_CYAN    ESX_TEXT("\x1b[36m")
 #define ANSI_COLOR_RESET   ESX_TEXT("\x1b[0m")
 
+	template<typename T>
+	using List = std::list<T>;
 
 	template<typename T>
 	using Queue = std::queue<T>;

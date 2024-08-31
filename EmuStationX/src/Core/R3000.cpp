@@ -89,7 +89,7 @@ namespace esx {
 					}
 				}
 			}
-			mCyclesToWait = 2;
+			mCyclesToWait = 1;
 		}
 		mCyclesToWait--;
 
@@ -1694,6 +1694,48 @@ namespace esx {
 		InstructionCache& instruction = mICache.CacheLines[cacheLineNumber].Instructions[wordAddress];
 		instruction.Word = value;
 		instruction.Valid = ESX_FALSE;
+	}
+
+	void R3000::addWriteQueueOperation(const StoreOperation& writeOp)
+	{
+		mWriteQueue.push_back(writeOp);
+	}
+
+	void R3000::doWriteQueueOperation(const StoreOperation& writeOp)
+	{
+		switch (writeOp.Size) {
+			case 1:	mRootBus->store<U8>(writeOp.Address, writeOp.Data); break;
+			case 2:	mRootBus->store<U16>(writeOp.Address, writeOp.Data); break;
+			case 4:	mRootBus->store<U32>(writeOp.Address, writeOp.Data); break;
+		}
+	}
+
+	BIT R3000::flushWriteQueue(U32 address)
+	{
+		for (auto it = mWriteQueue.begin(); it != mWriteQueue.end(); ++it) {
+			if (it->Address == address) {
+				doWriteQueueOperation(*it);
+				mWriteQueue.erase(it);
+				return ESX_TRUE;
+			}
+		}
+		return ESX_FALSE;
+	}
+
+	void R3000::flushWriteQueueFirst()
+	{
+		if (mWriteQueue.size() == 0) return;
+		auto it = mWriteQueue.begin();
+		doWriteQueueOperation(*it);
+		mWriteQueue.erase(it);
+	}
+
+	void R3000::flushWriteQueueAll()
+	{
+		for (auto it = mWriteQueue.begin(); it != mWriteQueue.end(); ++it) {
+			doWriteQueueOperation(*it);
+		}
+		mWriteQueue.clear();
 	}
 
 	void R3000::handleInterrupts()

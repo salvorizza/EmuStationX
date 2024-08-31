@@ -1,0 +1,47 @@
+{
+  "configurations": [
+  {
+    "name": "Glad Debug",
+    "includePath": [
+      "${workspaceFolder}/**"
+      ,"C:/dev_nuovo/C++/EmuStationX/EmuStationX/vendor/Glad/include"
+    ],
+    "defines": [
+    ],
+    "compilerPath": "/usr/bin/g++",
+    "intelliSenseMode": "gcc-x64",
+    "compilerArgs": [
+      ""
+    ]
+  }
+  ,{
+    "name": "Glad Release",
+    "includePath": [
+      "${workspaceFolder}/**"
+      ,"C:/dev_nuovo/C++/EmuStationX/EmuStationX/vendor/Glad/include"
+    ],
+    "defines": [
+    ],
+    "compilerPath": "/usr/bin/g++",
+    "intelliSenseMode": "gcc-x64",
+    "compilerArgs": [
+      ""
+    ]
+  }
+  ,{
+    "name": "Glad Dist",
+    "includePath": [
+      "${workspaceFolder}/**"
+      ,"C:/dev_nuovo/C++/EmuStationX/EmuStationX/vendor/Glad/include"
+    ],
+    "defines": [
+    ],
+    "compilerPath": "/usr/bin/g++",
+    "intelliSenseMode": "gcc-x64",
+    "compilerArgs": [
+      ""
+    ]
+  }
+  ],
+  "version": 4
+}

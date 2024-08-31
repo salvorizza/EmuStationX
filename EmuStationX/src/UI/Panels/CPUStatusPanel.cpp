@@ -229,7 +229,7 @@ namespace esx {
 			}
 
 			case TabItem::CP2DAT: {
-				Array<I16, 3> IRV = { gte.mRegisters.IR1,gte.mRegisters.IR2,gte.mRegisters.IR3 };
+				Array<I16, 3> IRV = { I16(gte.mRegisters.IR1),I16(gte.mRegisters.IR2),I16(gte.mRegisters.IR3) };
 
 				drawVector("V0", gte.mRegisters.V0.data(), 3);
 				drawVector("V1", gte.mRegisters.V1.data(), 3);
@@ -259,7 +259,7 @@ namespace esx {
 			}
 
 			case TabItem::CP2CNT: {
-				Array<I16, 3> IRV = { gte.mRegisters.IR1,gte.mRegisters.IR2,gte.mRegisters.IR3 };
+				Array<I16, 3> IRV = { I16(gte.mRegisters.IR1),I16(gte.mRegisters.IR2),I16(gte.mRegisters.IR3) };
 
 				drawMatrix("RT", gte.mRegisters.RT.data(), 3, 3);
 				drawVector("TR", gte.mRegisters.TR.data(), 3);

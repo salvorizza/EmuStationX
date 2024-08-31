@@ -49,6 +49,9 @@
     <Filter Include="src\Core\CD">
       <UniqueIdentifier>{5B3EAB3D-C7F3-2333-50E8-1D0ABC9C1A37}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Core\ISO9660">
+      <UniqueIdentifier>{74FB37EB-60F4-563D-8926-3CC2757E3649}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\UI">
       <UniqueIdentifier>{3A4B661C-26ED-90F2-0FA8-A446FBE81743}</UniqueIdentifier>
     </Filter>
@@ -93,6 +96,9 @@
     <ClInclude Include="src\Core\CD\EXE.h">
       <Filter>src\Core\CD</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\CD\ISO.h">
+      <Filter>src\Core\CD</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\CDROM.h">
       <Filter>src\Core</Filter>
     </ClInclude>
@@ -110,6 +116,9 @@
     </ClInclude>
     <ClInclude Include="src\Core\IRenderer.h">
       <Filter>src\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\ISO9660\ISO9660.h">
+      <Filter>src\Core\ISO9660</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\InterruptControl.h">
       <Filter>src\Core</Filter>
@@ -189,6 +198,9 @@
     <ClInclude Include="src\UI\Panels\FileDialogPanel.h">
       <Filter>src\UI\Panels</Filter>
     </ClInclude>
+    <ClInclude Include="src\UI\Panels\ISOBrowser.h">
+      <Filter>src\UI\Panels</Filter>
+    </ClInclude>
     <ClInclude Include="src\UI\Panels\KernelTables.h">
       <Filter>src\UI\Panels</Filter>
     </ClInclude>
@@ -228,9 +240,6 @@
     <ClInclude Include="src\Utils\LoggingSystem.h">
       <Filter>src\Utils</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\CD\ISO.h" />
-    <ClInclude Include="src\Core\ISO9660\ISO9660.h" />
-    <ClInclude Include="src\UI\Panels\ISOBrowser.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -243,6 +252,9 @@
       <Filter>src\Core\CD</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\CD\EXE.cpp">
+      <Filter>src\Core\CD</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\CD\ISO.cpp">
       <Filter>src\Core\CD</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\CDROM.cpp">
@@ -259,6 +271,9 @@
     </ClCompile>
     <ClCompile Include="src\Core\GTE.cpp">
       <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\ISO9660\ISO9660.cpp">
+      <Filter>src\Core\ISO9660</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\InterruptControl.cpp">
       <Filter>src\Core</Filter>
@@ -332,6 +347,9 @@
     <ClCompile Include="src\UI\Panels\FileDialogPanel.cpp">
       <Filter>src\UI\Panels</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI\Panels\ISOBrowser.cpp">
+      <Filter>src\UI\Panels</Filter>
+    </ClCompile>
     <ClCompile Include="src\UI\Panels\KernelTables.cpp">
       <Filter>src\UI\Panels</Filter>
     </ClCompile>
@@ -368,9 +386,6 @@
     <ClCompile Include="src\main.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\CD\ISO.cpp" />
-    <ClCompile Include="src\Core\ISO9660\ISO9660.cpp" />
-    <ClCompile Include="src\UI\Panels\ISOBrowser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="commons\icons\Logo.ico">

@@ -18,7 +18,9 @@ namespace esx {
 		void bind();
 		void unbind();
 		void setData(void* data, size_t size, U32 flags);
+		void* mapBuffer();
 		void* mapBufferRange();
+		void unmapBuffer();
 
 	private:
 		U32 mRendererID = 0;
