@@ -89,7 +89,7 @@ namespace esx {
 					}
 				}
 			}
-			mCyclesToWait = 1;
+			mCyclesToWait = 2;
 		}
 		mCyclesToWait--;
 
@@ -136,7 +136,7 @@ namespace esx {
 				return cacheMiss(address, cacheLineNumber, tag, index);
 			}
 		} else {
-			return mRootBus->load<U32>(toPhysicalAddress(address));
+			return mRootBus->load<U32>(address);
 		}
 	}
 
@@ -1387,7 +1387,7 @@ namespace esx {
 			auto& instruction = cacheLine.Instructions[index];
 
 			if (index >= startIndex) {
-				U32 word = mRootBus->load<U32>(toPhysicalAddress(address + (index - startIndex) * 4));
+				U32 word = mRootBus->load<U32>(address + (index - startIndex) * 4);
 				instruction.Word = word;
 				instruction.Valid = ESX_TRUE;
 			} else {
@@ -1698,26 +1698,28 @@ namespace esx {
 
 	void R3000::addWriteQueueOperation(const StoreOperation& writeOp)
 	{
+		if (writeOp.Address == 0x80) {
+			ESX_CORE_LOG_ERROR("{:08x}h", mCurrentInstruction.Address);
+		}
 		mWriteQueue.push_back(writeOp);
 	}
 
 	void R3000::doWriteQueueOperation(const StoreOperation& writeOp)
 	{
 		switch (writeOp.Size) {
-			case 1:	mRootBus->store<U8>(writeOp.Address, writeOp.Data); break;
-			case 2:	mRootBus->store<U16>(writeOp.Address, writeOp.Data); break;
-			case 4:	mRootBus->store<U32>(writeOp.Address, writeOp.Data); break;
+			case sizeof(U8)  :  mRootBus->store<U8> (writeOp.Address, static_cast<U8> (writeOp.Data)); break;
+			case sizeof(U16) :	mRootBus->store<U16>(writeOp.Address, static_cast<U16>(writeOp.Data)); break;
+			case sizeof(U32) :	mRootBus->store<U32>(writeOp.Address, static_cast<U32>(writeOp.Data)); break;
 		}
 	}
 
 	BIT R3000::flushWriteQueue(U32 address)
 	{
-		for (auto it = mWriteQueue.begin(); it != mWriteQueue.end(); ++it) {
-			if (it->Address == address) {
-				doWriteQueueOperation(*it);
-				mWriteQueue.erase(it);
-				return ESX_TRUE;
-			}
+		auto foundIt = std::find_if(mWriteQueue.begin(), mWriteQueue.end(), [&](const StoreOperation& storeOp) { return storeOp.Address == address; });
+		if (foundIt != mWriteQueue.end()) {
+			doWriteQueueOperation(*foundIt);
+			mWriteQueue.erase(foundIt);
+			return ESX_TRUE;
 		}
 		return ESX_FALSE;
 	}

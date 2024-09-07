@@ -323,17 +323,6 @@ namespace esx {
 		{ 0x1F801E5C, "SPU_VOICE23_CURRENT_VOLUME_LEFT_RIGHT" },
 	};
 
-	constexpr Array<U32, 8> SEGS_MASKS = {
-		//KUSEG:2048MB
-		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
-		//KSEG0:512MB
-		0x7FFFFFFF,
-		//KSEG1:512MB
-		0x1FFFFFFF,
-		//KSEG2:1024MB
-		0xFFFFFFFF,0xFFFFFFFF
-	};
-
 	enum class GPRRegister : U8 {
 		zero,
 		at,
@@ -518,21 +507,19 @@ namespace esx {
 				mStall = ESX_TRUE;
 			}
 
-			U32 physicalAddress = toPhysicalAddress(address);
-
 			if (isWriteQueueActive(address)) {
-				if (flushWriteQueue(physicalAddress) == ESX_FALSE) {
+				if (flushWriteQueue(address) == ESX_FALSE) {
 					flushWriteQueueFirst();
 				}
 			} else {
 				flushWriteQueueAll(); //TODO: Write queue stall
 			}
 
-			PRINT_LOAD(physicalAddress);
+			PRINT_LOAD(address);
 
-			T output = mRootBus->load<T>(physicalAddress);
+			T output = mRootBus->load<T>(address);
 
-			PRINT_IO_LOAD(physicalAddress, output);
+			PRINT_IO_LOAD(address, output);
 			
 			return output;
 		}
@@ -544,41 +531,36 @@ namespace esx {
 				return;
 			}
 
-			U32 physicalAddress = toPhysicalAddress(address);
-
-			PRINT_STORE(physicalAddress, value);
-			PRINT_IO_STORE(physicalAddress,value);
+			PRINT_STORE(address, value);
+			PRINT_IO_STORE(address,value);
 
 			if (isWriteQueueActive(address)) {
 				if (isWriteQueueFull()) {
 					if (mDMA->isRunning()) {
 						mStall = ESX_TRUE;
-					} else {
-						flushWriteQueueAll();
 					}
+					flushWriteQueueAll();
 				}
 
-				if(!mStall) addWriteQueueOperation({ .Address = physicalAddress, .Data = value, .Size = sizeof(T) });
+				addWriteQueueOperation({ .Address = address, .Data = value, .Size = sizeof(T) });
 			} else {
 				if (mDMA->isRunning()) {
 					mStall = ESX_TRUE;
-				} else {
-					flushWriteQueueAll(); //TODO: Stall cause by write queue
-					mRootBus->store<T>(physicalAddress, value);
 				}
+				flushWriteQueueAll(); //TODO: Stall cause by write queue
+				mRootBus->store<T>(address, value);
 			}
-		}
-
-		static U32 toPhysicalAddress(U32 address) {
-			return address & SEGS_MASKS[address >> 29];
 		}
 
 		static inline BIT isCacheActive(U32 address) {
 			return (address & (1 << 29)) == 0;
 		}
 
-		static inline BIT isWriteQueueActive(U32 address) {
-			return (address & (1 << 29)) == 0;
+		inline BIT isWriteQueueActive(U32 address) {
+			/*U32 sr = getCP0Register(COP0Register::SR);
+
+			return (sr & 0x10000) == 0 && (address & (1 << 29)) == 0;*/
+			return ESX_FALSE;
 		}
 
 		void handleInterrupts();

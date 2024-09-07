@@ -26,7 +26,7 @@ namespace esx {
 	bool DisassemblerPanel::breakFunction(U32 address)
 	{
 		if (mBreakpoints.size() > 0) {
-			auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.PhysAddress == R3000::toPhysicalAddress(address) && b.Enabled; });
+			auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.PhysAddress == Bus::toPhysicalAddress(address) && b.Enabled; });
 			if (it != mBreakpoints.end()) {
 				//disassemble(address - 4 * disassembleRange, 4 * disassembleRange * 2);
 
@@ -49,6 +49,7 @@ namespace esx {
 				break;
 
 			case DebugState::Running: {
+				//U64 startClocks = mInstance->getClocks();
 				do {
 					if (breakFunction(mInstance->mPC)) {
 						setDebugState(DebugState::Breakpoint);
@@ -61,6 +62,9 @@ namespace esx {
 						}
 					}
 				} while (!mGPU->isNewFrameAvailable());
+				/*U64 endClocks = mInstance->getClocks();
+				ESX_CORE_LOG_TRACE("{}", endClocks - startClocks);*/
+
 				break;
 			}
 
@@ -179,7 +183,7 @@ namespace esx {
 				if (mScrollToCurrent) {
 					U32 index = 0;
 
-					mCurrent = R3000::toPhysicalAddress(mCurrent);
+					mCurrent = Bus::toPhysicalAddress(mCurrent);
 					
 					if (mCurrent >= 0x1FC00000) {
 						index = numInstructionsRAM + (mCurrent - 0x1FC00000) / 4;
@@ -209,7 +213,7 @@ namespace esx {
 
 						//Instruction instruction = mInstructions[row];
 
-						U32 address = R3000::toPhysicalAddress(instruction.Address);
+						U32 address = Bus::toPhysicalAddress(instruction.Address);
 						auto breakpointIt = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.PhysAddress == address && b.Enabled; });
 						BIT breakpointFound = breakpointIt != mBreakpoints.end();
 
@@ -219,7 +223,7 @@ namespace esx {
 							mScrollToCurrent = false;
 						}
 
-						if (mDebugState != DebugState::Idle && address == R3000::toPhysicalAddress(mInstance->mPC)) {
+						if (mDebugState != DebugState::Idle && address == Bus::toPhysicalAddress(mInstance->mPC)) {
 							ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(230, 100, 120, 125));
 							ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, IM_COL32(180, 50, 70, 125));
 						}
@@ -305,7 +309,7 @@ namespace esx {
 						U32 addr;
 						if (sscanf_s(addressBuffer, "0x%08X", &addr) == 1 || sscanf_s(addressBuffer, "%08X", &addr) == 1) {
 							breakpoint.Address = addr;
-							breakpoint.PhysAddress = R3000::toPhysicalAddress(breakpoint.Address);
+							breakpoint.PhysAddress = Bus::toPhysicalAddress(breakpoint.Address);
 						}
 					}
 					ImGui::PopID();
@@ -371,7 +375,7 @@ namespace esx {
 		}
 
 		U32 numSectors = pExeHeader->FileSize / 0x800;
-		U32 currentRAMAddress = R3000::toPhysicalAddress(pExeHeader->DestinationAddressInRAM);
+		U32 currentRAMAddress = Bus::toPhysicalAddress(pExeHeader->DestinationAddressInRAM);
 		for (I32 i = 0; i < numSectors; i++) {
 			Sector currentSector = {};
 			mEXE->readSector(&currentSector);

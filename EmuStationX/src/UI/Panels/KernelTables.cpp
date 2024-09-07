@@ -129,7 +129,7 @@ namespace esx {
 	void KernelTables::onImGuiRender()
 	{
 		if (ImGui::CollapsingHeader("Exception Chain Entrypoints")) {
-			U32 tableStartAddress = R3000::toPhysicalAddress(mBus->load<U32>(0x100));
+			U32 tableStartAddress = Bus::toPhysicalAddress(mBus->load<U32>(0x100));
 			U32 tableSize = mBus->load<U32>(0x100 + 4);
 			U32 entrySize = 0x08;
 
@@ -152,7 +152,7 @@ namespace esx {
 		}
 
 		if (ImGui::CollapsingHeader("Process Control Block")) {
-			U32 tableStartAddress = R3000::toPhysicalAddress(mBus->load<U32>(0x108));
+			U32 tableStartAddress = Bus::toPhysicalAddress(mBus->load<U32>(0x108));
 			U32 tableSize = mBus->load<U32>(0x108 + 4);
 			U32 entrySize = 0x04;
 
@@ -190,7 +190,7 @@ namespace esx {
 				ESX_TEXT("$ra")
 			};
 
-			U32 tableStartAddress = R3000::toPhysicalAddress(mBus->load<U32>(0x110));
+			U32 tableStartAddress = Bus::toPhysicalAddress(mBus->load<U32>(0x110));
 			U32 tableSize = mBus->load<U32>(0x110 + 4);
 			U32 entrySize = 0xC0;
 
@@ -250,7 +250,7 @@ namespace esx {
 		}
 
 		if (ImGui::CollapsingHeader("Event Control Blocks")) {
-			U32 tableStartAddress = R3000::toPhysicalAddress(mBus->load<U32>(0x120));
+			U32 tableStartAddress = Bus::toPhysicalAddress(mBus->load<U32>(0x120));
 			U32 tableSize = mBus->load<U32>(0x120 + 4);
 			U32 entrySize = 0x1C;
 

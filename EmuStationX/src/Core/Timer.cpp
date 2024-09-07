@@ -331,16 +331,19 @@ namespace esx {
 	{
 		CounterModeRegister& modeRegister = timer.Mode;
 
-		timer.CurrentValue++;
 		BIT reachedTargetValue = timer.CurrentValue == timer.TargetValue;
 		BIT reachedMaxValue = timer.CurrentValue == 0xFFFF;
-
-		modeRegister.ReachedTargetValue = reachedTargetValue;
-		modeRegister.ReachedMax = reachedMaxValue;
 
 		if ((modeRegister.ResetCounter && reachedTargetValue) || (!modeRegister.ResetCounter && reachedMaxValue)) {
 			timer.CurrentValue = 0x0000;
 		}
+
+		timer.CurrentValue++;
+		reachedTargetValue = timer.CurrentValue == timer.TargetValue;
+		reachedMaxValue = timer.CurrentValue == 0xFFFF;
+
+		modeRegister.ReachedTargetValue = reachedTargetValue;
+		modeRegister.ReachedMax = reachedMaxValue;
 
 		if ((modeRegister.IRQCounterEqualTargetEnable && reachedTargetValue) || (modeRegister.IRQCounterEqualMaxEnable && reachedMaxValue)) {
 			handleInterrupt(timer, modeRegister);

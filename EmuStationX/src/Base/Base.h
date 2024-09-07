@@ -18,6 +18,7 @@
 #include <tuple>
 #include <filesystem>
 #include <mutex>
+#include <span>
 
 
 namespace esx {
@@ -35,6 +36,7 @@ namespace esx {
 	typedef unsigned long long U64;
 	typedef float F32;
 	typedef double F64;
+	typedef uintptr_t UPTR;
 
 	typedef bool BIT;
 
@@ -96,6 +98,9 @@ namespace esx {
 
 	template<typename T, size_t Size>
 	using Array = std::array<T, Size>;
+
+	template<typename T, size_t Extent = std::dynamic_extent>
+	using Span = std::span<T, Extent>;
 
 	template<typename K, typename V>
 	using OrderedMap = std::map<K, V>;

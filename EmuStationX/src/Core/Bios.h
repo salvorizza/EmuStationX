@@ -23,6 +23,8 @@ namespace esx {
 
 		virtual void reset();
 
+		virtual U8* getFastPointer(U32 address) override;
+
 	private:
 		Vector<U8> mMemory;
 		StringView mPath;

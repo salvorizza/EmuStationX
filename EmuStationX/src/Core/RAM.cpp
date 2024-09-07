@@ -71,6 +71,11 @@ namespace esx {
 		std::fill(mMemory.begin(), mMemory.end(), 0x00);
 	}
 
+	U8* RAM::getFastPointer(U32 address)
+	{
+		return &mMemory[address];
+	}
+
 	void RAM::checkLocked(U32 address)
 	{
 		if (mCheckLock) {

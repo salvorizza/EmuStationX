@@ -225,6 +225,10 @@ namespace esx {
 		static void transformUV(UV& uv, U16 tx, U16 ty, U8 bpp);
 
 	private:
+		U64 GetCurrentFrameClock();
+		U64 GetCurrentScanlineClock();
+
+	private:
 		GPUStat	mGPUStat = {};
 		BIT mTexturedRectangleXFlip = ESX_FALSE;
 		BIT mTexturedRectangleYFlip = ESX_FALSE;
@@ -267,15 +271,7 @@ namespace esx {
 		U32 mCurrentWordNumber = 0x00000000;
 
 		U64 mFrames = 0;
-		U64 mDotClocks = 0;
-		U64 mNumDots = 0;
 		U64 mCurrentScanLine = 0;
-
-		BIT mHBlankStarted = ESX_FALSE;
-		BIT mHBlankEnded = ESX_FALSE;
-
-		BIT mVBlankStarted = ESX_FALSE;
-		BIT mVBlankEnded = ESX_FALSE;
 
 		BIT mFrameAvailable = ESX_FALSE;
 
@@ -285,6 +281,16 @@ namespace esx {
 
 		U64 mScanlinesPerFrame = 0;
 		U64 mClocksPerScanline = 0;
+
+		U64 mGPUClocks = 0;
+		U64 mScheduledStartHBlankClock = 0;
+		U64 mScheduledEndHBlankClock = 0;
+		U64 mScheduledStartVBlankClock = 0;
+		U64 mScheduledEndVBlankClock = 0;
+		U64 mScheduledDotClock = 0;
+
+		U64 mScheduledScanlineClock = 0;
+		U64 mScheduledFrameClock = 0;
 
 	};
 

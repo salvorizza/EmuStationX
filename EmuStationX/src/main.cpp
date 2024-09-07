@@ -268,6 +268,10 @@ public:
 			   mDisassemblerPanel->loadEXE(filePath);
 			   return nullptr;
 		   }},
+		   { ".ps-exe", [&](const std::filesystem::path& filePath) {
+			   mDisassemblerPanel->loadEXE(filePath);
+			   return nullptr;
+		   }},
 		   { ".cue", [&](const std::filesystem::path& filePath) {
 			   return MakeShared<CDRWIN>(filePath);
 		   }},

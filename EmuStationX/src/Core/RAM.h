@@ -31,6 +31,8 @@ namespace esx {
 
 		virtual void reset() override;
 
+		virtual U8* getFastPointer(U32 address) override;
+
 	private:
 		void checkLocked(U32 address);
 		BIT isHiZ(U32 address);

@@ -243,76 +243,64 @@ namespace esx {
 
 	void GPU::clock(U64 clocks)
 	{
-		U8 dotClocks = DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
+		mGPUClocks = (clocks * 11) / 7;
 
-		U64 gpuClocks = (clocks * 11) / 7;
-		gpuClocks -= (mFrames * mScanlinesPerFrame * mClocksPerScanline);
-
-		U64 scanlineClocks = (gpuClocks - (mCurrentScanLine * mClocksPerScanline));
-
-		if (scanlineClocks >= (mNumDots + 1) * dotClocks) {
-			mNumDots++;
+		if (mGPUClocks >= mScheduledDotClock) {
 			mTimer->dot();
+
+			mScheduledDotClock = mGPUClocks + DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
 		}
 
-		if (scanlineClocks <= mHorizontalRangeStart || scanlineClocks >= mHorizontalRangeEnd) {
-			if (scanlineClocks >= mHorizontalRangeEnd) {
-				if (!mHBlankStarted) {
-					mTimer->startHblank();
+		if (mGPUClocks >= mScheduledStartHBlankClock) {
+			mTimer->startHblank();
 
-					mHBlankStarted = ESX_TRUE;
-				}
-			} else if (scanlineClocks >= mHorizontalRangeStart) {
-				if (!mHBlankEnded) {
-					mTimer->endHblank();
-
-					mHBlankEnded = ESX_TRUE;
-				}
-			} 
-		} else {
-			mHBlankEnded = mHBlankStarted = ESX_FALSE;
+			mScheduledStartHBlankClock = mGPUClocks + mClocksPerScanline;
 		}
 
-		if (scanlineClocks >= mClocksPerScanline) {
+		if (mGPUClocks >= mScheduledEndHBlankClock) {
+			mTimer->endHblank();
+
+			mScheduledEndHBlankClock = mGPUClocks + mClocksPerScanline;
+		}
+
+		if (mGPUClocks >= mScheduledStartVBlankClock) {
+			mTimer->startVblank();
+			mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
+
+			mScheduledStartVBlankClock = mGPUClocks + mScanlinesPerFrame * mClocksPerScanline;
+		}
+
+		if (mGPUClocks >= mScheduledEndVBlankClock) {
+			mTimer->endVblank();
+
+			mRenderer->Flush();
+			mRenderer->Begin();
+
+			mFrameAvailable = ESX_TRUE;
+
+			mScheduledEndVBlankClock = mGPUClocks + mScanlinesPerFrame * mClocksPerScanline;
+		}
+
+		if (mGPUClocks >= mScheduledScanlineClock) {
 			mCurrentScanLine++;
-			mNumDots = 0;
 
 			if (mGPUStat.VerticalResolution == VerticalResolution::V240) {
 				mGPUStat.DrawOddLines = (mCurrentScanLine & 0x1) ? ESX_TRUE : ESX_FALSE;
 			}
 
-			if (mCurrentScanLine <= mVerticalRangeStart || mCurrentScanLine >= mVerticalRangeEnd) {
-				if (mCurrentScanLine >= mVerticalRangeEnd) {
-					if (!mVBlankStarted) {
-						mTimer->startVblank();
-						mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
-						mVBlankStarted = ESX_TRUE;
-					}
-				} else if (mCurrentScanLine >= mVerticalRangeStart) {
-					if (!mVBlankEnded) {
-						mTimer->endVblank();
+			mScheduledScanlineClock = mGPUClocks + mClocksPerScanline;
+		}
 
-						mRenderer->Flush();
-						mRenderer->Begin();
-
-						mFrameAvailable = ESX_TRUE;
-
-						mVBlankEnded = ESX_TRUE;
-					}
-				}
-			} else {
-				mVBlankEnded = mVBlankStarted = ESX_FALSE;
+		if (mGPUClocks >= mScheduledFrameClock) {
+			mCurrentScanLine = 0;
+			if (mGPUStat.VerticalInterlace == ESX_TRUE && mGPUStat.VerticalResolution == VerticalResolution::V480) {
+				mGPUStat.DrawOddLines = !mGPUStat.DrawOddLines;
+				mGPUStat.InterlaceField = !mGPUStat.DrawOddLines;
 			}
 
-			if (mCurrentScanLine >= mScanlinesPerFrame) {
-				mCurrentScanLine = 0;
-				if (mGPUStat.VerticalInterlace == ESX_TRUE && mGPUStat.VerticalResolution == VerticalResolution::V480) {
-					mGPUStat.DrawOddLines = !mGPUStat.DrawOddLines;
-					mGPUStat.InterlaceField = !mGPUStat.DrawOddLines;
-				}
+			mFrames++;
 
-				mFrames++;
-			}
+			mScheduledFrameClock = mGPUClocks + (mScanlinesPerFrame * mClocksPerScanline);
 		}
 	}
 
@@ -359,8 +347,6 @@ namespace esx {
 		mPixelsToTransfer = {};
 
 		mFrames = 0;
-		mDotClocks = 0;
-		mNumDots = 0;
 		mCurrentScanLine = 0;
 		mFrameAvailable = ESX_FALSE;
 
@@ -371,6 +357,16 @@ namespace esx {
 
 		mScanlinesPerFrame = NTSC_SCANLINES_PER_FRAME;
 		mClocksPerScanline = NTSC_CLOCKS_PER_SCANLINE;
+
+		mGPUClocks = 0;
+		mScheduledScanlineClock = mGPUClocks + mClocksPerScanline;
+		mScheduledFrameClock = mGPUClocks + (mScanlinesPerFrame * mClocksPerScanline);
+		mScheduledDotClock = mGPUClocks + DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
+		mScheduledStartHBlankClock = 0;
+		mScheduledEndHBlankClock = 0;
+		mScheduledStartVBlankClock = 0;
+		mScheduledEndVBlankClock = 0;
+		mScheduledDotClock = 0;
 
 		mRenderer->Reset();
 	}
@@ -974,12 +970,40 @@ namespace esx {
 	{
 		mHorizontalRangeStart = (instruction >> 0) & 0xFFF;
 		mHorizontalRangeEnd = (instruction >> 12) & 0xFFF;
+
+		if (GetCurrentScanlineClock() < mHorizontalRangeStart) {
+			mScheduledStartHBlankClock = mGPUClocks + (mHorizontalRangeStart - GetCurrentScanlineClock());
+			mScheduledEndHBlankClock = mScheduledStartHBlankClock + (mHorizontalRangeEnd - mHorizontalRangeStart);
+		} else {
+			if (GetCurrentScanlineClock() < mHorizontalRangeEnd) {
+				mScheduledEndHBlankClock = mGPUClocks + (mHorizontalRangeEnd - GetCurrentScanlineClock());
+				mScheduledStartHBlankClock = mScheduledEndHBlankClock + (mClocksPerScanline - mHorizontalRangeEnd) + mHorizontalRangeStart;
+			} else {
+				mScheduledStartHBlankClock = mGPUClocks - (GetCurrentScanlineClock() - mHorizontalRangeEnd) + (mClocksPerScanline - mHorizontalRangeEnd) + mHorizontalRangeStart;
+				mScheduledEndHBlankClock = mScheduledStartHBlankClock + (mHorizontalRangeEnd - mHorizontalRangeStart);
+			}
+		}
 	}
 
 	void GPU::gp1SetVerticalRange(U32 instruction)
 	{
 		mVerticalRangeStart = (instruction >> 0) & 0x3FF;
 		mVerticalRangeEnd = (instruction >> 10) & 0x3FF;
+
+		if (mCurrentScanLine < mVerticalRangeStart) {
+			mScheduledStartVBlankClock = mGPUClocks + (mVerticalRangeStart - mCurrentScanLine) * mClocksPerScanline - GetCurrentScanlineClock();
+			mScheduledEndVBlankClock = mScheduledStartVBlankClock + (mVerticalRangeEnd - mVerticalRangeStart) * mClocksPerScanline;
+		}
+		else {
+			if (mCurrentScanLine < mVerticalRangeEnd) {
+				mScheduledEndVBlankClock = mGPUClocks + (mVerticalRangeEnd - mCurrentScanLine) * mClocksPerScanline - GetCurrentScanlineClock();
+				mScheduledStartVBlankClock = mScheduledEndVBlankClock + ((mScanlinesPerFrame - mVerticalRangeEnd) + mVerticalRangeStart) * mClocksPerScanline;
+			}
+			else {
+				mScheduledStartVBlankClock = mGPUClocks - ((mCurrentScanLine - mVerticalRangeEnd) + (mScanlinesPerFrame - mVerticalRangeEnd) + mVerticalRangeStart) * mClocksPerScanline - GetCurrentScanlineClock();
+				mScheduledEndVBlankClock = mScheduledStartVBlankClock + (mVerticalRangeEnd - mVerticalRangeStart) * mClocksPerScanline;
+			}
+		}
 	}
 
 	void GPU::gp1SetDisplayMode(U32 instruction)
@@ -1151,6 +1175,16 @@ namespace esx {
 		U16 r = 16 / bpp;
 		uv.u = tx * 64 * r + uv.u;
 		uv.v = ty * 256 + uv.v;
+	}
+
+	U64 GPU::GetCurrentFrameClock()
+	{
+		return mGPUClocks - (mFrames * mScanlinesPerFrame * mClocksPerScanline);
+	}
+
+	U64 GPU::GetCurrentScanlineClock()
+	{
+		return GetCurrentFrameClock() - (mCurrentScanLine * mClocksPerScanline);
 	}
 
 	void CommandBuffer::push(U32 word)
