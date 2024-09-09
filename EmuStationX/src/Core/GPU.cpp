@@ -243,18 +243,12 @@ namespace esx {
 
 	void GPU::clock(U64 clocks)
 	{
-		mGPUClocks = (clocks * 11) / 7;
+		mGPUClocks = ToGPUClock(clocks);
 
 		if (mGPUClocks >= mScheduledDotClock) {
 			mTimer->dot();
 
-			mScheduledDotClock = mGPUClocks + DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
-		}
-
-		if (mGPUClocks >= mScheduledStartHBlankClock) {
-			mTimer->startHblank();
-
-			mScheduledStartHBlankClock = mGPUClocks + mClocksPerScanline;
+			mScheduledDotClock = mGPUClocks + GetDotClocks();
 		}
 
 		if (mGPUClocks >= mScheduledEndHBlankClock) {
@@ -263,11 +257,10 @@ namespace esx {
 			mScheduledEndHBlankClock = mGPUClocks + mClocksPerScanline;
 		}
 
-		if (mGPUClocks >= mScheduledStartVBlankClock) {
-			mTimer->startVblank();
-			mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
+		if (mGPUClocks >= mScheduledStartHBlankClock) {
+			mTimer->startHblank();
 
-			mScheduledStartVBlankClock = mGPUClocks + mScanlinesPerFrame * mClocksPerScanline;
+			mScheduledStartHBlankClock = mGPUClocks + mClocksPerScanline;
 		}
 
 		if (mGPUClocks >= mScheduledEndVBlankClock) {
@@ -279,6 +272,13 @@ namespace esx {
 			mFrameAvailable = ESX_TRUE;
 
 			mScheduledEndVBlankClock = mGPUClocks + mScanlinesPerFrame * mClocksPerScanline;
+		}
+
+		if (mGPUClocks >= mScheduledStartVBlankClock) {
+			mTimer->startVblank();
+			mInterruptControl->requestInterrupt(InterruptType::VBlank, ESX_FALSE, ESX_TRUE);
+
+			mScheduledStartVBlankClock = mGPUClocks + mScanlinesPerFrame * mClocksPerScanline;
 		}
 
 		if (mGPUClocks >= mScheduledScanlineClock) {
@@ -361,11 +361,11 @@ namespace esx {
 		mGPUClocks = 0;
 		mScheduledScanlineClock = mGPUClocks + mClocksPerScanline;
 		mScheduledFrameClock = mGPUClocks + (mScanlinesPerFrame * mClocksPerScanline);
-		mScheduledDotClock = mGPUClocks + DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution];
-		mScheduledStartHBlankClock = 0;
+		mScheduledDotClock = mGPUClocks + GetDotClocks();
 		mScheduledEndHBlankClock = 0;
-		mScheduledStartVBlankClock = 0;
+		mScheduledStartHBlankClock = 0;
 		mScheduledEndVBlankClock = 0;
+		mScheduledStartVBlankClock = 0;
 		mScheduledDotClock = 0;
 
 		mRenderer->Reset();
@@ -972,15 +972,15 @@ namespace esx {
 		mHorizontalRangeEnd = (instruction >> 12) & 0xFFF;
 
 		if (GetCurrentScanlineClock() < mHorizontalRangeStart) {
-			mScheduledStartHBlankClock = mGPUClocks + (mHorizontalRangeStart - GetCurrentScanlineClock());
-			mScheduledEndHBlankClock = mScheduledStartHBlankClock + (mHorizontalRangeEnd - mHorizontalRangeStart);
+			mScheduledEndHBlankClock = mGPUClocks + (mHorizontalRangeStart - GetCurrentScanlineClock());
+			mScheduledStartHBlankClock = mScheduledEndHBlankClock + (mHorizontalRangeEnd - mHorizontalRangeStart);
 		} else {
 			if (GetCurrentScanlineClock() < mHorizontalRangeEnd) {
-				mScheduledEndHBlankClock = mGPUClocks + (mHorizontalRangeEnd - GetCurrentScanlineClock());
-				mScheduledStartHBlankClock = mScheduledEndHBlankClock + (mClocksPerScanline - mHorizontalRangeEnd) + mHorizontalRangeStart;
+				mScheduledStartHBlankClock = mGPUClocks + (mHorizontalRangeEnd - GetCurrentScanlineClock());
+				mScheduledEndHBlankClock = mScheduledStartHBlankClock + (mClocksPerScanline - mHorizontalRangeEnd) + mHorizontalRangeStart;
 			} else {
-				mScheduledStartHBlankClock = mGPUClocks - (GetCurrentScanlineClock() - mHorizontalRangeEnd) + (mClocksPerScanline - mHorizontalRangeEnd) + mHorizontalRangeStart;
-				mScheduledEndHBlankClock = mScheduledStartHBlankClock + (mHorizontalRangeEnd - mHorizontalRangeStart);
+				mScheduledEndHBlankClock = mGPUClocks - (GetCurrentScanlineClock() - mHorizontalRangeEnd) + (mClocksPerScanline - mHorizontalRangeEnd) + mHorizontalRangeStart;
+				mScheduledStartHBlankClock = mScheduledEndHBlankClock + (mHorizontalRangeEnd - mHorizontalRangeStart);
 			}
 		}
 	}
@@ -991,17 +991,17 @@ namespace esx {
 		mVerticalRangeEnd = (instruction >> 10) & 0x3FF;
 
 		if (mCurrentScanLine < mVerticalRangeStart) {
-			mScheduledStartVBlankClock = mGPUClocks + (mVerticalRangeStart - mCurrentScanLine) * mClocksPerScanline - GetCurrentScanlineClock();
-			mScheduledEndVBlankClock = mScheduledStartVBlankClock + (mVerticalRangeEnd - mVerticalRangeStart) * mClocksPerScanline;
+			mScheduledEndVBlankClock = mGPUClocks + (mVerticalRangeStart - mCurrentScanLine) * mClocksPerScanline - GetCurrentScanlineClock();
+			mScheduledStartVBlankClock = mScheduledEndVBlankClock + (mVerticalRangeEnd - mVerticalRangeStart) * mClocksPerScanline;
 		}
 		else {
 			if (mCurrentScanLine < mVerticalRangeEnd) {
-				mScheduledEndVBlankClock = mGPUClocks + (mVerticalRangeEnd - mCurrentScanLine) * mClocksPerScanline - GetCurrentScanlineClock();
-				mScheduledStartVBlankClock = mScheduledEndVBlankClock + ((mScanlinesPerFrame - mVerticalRangeEnd) + mVerticalRangeStart) * mClocksPerScanline;
+				mScheduledStartVBlankClock = mGPUClocks + (mVerticalRangeEnd - mCurrentScanLine) * mClocksPerScanline - GetCurrentScanlineClock();
+				mScheduledEndVBlankClock = mScheduledStartVBlankClock + ((mScanlinesPerFrame - mVerticalRangeEnd) + mVerticalRangeStart) * mClocksPerScanline;
 			}
 			else {
-				mScheduledStartVBlankClock = mGPUClocks - ((mCurrentScanLine - mVerticalRangeEnd) + (mScanlinesPerFrame - mVerticalRangeEnd) + mVerticalRangeStart) * mClocksPerScanline - GetCurrentScanlineClock();
-				mScheduledEndVBlankClock = mScheduledStartVBlankClock + (mVerticalRangeEnd - mVerticalRangeStart) * mClocksPerScanline;
+				mScheduledEndVBlankClock = mGPUClocks - ((mCurrentScanLine - mVerticalRangeEnd) + (mScanlinesPerFrame - mVerticalRangeEnd) + mVerticalRangeStart) * mClocksPerScanline - GetCurrentScanlineClock();
+				mScheduledStartVBlankClock = mScheduledEndVBlankClock + (mVerticalRangeEnd - mVerticalRangeStart) * mClocksPerScanline;
 			}
 		}
 	}

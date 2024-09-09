@@ -16,14 +16,14 @@ namespace esx {
 	constexpr U64 NTSC_SCANLINES_PER_FRAME = 263;
 	constexpr U64 NTSC_CLOCKS_PER_SCANLINE = 3413;
 
-	constexpr Array<U8, 7> DOT_CLOCKS = {
-			10,
-			8,
-			7,
-			0,
-			5,
-			0,
-			4
+	constexpr Array<U64, 7> DOT_CLOCKS = {
+		10,
+		8,
+		7,
+		0,
+		5,
+		0,
+		4
 	};
 
 	enum class SemiTransparency : U8 {
@@ -155,6 +155,12 @@ namespace esx {
 			return tempFrame;
 		}
 
+		U64 GetDotClocks() { return DOT_CLOCKS[(U8)mGPUStat.HorizontalResolution]; }
+		U64 GetClocksPerScanline() { return mClocksPerScanline; }
+
+
+		static U64 ToGPUClock(U64 cpuClocks) { return (cpuClocks * 11) / 7; }
+		static U64 FromGPUClock(U64 gpuClock) { return (gpuClock * 7) / 11; }
 	private:
 		//Misc commands
 		Command gp0MiscCommands(U32 instruction) const;
@@ -283,10 +289,10 @@ namespace esx {
 		U64 mClocksPerScanline = 0;
 
 		U64 mGPUClocks = 0;
-		U64 mScheduledStartHBlankClock = 0;
 		U64 mScheduledEndHBlankClock = 0;
-		U64 mScheduledStartVBlankClock = 0;
+		U64 mScheduledStartHBlankClock = 0;
 		U64 mScheduledEndVBlankClock = 0;
+		U64 mScheduledStartVBlankClock = 0;
 		U64 mScheduledDotClock = 0;
 
 		U64 mScheduledScanlineClock = 0;

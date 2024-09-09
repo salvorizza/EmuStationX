@@ -2,6 +2,7 @@
 
 #include "InterruptControl.h"
 #include "R3000.h"
+#include "GPU.h"
 
 #include "optick.h"
 
@@ -111,6 +112,12 @@ namespace esx {
 		}
 	}
 
+	void Timer::init()
+	{
+		mCPU = getBus("Root")->getDevice<R3000>("R3000");
+		mGPU = getBus("Root")->getDevice<GPU>("GPU");
+	}
+
 	void Timer::reset()
 	{
 		mCounters = {};
@@ -123,144 +130,47 @@ namespace esx {
 
 	void Timer::clock(U64 clocks)
 	{
-		Counter& timer0 = mCounters[0];
-		Counter& timer1 = mCounters[1];
-		Counter& timer2 = mCounters[2];
+		for (Counter& timer : mCounters) {
+			if (timer.Mode.IRQCounterEqualTargetEnable && clocks >= timer.ScheduledClockToTarget) {
+				incrementCounter(timer, CalculateDistance(timer.TargetValue, timer.CurrentValue));
 
-		if (!timer0.Pause && (timer0.Mode.ClockSource & 1) == 0) {
-			incrementCounter(timer0);
-		}
-
-		if (!timer1.Pause && (timer1.Mode.ClockSource & 1) == 0) {
-			incrementCounter(timer1);
-		}
-
-		if (!timer2.Pause) {
-			if (timer2.Mode.ClockSource < 2) {
-				incrementCounter(timer2);
+				timer.ScheduledClockToTargetStart = mCPU->getClocks();
+				timer.ScheduledClockToTarget = PreCalculateTimerScheduleClock(GetClockSource(timer.Number, timer.Mode.ClockSource), timer.CurrentValue, timer.TargetValue);
 			}
-			else {
-				if ((clocks % 8) == 0) {
-					incrementCounter(timer2);
-				}
+		}
+
+		for (Counter& timer : mCounters) {
+			if (timer.Mode.IRQCounterEqualMaxEnable && clocks >= timer.ScheduledClockToMax) {
+				incrementCounter(timer, CalculateDistance(0xFFFF, timer.CurrentValue));
+
+				timer.ScheduledClockToMaxStart = mCPU->getClocks();
+				timer.ScheduledClockToMax = PreCalculateTimerScheduleClock(GetClockSource(timer.Number, timer.Mode.ClockSource), timer.CurrentValue, 0xFFFF);
 			}
 		}
 	}
 
 	void Timer::startHblank()
 	{
-		Counter& timer0 = mCounters[0];
-		Counter& timer1 = mCounters[1];
-
-		if (timer0.Mode.SyncEnable) {
-			switch (timer0.Mode.SyncMode) {
-				case 0: {
-					//Pause counter during Hblank(s)
-					timer0.Pause = ESX_TRUE;
-					break;
-				}
-				case 1: {
-					//Reset counter to 0000h at Hblank(s)
-					timer0.CurrentValue = 0x0000;
-					break;
-				}
-				case 2: {
-					//Reset counter to 0000h at Hblank(s) and pause outside of Hblank
-					timer0.CurrentValue = 0x0000;
-					timer0.Pause = ESX_FALSE;
-					break;
-				}
-				case 3: {
-					//Pause until Hblank occurs once, then switch to Free Run
-					timer0.Mode.SyncEnable = ESX_FALSE;
-					timer0.Pause = ESX_FALSE;
-					break;
-				}
-			}
-		}
-
-		if (!timer1.Pause && (timer1.Mode.ClockSource & 1) == 1) {
-			incrementCounter(timer1);
-		}
+		startSync();
 	}
 
 	void Timer::endHblank()
 	{
-		Counter& timer0 = mCounters[0];
-		if (timer0.Mode.SyncEnable) {
-			switch (timer0.Mode.SyncMode) {
-				case 0: {
-					//Pause counter during Hblank(s)
-					timer0.Pause = ESX_FALSE;
-					break;
-				}
-				case 2: {
-					//Reset counter to 0000h at Hblank(s) and pause outside of Hblank
-					timer0.Pause = ESX_TRUE;
-					break;
-				}
-			}
-		}
+		endSync();
 	}
 
 	void Timer::startVblank()
 	{
-		Counter& timer1 = mCounters[1];
-
-		if (timer1.Mode.SyncEnable) {
-			switch (timer1.Mode.SyncMode) {
-				case 0: {
-					//Pause counter during Vblank(s)
-					timer1.Pause = ESX_TRUE;
-					break;
-				}
-				case 1: {
-					//Reset counter to 0000h at Vblank(s)
-					timer1.CurrentValue = 0x0000;
-					break;
-				}
-				case 2: {
-					//Reset counter to 0000h at Vblank(s) and pause outside of Hblank
-					timer1.CurrentValue = 0x0000;
-					timer1.Pause = ESX_FALSE;
-					break;
-				}
-				case 3: {
-					//Pause until Vblank occurs once, then switch to Free Run
-					timer1.Mode.SyncEnable = ESX_FALSE;
-					timer1.Pause = ESX_FALSE;
-					break;
-				}
-			}
-		}
+		startSync();
 	}
 
 	void Timer::endVblank()
 	{
-		Counter& timer1 = mCounters[1];
-		if (timer1.Mode.SyncEnable) {
-			switch (timer1.Mode.SyncMode) {
-				case 0: {
-					//Pause counter during Vblank(s)
-					timer1.Pause = ESX_FALSE;
-					break;
-				}
-				case 2: {
-					//Reset counter to 0000h at Vblank(s) and pause outside of Vblank
-					timer1.Pause = ESX_TRUE;
-					break;
-				}
-			}
-		}
+		endSync();
 	}
 
 	void Timer::dot()
 	{
-		Counter& timer0 = mCounters[0];
-
-		if (!timer0.Pause && (timer0.Mode.ClockSource & 1) == 1) {
-			incrementCounter(timer0);
-		}
 	}
 
 	void Timer::setCurrentValue(U8 counter, U32 value)
@@ -275,24 +185,43 @@ namespace esx {
 
 	void Timer::setCounterMode(U8 counter, U32 value)
 	{
-		mCounters[counter].Mode.SyncEnable = (value >> 0) & 0x1;
-		mCounters[counter].Mode.SyncMode = (value >> 1) & 0x3;
-		mCounters[counter].Mode.ResetCounter = (value >> 3) & 0x1;
-		mCounters[counter].Mode.IRQCounterEqualTargetEnable = (value >> 4) & 0x1;
-		mCounters[counter].Mode.IRQCounterEqualMaxEnable = (value >> 5) & 0x1;
-		mCounters[counter].Mode.IRQRepeat = (value >> 6) & 0x1;
-		mCounters[counter].Mode.IRQToggle = (value >> 7) & 0x1;
-		mCounters[counter].Mode.ClockSource = (value >> 8) & 0x3;
+		Counter& timer = mCounters[counter];
 
-		mCounters[counter].Mode.InterruptRequest = !mCounters[counter].Mode.IRQToggle;
+		CounterSyncMode syncMode = GetSyncMode(counter, timer.Mode.SyncMode);
+		ClockSource clockSource = GetClockSource(counter, timer.Mode.ClockSource);
+		U64 divider = GetDivider(clockSource);
 
-		mCounters[counter].CurrentValue = 0x0000;
 
-		if (counter == 0 && mCounters[counter].Mode.SyncEnable && (mCounters[counter].Mode.SyncMode == 3 || mCounters[counter].Mode.SyncMode == 2)) mCounters[counter].Pause = ESX_TRUE;
-		if (counter == 1 && mCounters[counter].Mode.SyncEnable && (mCounters[counter].Mode.SyncMode == 3 || mCounters[counter].Mode.SyncMode == 2)) mCounters[counter].Pause = ESX_TRUE;
-		if (counter == 2 && mCounters[counter].Mode.SyncEnable && (mCounters[counter].Mode.SyncMode & 1) == 0) mCounters[counter].Pause = ESX_TRUE;
+		U64 distance = (timer.ScheduledClockToMax - timer.ScheduledClockToMaxStart);
+		if (clockSource == ClockSource::Hblank || clockSource == ClockSource::Dotclock) {
+			distance = GPU::ToGPUClock(distance);
+		}
+		U16 increment = static_cast<U16>(distance / divider);
+		incrementCounter(timer, increment);
 
-		mCounters[counter].IRQHappened = ESX_FALSE;
+		timer.Mode.SyncEnable = (value >> 0) & 0x1;
+		timer.Mode.SyncMode = (value >> 1) & 0x3;
+		timer.Mode.ResetCounter = (value >> 3) & 0x1;
+		timer.Mode.IRQCounterEqualTargetEnable = (value >> 4) & 0x1;
+		timer.Mode.IRQCounterEqualMaxEnable = (value >> 5) & 0x1;
+		timer.Mode.IRQRepeat = (value >> 6) & 0x1;
+		timer.Mode.IRQToggle = (value >> 7) & 0x1;
+		timer.Mode.ClockSource = (value >> 8) & 0x3;
+
+		timer.Mode.InterruptRequest = !mCounters[counter].Mode.IRQToggle;
+
+		timer.CurrentValue = 0x0000;
+
+
+		if (timer.Mode.SyncEnable && (syncMode == CounterSyncMode::ResetAndPauseOutside || syncMode == CounterSyncMode::PauseUntilThenFreeRun || syncMode == CounterSyncMode::Stop)) timer.Pause = ESX_TRUE;
+
+		timer.IRQHappened = ESX_FALSE;
+
+		timer.ScheduledClockToTargetStart = mCPU->getClocks();
+		timer.ScheduledClockToTarget = PreCalculateTimerScheduleClock(clockSource, timer.CurrentValue, timer.TargetValue);
+
+		timer.ScheduledClockToMaxStart = mCPU->getClocks();
+		timer.ScheduledClockToMax = PreCalculateTimerScheduleClock(clockSource, timer.CurrentValue, 0xFFFF);
 	}
 
 	U32 Timer::getCounterMode(U8 counter)
@@ -327,10 +256,38 @@ namespace esx {
 		return mCounters[counter].TargetValue;
 	}
 
-	void Timer::incrementCounter(Counter& timer)
+	void Timer::incrementCounters(ClockSource clockSource)
+	{
+		for (Counter& counter : mCounters) {
+			if (!counter.Pause && GetClockSource(counter.Number, counter.Mode.ClockSource) == clockSource) {
+				incrementCounter(counter);
+			}
+		}
+	}
+
+	void Timer::startSync()
+	{
+		for (Counter& counter : mCounters) {
+			if (counter.Mode.SyncEnable) {
+				startCounterSync(counter);
+			}
+		}
+	}
+
+	void Timer::endSync()
+	{
+		for (Counter& counter : mCounters) {
+			if (counter.Mode.SyncEnable) {
+				endCounterSync(counter);
+			}
+		}
+	}
+
+	void Timer::incrementCounter(Counter& timer, U16 increment)
 	{
 		CounterModeRegister& modeRegister = timer.Mode;
 
+		timer.CurrentValue += increment;
 		BIT reachedTargetValue = timer.CurrentValue == timer.TargetValue;
 		BIT reachedMaxValue = timer.CurrentValue == 0xFFFF;
 
@@ -338,15 +295,53 @@ namespace esx {
 			timer.CurrentValue = 0x0000;
 		}
 
-		timer.CurrentValue++;
-		reachedTargetValue = timer.CurrentValue == timer.TargetValue;
-		reachedMaxValue = timer.CurrentValue == 0xFFFF;
-
 		modeRegister.ReachedTargetValue = reachedTargetValue;
 		modeRegister.ReachedMax = reachedMaxValue;
 
 		if ((modeRegister.IRQCounterEqualTargetEnable && reachedTargetValue) || (modeRegister.IRQCounterEqualMaxEnable && reachedMaxValue)) {
 			handleInterrupt(timer, modeRegister);
+		}
+	}
+
+	void Timer::startCounterSync(Counter& counter)
+	{
+		CounterSyncMode syncMode = GetSyncMode(counter.Number, counter.Mode.SyncMode);
+
+		switch (syncMode) {
+			case CounterSyncMode::PauseDuring: {
+				counter.Pause = ESX_TRUE;
+				break;
+			}
+			case CounterSyncMode::Reset: {
+				counter.CurrentValue = 0x0000;
+				break;
+			}
+			case CounterSyncMode::ResetAndPauseOutside: {
+				counter.CurrentValue = 0x0000;
+				counter.Pause = ESX_FALSE;
+				break;
+			}
+			case CounterSyncMode::PauseUntilThenFreeRun: {
+				counter.Mode.SyncEnable = ESX_FALSE;
+				counter.Pause = ESX_FALSE;
+				break;
+			}
+		}
+	}
+
+	void Timer::endCounterSync(Counter& counter)
+	{
+		CounterSyncMode syncMode = GetSyncMode(counter.Number, counter.Mode.SyncMode);
+
+		switch (syncMode) {
+			case CounterSyncMode::PauseDuring: {
+				counter.Pause = ESX_FALSE;
+				break;
+			}
+			case CounterSyncMode::ResetAndPauseOutside: {
+				counter.Pause = ESX_TRUE;
+				break;
+			}
 		}
 	}
 
@@ -372,6 +367,42 @@ namespace esx {
 		}
 
 		timer.IRQHappened = ESX_TRUE;
+	}
+
+	U64 Timer::PreCalculateTimerScheduleClock(ClockSource clockSource, U16 CurrentValue, U16 TargetValue)
+	{
+		U64 clocks = mCPU->getClocks();
+
+		U16 distance = CalculateDistance(TargetValue, CurrentValue);
+		U64 divider = GetDivider(clockSource);
+
+		U64 clocksToAdd = distance * divider;
+		if (clockSource == ClockSource::Dotclock || clockSource == ClockSource::Hblank) {
+			clocksToAdd = GPU::FromGPUClock(clocksToAdd);
+		}
+
+		return clocks + clocksToAdd;
+	}
+
+	U64 Timer::GetDivider(ClockSource clockSource)
+	{
+		switch (clockSource) {
+			case ClockSource::SystemClock: {
+				return 1;
+			}
+
+			case ClockSource::SystemClockDiv8: {
+				return 8;
+			}
+
+			case ClockSource::Hblank: {
+				return mGPU->GetClocksPerScanline();
+			}
+
+			case ClockSource::Dotclock: {
+				return mGPU->GetDotClocks();
+			}
+		}
 	}
 
 }
