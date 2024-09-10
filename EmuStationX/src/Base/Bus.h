@@ -124,7 +124,7 @@ namespace esx {
 				*(reinterpret_cast<T*>(&span[offset])) = value;
 			}
 			else {
-				if (page == 0x1F80 || page == 0x9F80 || page == 0xBF80) { // check if this is the IO/scratchpad page
+				if (page == 0x1F80 || page == 0x9F80 || page == 0xBF80 || page == 0xFFFE) { // check if this is the IO/scratchpad page
 					storeIO<T>(toPhysicalAddress(address), value);
 				}
 				else {
@@ -144,7 +144,7 @@ namespace esx {
 				return *(reinterpret_cast<T*>(&span[offset]));
 			}
 			else {
-				if (page == 0x1F80 || page == 0x9F80 || page == 0xBF80) { // check if this is the IO/scratchpad page
+				if (page == 0x1F80 || page == 0x9F80 || page == 0xBF80 || page == 0xFFFE) { // check if this is the IO/scratchpad page
 					return loadIO<T>(toPhysicalAddress(address));
 				} else {
 					ESX_CORE_LOG_ERROR("Reading Address 0x{:08x}: not found at {} bytes", address, sizeof(T));

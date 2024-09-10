@@ -204,8 +204,14 @@ namespace esx {
 				break;
 			}
 			
-			case CommandType::Play: {				
-				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Play {}", cpu->mCurrentInstruction.Address, response.Number);
+			case CommandType::Play: {		
+				if (response.Number == 1) {
+					U8 track = mParameters.size() != 0 ? popParameter() : 0;
+					ESX_CORE_LOG_INFO("{:08x}h - CDROM - Play {} {}", cpu->mCurrentInstruction.Address, track, response.Number);
+				} else {
+					ESX_CORE_LOG_INFO("{:08x}h - CDROM - Play {}", cpu->mCurrentInstruction.Address, response.Number);
+				}
+
 
 				mStat.Rotating = ESX_TRUE;
 
@@ -255,9 +261,7 @@ namespace esx {
 					mLastSubQ = generateSubChannelQ();
 					mCD->readSector(&mSectors[mCurrentSector]);
 
-					if (response.Number > 1) {
-						response.Code = INT1;
-					}
+					response.Code = INT1;
 				} else {
 					mResponses = {};
 				}
@@ -326,6 +330,13 @@ namespace esx {
 
 			case CommandType::Demute: {
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Demute", cpu->mCurrentInstruction.Address);
+				break;
+			}
+
+			case CommandType::Setfilter: {
+				U8 channel = popParameter();
+				U8 file = popParameter();
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Setfilter {},{}", cpu->mCurrentInstruction.Address, file, channel);
 				break;
 			}
 

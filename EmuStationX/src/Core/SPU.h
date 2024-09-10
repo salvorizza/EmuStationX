@@ -242,6 +242,16 @@ namespace esx {
 	};
 
 	#define SATURATE(x) std::clamp((x), -0x8000, 0x7FFF)
+
+	constexpr Array<U64, 7> CLOCKS_PER_WORD = {
+		1,
+		1,
+		1,
+		40,
+		4,
+		20,
+		1
+	};
 	
 
 	class SPU : public BusDevice {

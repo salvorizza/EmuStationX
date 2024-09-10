@@ -180,6 +180,8 @@ namespace esx {
 
 	U32 Timer::getCurrentValue(U8 counter)
 	{
+		calculateCurrentValue(mCounters[counter]);
+
 		return mCounters[counter].CurrentValue;
 	}
 
@@ -189,16 +191,7 @@ namespace esx {
 
 		CounterSyncMode syncMode = GetSyncMode(counter, timer.Mode.SyncMode);
 		ClockSource clockSource = GetClockSource(counter, timer.Mode.ClockSource);
-		U64 divider = GetDivider(clockSource);
-
-
-		U64 distance = (timer.ScheduledClockToMax - timer.ScheduledClockToMaxStart);
-		if (clockSource == ClockSource::Hblank || clockSource == ClockSource::Dotclock) {
-			distance = GPU::ToGPUClock(distance);
-		}
-		U16 increment = static_cast<U16>(distance / divider);
-		incrementCounter(timer, increment);
-
+		
 		timer.Mode.SyncEnable = (value >> 0) & 0x1;
 		timer.Mode.SyncMode = (value >> 1) & 0x3;
 		timer.Mode.ResetCounter = (value >> 3) & 0x1;
@@ -227,6 +220,8 @@ namespace esx {
 	U32 Timer::getCounterMode(U8 counter)
 	{
 		U32 result = 0;
+
+		calculateCurrentValue(mCounters[counter]);
 
 		result |= (mCounters[counter].Mode.SyncEnable << 0);
 		result |= (mCounters[counter].Mode.SyncMode << 1);
@@ -306,7 +301,7 @@ namespace esx {
 	void Timer::startCounterSync(Counter& counter)
 	{
 		CounterSyncMode syncMode = GetSyncMode(counter.Number, counter.Mode.SyncMode);
-
+		ESX_CORE_LOG_ERROR(__FUNCTION__);
 		switch (syncMode) {
 			case CounterSyncMode::PauseDuring: {
 				counter.Pause = ESX_TRUE;
@@ -332,6 +327,7 @@ namespace esx {
 	void Timer::endCounterSync(Counter& counter)
 	{
 		CounterSyncMode syncMode = GetSyncMode(counter.Number, counter.Mode.SyncMode);
+		ESX_CORE_LOG_ERROR(__FUNCTION__);
 
 		switch (syncMode) {
 			case CounterSyncMode::PauseDuring: {
@@ -367,6 +363,22 @@ namespace esx {
 		}
 
 		timer.IRQHappened = ESX_TRUE;
+	}
+
+	void Timer::calculateCurrentValue(Counter& timer)
+	{
+		U64 currentClocks = mCPU->getClocks();
+		CounterSyncMode syncMode = GetSyncMode(timer.Number, timer.Mode.SyncMode);
+		ClockSource clockSource = GetClockSource(timer.Number, timer.Mode.ClockSource);
+		U64 divider = GetDivider(clockSource);
+
+		U64 distance = (currentClocks - timer.ScheduledClockToMaxStart);
+		if (clockSource == ClockSource::Hblank || clockSource == ClockSource::Dotclock) {
+			distance = GPU::ToGPUClock(distance);
+		}
+		U16 increment = static_cast<U16>(distance / divider);
+		incrementCounter(timer, increment);
+		timer.ScheduledClockToMaxStart = currentClocks;
 	}
 
 	U64 Timer::PreCalculateTimerScheduleClock(ClockSource clockSource, U16 CurrentValue, U16 TargetValue)

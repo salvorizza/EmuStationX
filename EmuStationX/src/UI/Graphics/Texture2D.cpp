@@ -96,7 +96,6 @@ namespace esx {
 
 	void Texture2D::copy(const SharedPtr<PixelBuffer>& pixelBuffer)
 	{
-		pixelBuffer->bind();
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight, fromDataFormat(mDataFormat), fromDataType(mDataType), nullptr);
 	}
 

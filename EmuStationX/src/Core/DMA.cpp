@@ -6,6 +6,7 @@
 #include "Core/CDROM.h"
 #include "Core/MDEC.h"
 #include "Core/SPU.h"
+#include "Core/R3000.h"
 
 namespace esx {
 
@@ -21,34 +22,14 @@ namespace esx {
 
 	void DMA::clock(U64 clocks)
 	{
-		constexpr Array<U64, 7> clocks_per_word = {
-			1,
-			1,
-			1,
-			40,
-			4,
-			20,
-			1
-		};
-
 		if (mRunningDMAs == 0) return;
 		if (mPriorityPorts.size() == 0) return;
 
 		for (Port& port : mPriorityPorts) {
 			Channel& channel = mChannels[(U8)port];
 
-			if (channel.MasterEnable && channel.TransferStartOrBusy && (clocks % clocks_per_word[(U8)port]) == 0) {
-				switch (channel.SyncMode)
-				{
-					case SyncMode::LinkedList:
-						clockLinkedListTransfer(channel);
-						break;
-
-					default:
-						clockBlockTransfer(channel);
-						break;
-				}
-				break;
+			if (channel.MasterEnable && channel.TransferStartOrBusy && clocks >= channel.ScheduledDoneClock) {
+				setChannelDone(channel);
 			}
 		}
 	}
@@ -182,8 +163,12 @@ namespace esx {
 		for (U8 port = 0; port < (U8)Port::Max; port++) {
 			mChannels[port].Port = (Port)port;
 		}
+	}
 
+	void DMA::init()
+	{
 		mBus = getBus(ESX_TEXT("Root"));
+		mCPU = mBus->getDevice<R3000>(ESX_TEXT("R3000"));
 		mRAM = mBus->getDevice<RAM>(ESX_TEXT("RAM"));
 		mGPU = mBus->getDevice<GPU>(ESX_TEXT("GPU"));
 		mCDROM = mBus->getDevice<CDROM>(ESX_TEXT("CDROM"));
@@ -389,18 +374,26 @@ namespace esx {
 			ESX_CORE_LOG_ERROR("Every slice interrupt not implemented yet");
 		}
 
+		U32 NumWords = 0;
 		switch (channel.SyncMode) {
 			case SyncMode::LinkedList: {
 				startLinkedListTransfer(channel);
+				while (clockLinkedListTransfer(channel)) {
+					NumWords++;
+				}
 				break;
 			}
 
 			default: {
 				startBlockTransfer(channel);
+				while (clockBlockTransfer(channel)) {
+					NumWords++;
+				}
 				break;
 			}
 		}
 
+		channel.ScheduledDoneClock = mCPU->getClocks() + CLOCKS_PER_WORD[(U8)port] * NumWords;
 	}
 
 	void DMA::startBlockTransfer(Channel& channel)
@@ -422,7 +415,7 @@ namespace esx {
 		//ESX_CORE_LOG_TRACE("DMA - Starting Block Transfer of {:08x}h size with starting address {:08x}h on port {} direction {}", channel.TransferStatus.BlockRemainingSize, channel.TransferStatus.BlockCurrentAddress, (U8)channel.Port, (channel.Direction == Direction::ToMainRAM) ? "ToMainRAM" : "FromMainRAM");
 	}
 
-	void DMA::clockBlockTransfer(Channel& channel)
+	BIT DMA::clockBlockTransfer(Channel& channel)
 	{
 		I32 increment = (channel.Step == Step::Forward) ? 4 : -4;
 
@@ -475,12 +468,11 @@ namespace esx {
 					}
 				}
 
-				mRAM->store(ESX_TEXT("Root"), currentAddress, valueToWrite);
+				mBus->store<U32>(currentAddress, valueToWrite);
 				break;
 			}
 			case Direction::FromMainRAM: {
-				U32 value = 0;
-				mRAM->load(ESX_TEXT("Root"), currentAddress, value);
+				U32 value = mBus->load<U32>(currentAddress);
 
 				switch (channel.Port) {
 					case Port::MDECin: {
@@ -514,8 +506,10 @@ namespace esx {
 
 		if (channel.TransferStatus.BlockRemainingSize == 0) {
 			//ESX_CORE_LOG_TRACE("DMA - Block Transfer Done");
-			setChannelDone(channel);
+			return ESX_FALSE;
 		}
+
+		return ESX_TRUE;
 	}
 
 
@@ -533,21 +527,20 @@ namespace esx {
 		//ESX_CORE_LOG_TRACE("DMA - Starting Linked List Transfer starting node {:08x}h on port {}", channel.TransferStatus.LinkedListCurrentNodeAddress, (U8)channel.Port);
 	}
 
-	void DMA::clockLinkedListTransfer(Channel& channel)
+	BIT DMA::clockLinkedListTransfer(Channel& channel)
 	{
 		TransferStatus& transferStatus = channel.TransferStatus;
 
 
 		if (transferStatus.LinkedListRemainingSize == 0) {
-			mRAM->load(ESX_TEXT("Root"), transferStatus.LinkedListCurrentNodeAddress, transferStatus.LinkedListCurrentNodeHeader);
+			transferStatus.LinkedListCurrentNodeHeader = mBus->load<U32>(transferStatus.LinkedListCurrentNodeAddress);
 			transferStatus.LinkedListNextNodeAddress = transferStatus.LinkedListCurrentNodeHeader & 0x1FFFFC;
 			transferStatus.LinkedListRemainingSize = transferStatus.LinkedListCurrentNodeHeader >> 24;
 			transferStatus.LinkedListPacketAddress = (transferStatus.LinkedListCurrentNodeAddress + 4) & 0x1FFFFC;
 		}
 
 		if (transferStatus.LinkedListRemainingSize > 0) {
-			U32 packet = 0;
-			mRAM->load(ESX_TEXT("Root"), transferStatus.LinkedListPacketAddress, packet);
+			U32 packet = mBus->load<U32>(transferStatus.LinkedListPacketAddress);
 			mGPU->gp0(packet);
 
 			transferStatus.LinkedListRemainingSize--;
@@ -556,12 +549,14 @@ namespace esx {
 
 		if (transferStatus.LinkedListRemainingSize == 0) {
 			if ((transferStatus.LinkedListCurrentNodeHeader & 0x800000) != 0) {
-				setChannelDone(channel);
+				return ESX_FALSE;
 			} else {
 				transferStatus.LinkedListCurrentNodeAddress = transferStatus.LinkedListNextNodeAddress;
 				channel.BaseAddress = transferStatus.LinkedListCurrentNodeAddress;
 			}
 		}
+
+		return ESX_TRUE;
 	}
 
 

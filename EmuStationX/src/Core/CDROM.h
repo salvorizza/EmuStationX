@@ -57,6 +57,7 @@ namespace esx {
 		Init = 0x0A,
 		Mute = 0x0B,
 		Demute = 0x0C,
+		Setfilter = 0x0D,
 		Setmode = 0x0E,
 		GetlocP = 0x11,
 		GetTN = 0x13,

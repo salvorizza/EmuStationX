@@ -67,6 +67,8 @@ namespace esx {
 		U16 BlockCount = 0;
 
 		TransferStatus TransferStatus;
+
+		U64 ScheduledDoneClock = 0;
 	};
 
 
@@ -94,6 +96,7 @@ namespace esx {
 	class SPU;
 	class RAM;
 	class MDEC;
+	class R3000;
 
 	class DMA : public BusDevice {
 	public:
@@ -111,6 +114,7 @@ namespace esx {
 		inline BIT isRunning() const { return mRunningDMAs != 0; }
 
 		virtual void reset() override;
+		virtual void init() override;
 	private:
 		void setChannelControl(Port port, U32 channelControl);
 		U32 getChannelControl(Port port);
@@ -133,10 +137,10 @@ namespace esx {
 		void startTransfer(Port port);
 
 		void startBlockTransfer(Channel& channel);
-		void clockBlockTransfer(Channel& channel);
+		BIT clockBlockTransfer(Channel& channel);
 
 		void startLinkedListTransfer(Channel& channel);
-		void clockLinkedListTransfer(Channel& channel);
+		BIT clockLinkedListTransfer(Channel& channel);
 
 	private:
 		ControlRegister mControlRegister;
@@ -161,6 +165,7 @@ namespace esx {
 		SharedPtr<SPU> mSPU;
 		SharedPtr<MDEC> mMDEC;
 		SharedPtr<RAM> mRAM;
+		SharedPtr<R3000> mCPU;
 	};
 
 }

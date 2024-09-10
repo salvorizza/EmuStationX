@@ -54,7 +54,49 @@ namespace esx {
 		stereoVolume.Right = (value >> 16) & 0xFFFF;
 	}
 
-	static void tickEnvelope(EnvelopePhase& phase, I16& outVolume, U32& outTick, I16& outStep) {
+	static void tickEnvelope(EnvelopePhase& phase, BIT PhaseNegative, I16& outVolume, U32& outTick, I16& outStep) {
+		/*BIT Decreasing = phase.Direction == EnvelopeDirection::Decrease;
+		BIT Increase = phase.Direction == EnvelopeDirection::Increase;
+		BIT Exponential = phase.Mode == EnvelopeMode::Exponential;
+
+		I32 AdsrStep = 7 - phase.Step;
+		if (Decreasing ^ PhaseNegative) {
+			AdsrStep = ~AdsrStep;
+		}
+		AdsrStep = phase.Step << std::max(0, 11 - phase.Shift);
+		U32 CounterIncrement = 0x8000 >> std::max(0, phase.Shift - 11);
+		if (Exponential && Increase && outVolume > 0x6000) {
+			if (phase.Shift < 10) {
+				AdsrStep /= 4;
+			} else if (phase.Shift >= 11) {
+				CounterIncrement /= 4;
+			} else {
+				AdsrStep /= 4;
+				CounterIncrement /= 4;
+			}
+		} else if (Exponential && Increase) {
+			AdsrStep = AdsrStep * outVolume / 0x8000;
+		}
+
+		if ((phase.Step | (phase.Step << 2)) != 0xFF) {
+			CounterIncrement = std::max<U32>(CounterIncrement, 1);
+		}
+
+		outTick += CounterIncrement;
+		if ((outTick & 0x8000) == 0) {
+			return;
+		}
+
+		outVolume = outVolume + AdsrStep;
+		if (Increase) {
+			outVolume = std::clamp<I16>(outVolume, -0x8000, 0x7FFF);
+		} else if (PhaseNegative) {
+			outVolume = std::clamp<I16>(outVolume, -0x8000, 0);
+		} else {
+			outVolume = std::max<I16>(outVolume, 0);
+		}
+		outStep = AdsrStep;*/
+
 		I32 step = phase.Direction == EnvelopeDirection::Increase ? (7 - phase.Step) : (-8 + phase.Step);
 		U32 cycles = 1 << std::max(0, phase.Shift - 11);
 		I32 envelopeStep = step << std::max(0, 11 - phase.Shift);
@@ -78,7 +120,7 @@ namespace esx {
 		}
 		else {
 			ESX_CORE_LOG_TRACE("Sweep");
-			tickEnvelope(volume.Envelope, volume.Level, volume.Tick, volume.Step);
+			tickEnvelope(volume.Envelope, volume.SweepPhase == SweepPhase::Negative, volume.Level, volume.Tick, volume.Step);
 			return volume.Level;
 		}
 	}
@@ -1045,7 +1087,7 @@ namespace esx {
 			}
 
 			EnvelopePhase& currentPhase = adsr.Phases[(U8)adsr.Phase];
-			tickEnvelope(currentPhase, adsr.CurrentVolume, adsr.Tick, adsr.Step);
+			tickEnvelope(currentPhase, ESX_FALSE, adsr.CurrentVolume, adsr.Tick, adsr.Step);
 			BIT goToNextPhase = currentPhase.Direction == EnvelopeDirection::Decrease ? (adsr.CurrentVolume <= currentPhase.Target) : (adsr.CurrentVolume >= currentPhase.Target);
 			if (goToNextPhase && adsr.Phase != ADSRPhaseType::Sustain) {
 				adsr.Phase = (ADSRPhaseType)((U8)adsr.Phase + 1);

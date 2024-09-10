@@ -110,6 +110,7 @@ namespace esx {
 		void endCounterSync(Counter& counter);
 
 		void handleInterrupt(Counter& timer, CounterModeRegister& modeRegister);
+		void calculateCurrentValue(Counter& timer);
 
 		U64 PreCalculateTimerScheduleClock(ClockSource clockSource, U16 CurrentValue, U16 TargetValue);
 

@@ -43,6 +43,7 @@ namespace esx {
 		void refresh16BitData();
 		void refresh24BitTexture();
 
+		void FlushVRAMWrites();
 	public:
 		static const size_t QUAD_VERTEX_SIZE = sizeof(PolygonVertex);
 		static const size_t TRI_SIZE = QUAD_VERTEX_SIZE * 3;
@@ -85,10 +86,12 @@ namespace esx {
 
 		Vector<VRAMColor> mVRAM16;
 		BIT mRefreshVRAMData = ESX_FALSE;
+		BIT mVRAMWritePending = ESX_FALSE;
 
 		BIT m24Bit = ESX_FALSE;
 
-		SharedPtr<PixelBuffer> mPBO24Up;
+		//SharedPtr<PixelBuffer> mPBO24Up;
+		SharedPtr<PixelBuffer> mPBO16Up;
 	};
 
 }

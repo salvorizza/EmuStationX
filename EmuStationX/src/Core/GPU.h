@@ -10,11 +10,16 @@ namespace esx {
 	class GPU;
 	using CommandFunction = void(GPU::*)();
 
-	constexpr U64 PAL_SCANLINES_PER_FRAME = 314;
-	constexpr U64 PAL_CLOCKS_PER_SCANLINE = 3406;
+	#define NTSC_SYSTEM
 
-	constexpr U64 NTSC_SCANLINES_PER_FRAME = 263;
-	constexpr U64 NTSC_CLOCKS_PER_SCANLINE = 3413;
+	#ifndef NTSC_SYSTEM
+		constexpr U64 SCANLINES_PER_FRAME = 314;
+		constexpr U64 CLOCKS_PER_SCANLINE = 3406;
+	#else
+
+		constexpr U64 SCANLINES_PER_FRAME = 263;
+		constexpr U64 CLOCKS_PER_SCANLINE = 3413;
+	#endif
 
 	constexpr Array<U64, 7> DOT_CLOCKS = {
 		10,
@@ -131,6 +136,7 @@ namespace esx {
 
 	class Timer;
 	class InterruptControl;
+	class R3000;
 
 	class GPU : public BusDevice {
 	public:
@@ -160,7 +166,7 @@ namespace esx {
 
 
 		static U64 ToGPUClock(U64 cpuClocks) { return (cpuClocks * 11) / 7; }
-		static U64 FromGPUClock(U64 gpuClock) { return (gpuClock * 7) / 11; }
+		static constexpr U64 FromGPUClock(U64 gpuClock) { return (gpuClock * 7) / 11; }
 	private:
 		//Misc commands
 		Command gp0MiscCommands(U32 instruction) const;
@@ -284,11 +290,11 @@ namespace esx {
 		SharedPtr<IRenderer> mRenderer = {};
 		SharedPtr<Timer> mTimer = {};
 		SharedPtr<InterruptControl> mInterruptControl = {};
+		SharedPtr<R3000> mCPU = {};
 
 		U64 mScanlinesPerFrame = 0;
 		U64 mClocksPerScanline = 0;
 
-		U64 mGPUClocks = 0;
 		U64 mScheduledEndHBlankClock = 0;
 		U64 mScheduledStartHBlankClock = 0;
 		U64 mScheduledEndVBlankClock = 0;

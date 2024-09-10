@@ -57,9 +57,13 @@ namespace esx {
 		mFBO24->setColorAttachment(mTexture24);
 		mFBO24->init();
 
-		mPBO24Up = MakeShared<PixelBuffer>();
+		/*mPBO24Up = MakeShared<PixelBuffer>();
 		mPBO24Up->setData(nullptr, 682 * 512 * sizeof(U8) * 3, BufferMode::Write);
-		mPBO24Up->unbind();
+		mPBO24Up->unbind();*/
+
+		mPBO16Up = MakeShared<PixelBuffer>();
+		mPBO16Up->setData(nullptr, 1024 * 512 * sizeof(VRAMColor), BufferMode::Write);
+		mPBO16Up->unbind();
 
 		mVRAM16.resize(1024 * 512);
 
@@ -88,15 +92,10 @@ namespace esx {
 		ptrdiff_t numTriIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
 		ptrdiff_t numLineStripIndices = std::distance(mLineStripVerticesBase.begin(), mLineStripCurrentVertex);
 
-		if (m24Bit) {
-			if (mRefreshVRAMData) {
-				refresh16BitData();
-				mRefreshVRAMData = ESX_FALSE;
-			}
-			refresh24BitTexture();
-		}
 
 		if (numTriIndices > 0 || numLineStripIndices > 0) {
+			FlushVRAMWrites();
+
 			mFBO16->bind();
 
 			glViewport(0, 0, mFBO16->width(), mFBO16->height());
@@ -196,11 +195,15 @@ namespace esx {
 
 	void BatchRenderer::Clear(U16 x, U16 y, U16 w, U16 h, Color& color)
 	{
+		Flush();
+		Begin();
+
 		mFBO16->bind();
 		glScissor(x, 511 - y - (h - 1), w, h);
 		glClearColor(floorf(color.r / 8) / 31.0, floorf(color.g / 8) / 31.0, floorf(color.b / 8) / 31.0, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 		mFBO16->unbind();
+
 		mRefreshVRAMData = ESX_TRUE;
 	}
 
@@ -275,7 +278,6 @@ namespace esx {
 			mRefreshVRAMData = ESX_FALSE;
 		}
 
-		mTexture16->bind();
 		for (I32 yOff = 0; yOff < height; yOff++) {
 			for (I32 xOff = 0; xOff < width; xOff++) {
 				U16 xImage = x + xOff;
@@ -289,11 +291,11 @@ namespace esx {
 				if (mCheckMask && (mVRAM16[yImage * 1024 + xImage].data & 0x8000) == 0x8000) continue;
 				if (mForceAlpha) color.data |= 0x8000;
 
-				mTexture16->setPixel(xImage, yImage, &color);
 				mVRAM16[yImage * 1024 + xImage] = color;
 			}
 		}
-		mTexture16->unbind();
+
+		mVRAMWritePending = ESX_TRUE;
 	}
 
 	void BatchRenderer::VRAMRead(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels)
@@ -330,6 +332,7 @@ namespace esx {
 		mLineStripCurrentIndex = mLineStripIndicesBase.begin();
 
 		mFBO16->bind();
+		glScissor(0, 0, 1024, 512);
 		glClearColor(0, 0, 0, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 		mFBO16->unbind();
@@ -341,6 +344,7 @@ namespace esx {
 		mDrawBottomRight = glm::uvec2(640, 240);
 		mForceAlpha = ESX_FALSE;
 		mCheckMask = ESX_FALSE;
+		mVRAMWritePending = ESX_FALSE;
 
 		glEnable(GL_SCISSOR_TEST);
 
@@ -349,6 +353,8 @@ namespace esx {
 
 	void BatchRenderer::refresh16BitData()
 	{
+		FlushVRAMWrites();
+
 		void* data = mVRAM16.data();
 		mTexture16->bind();
 		mTexture16->getPixels(&data);
@@ -359,18 +365,47 @@ namespace esx {
 	{
 
 		/*mTexture24->bind();
-		mTexture24->copy(mPBO24Up);
-		void* mVRAM24DMA = mPBO24Up->mapBuffer();
-		if (mVRAM24DMA) {
-			std::memcpy(mVRAM24DMA, mVRAM16.data(), mVRAM16.size() * sizeof(VRAMColor));
+		mPBO24Up->bind();
+		void* dma24 = mPBO24Up->mapBuffer();
+		if (dma24) {
+			std::memcpy(dma24, mVRAM16.data(), 682 * 512 * sizeof(U8) * 3);
 			mPBO24Up->unmapBuffer();
+			mTexture24->copy(mPBO24Up);
 		}
-		mPBO24Up->unbind();*/
-
-		mTexture24->bind();
-		mTexture24->setPixels(0, 0, 682, 512, mVRAM16.data());
+		mPBO24Up->unbind();
 		mTexture24->unbind();
+		glFlush();*/
 
+		/*mTexture24->bind();
+		mTexture24->setPixels(0, 0, 682, 512, mVRAM16.data());
+		mTexture24->unbind();*/
+
+	}
+
+	void BatchRenderer::FlushVRAMWrites()
+	{
+		if (mVRAMWritePending) {
+			mTexture16->bind();
+			mPBO16Up->bind();
+			VRAMColor* dma16 = reinterpret_cast<VRAMColor*>(mPBO16Up->mapBuffer());
+			if (dma16) {
+				std::memcpy(dma16, mVRAM16.data(), mVRAM16.size() * sizeof(VRAMColor));
+				mPBO16Up->unmapBuffer();
+				mTexture16->copy(mPBO16Up);
+			}
+			mPBO16Up->unbind();
+			mTexture16->unbind();
+
+			if (m24Bit) {
+				if (mRefreshVRAMData) {
+					refresh16BitData();
+					mRefreshVRAMData = ESX_FALSE;
+				}
+				refresh24BitTexture();
+			}
+
+			mVRAMWritePending = ESX_FALSE;
+		}
 	}
 
 }
