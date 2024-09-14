@@ -183,6 +183,7 @@
     <ClInclude Include="src\Core\PIO.h" />
     <ClInclude Include="src\Core\R3000.h" />
     <ClInclude Include="src\Core\RAM.h" />
+    <ClInclude Include="src\Core\Scheduler.h" />
     <ClInclude Include="src\Core\SIO.h" />
     <ClInclude Include="src\Core\SPU.h" />
     <ClInclude Include="src\Core\SerialDevice.h" />
@@ -236,6 +237,7 @@
     <ClCompile Include="src\Core\PIO.cpp" />
     <ClCompile Include="src\Core\R3000.cpp" />
     <ClCompile Include="src\Core\RAM.cpp" />
+    <ClCompile Include="src\Core\Scheduler.cpp" />
     <ClCompile Include="src\Core\SIO.cpp" />
     <ClCompile Include="src\Core\SPU.cpp" />
     <ClCompile Include="src\Core\SerialDevice.cpp" />

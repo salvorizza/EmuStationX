@@ -146,10 +146,16 @@ namespace esx {
 		void store(const StringView& busName, U32 address, U32 value) override;
 		void load(const StringView& busName, U32 address, U32& output) override;
 
-	
 		void gp0(U32 instruction);
 		void gp1(U32 instruction);
 		U32 gpuRead();
+
+		void startHBlank(U64 clocks);
+		void endHBlank(U64 clocks);
+		void startVBlank(U64 clocks);
+		void endVBlank(U64 clocks);
+		void newScanline(U64 clocks);
+		void newFrame(U64 clocks);
 
 		virtual void clock(U64 clocks) override;
 		virtual void reset() override;
@@ -294,16 +300,6 @@ namespace esx {
 
 		U64 mScanlinesPerFrame = 0;
 		U64 mClocksPerScanline = 0;
-
-		U64 mScheduledEndHBlankClock = 0;
-		U64 mScheduledStartHBlankClock = 0;
-		U64 mScheduledEndVBlankClock = 0;
-		U64 mScheduledStartVBlankClock = 0;
-		U64 mScheduledDotClock = 0;
-
-		U64 mScheduledScanlineClock = 0;
-		U64 mScheduledFrameClock = 0;
-
 	};
 
 	

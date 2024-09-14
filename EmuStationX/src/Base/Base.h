@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <mutex>
 #include <span>
+#include <optional>
 
 
 namespace esx {
@@ -93,6 +94,9 @@ namespace esx {
 	template<typename T>
 	using Deque = std::deque<T>;
 
+	template<typename T, typename Container = std::vector<T>, typename Compare = std::less<typename Container::value_type>>
+	using PriorityQueue = std::priority_queue<T, Container, Compare>;
+
 	template<typename T>
 	using Vector = std::vector<T>;
 
@@ -116,6 +120,9 @@ namespace esx {
 
 	template<typename... Args>
 	using Tuple = std::tuple<Args...>;
+
+	template<typename T>
+	using Optional = std::optional<T>;
 
 	template<typename T>
 	using ScopedPtr = std::unique_ptr<T>;

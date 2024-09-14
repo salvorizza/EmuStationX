@@ -140,22 +140,25 @@ void main() {
 
     if(uCheckMask == 1 && previousColor.a == 1) discard;
 
+    ivec2 iUV = ivec2(oUV.x, oUV.y);
+    ivec2 iClutUV = ivec2(oClutUV.x, oClutUV.y);
+
     if(oTextured == 1) {
         ivec2 uvColor = ivec2(0,0);
 
         switch (oBPP) {
             case BPP_4: {
-                uvColor = ivec2(oClutUV.x + texel_4bit(ivec2(oUV)),511 - oClutUV.y);  
+                uvColor = ivec2(iClutUV.x + texel_4bit(iUV),511 - iClutUV.y);  
                 break;
             }
 
             case BPP_8: {
-                uvColor = ivec2(oClutUV.x + texel_8bit(ivec2(oUV)),511 - oClutUV.y);  
+                uvColor = ivec2(iClutUV.x + texel_8bit(iUV),511 - iClutUV.y);  
                 break;
             }
 
             case BPP_16: {
-                uvColor = ivec2(oUV.x, 511 - oUV.y);
+                uvColor = ivec2(iUV.x, 511 - iUV.y);
                 break;
             }
         }

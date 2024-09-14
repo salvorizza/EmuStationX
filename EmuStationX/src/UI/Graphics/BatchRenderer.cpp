@@ -84,6 +84,7 @@ namespace esx {
 
 	void BatchRenderer::end()
 	{
+		FlushVRAMWrites();
 		Flush();
 	}
 
@@ -94,8 +95,6 @@ namespace esx {
 
 
 		if (numTriIndices > 0 || numLineStripIndices > 0) {
-			FlushVRAMWrites();
-
 			mFBO16->bind();
 
 			glViewport(0, 0, mFBO16->width(), mFBO16->height());
@@ -151,6 +150,7 @@ namespace esx {
 
 	void BatchRenderer::SetDrawTopLeft(U16 x, U16 y)
 	{
+		FlushVRAMWrites();
 		Flush();
 		Begin();
 
@@ -162,6 +162,7 @@ namespace esx {
 
 	void BatchRenderer::SetDrawBottomRight(U16 x, U16 y)
 	{
+		FlushVRAMWrites();
 		Flush();
 		Begin();
 
@@ -174,6 +175,7 @@ namespace esx {
 
 	void BatchRenderer::SetForceAlpha(BIT value)
 	{
+		FlushVRAMWrites();
 		Flush();
 		Begin();
 
@@ -182,6 +184,7 @@ namespace esx {
 
 	void BatchRenderer::SetCheckMask(BIT value)
 	{
+		FlushVRAMWrites();
 		Flush();
 		Begin();
 
@@ -195,12 +198,13 @@ namespace esx {
 
 	void BatchRenderer::Clear(U16 x, U16 y, U16 w, U16 h, Color& color)
 	{
+		FlushVRAMWrites();
 		Flush();
 		Begin();
 
 		mFBO16->bind();
 		glScissor(x, 511 - y - (h - 1), w, h);
-		glClearColor(floorf(color.r / 8) / 31.0, floorf(color.g / 8) / 31.0, floorf(color.b / 8) / 31.0, 0);
+		glClearColor((color.r >> 3) / 31.0, (color.g >> 3) / 31.0, (color.b >> 3) / 31.0, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 		mFBO16->unbind();
 
@@ -211,6 +215,7 @@ namespace esx {
 	{
 		ptrdiff_t numIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
 		if ((numIndices + vertices.size()) >= TRI_MAX_VERTICES || (numIndices > 0 && vertices.at(0).semiTransparency != 255)) {
+			FlushVRAMWrites();
 			Flush();
 			Begin();
 		}
@@ -244,6 +249,7 @@ namespace esx {
 	{
 		ptrdiff_t numIndices = std::distance(mLineStripVerticesBase.begin(), mLineStripCurrentVertex);
 		if ((numIndices + vertices.size()) >= MAX_LINE_STRIP_VERTICES || (numIndices > 0 && vertices.at(0).semiTransparency != 255)) {
+			FlushVRAMWrites();
 			Flush();
 			Begin();
 		}
@@ -376,10 +382,9 @@ namespace esx {
 		mTexture24->unbind();
 		glFlush();*/
 
-		/*mTexture24->bind();
+		mTexture24->bind();
 		mTexture24->setPixels(0, 0, 682, 512, mVRAM16.data());
-		mTexture24->unbind();*/
-
+		mTexture24->unbind();
 	}
 
 	void BatchRenderer::FlushVRAMWrites()
@@ -397,10 +402,6 @@ namespace esx {
 			mTexture16->unbind();
 
 			if (m24Bit) {
-				if (mRefreshVRAMData) {
-					refresh16BitData();
-					mRefreshVRAMData = ESX_FALSE;
-				}
 				refresh24BitTexture();
 			}
 

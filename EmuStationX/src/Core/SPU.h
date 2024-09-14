@@ -252,6 +252,8 @@ namespace esx {
 		20,
 		1
 	};
+
+	class R3000;
 	
 
 	class SPU : public BusDevice {
@@ -260,7 +262,7 @@ namespace esx {
 		SPU();
 		~SPU();
 
-		virtual void clock(U64 clocks) override;
+		void sampleClock(U64 clocks);
 
 		virtual void store(const StringView& busName, U32 address, U16 value) override;
 		virtual void load(const StringView& busName, U32 address, U16& output) override;
@@ -268,6 +270,7 @@ namespace esx {
 		virtual void store(const StringView& busName, U32 address, U32 value) override;
 		virtual void load(const StringView& busName, U32 address, U32& output) override;
 
+		virtual void init() override;
 		virtual void reset() override;
 
 		void writeToRAM(U16 value);
@@ -410,6 +413,8 @@ namespace esx {
 
 		static I16 reverbFirFilter(I16 sample);
 	private:
+		SharedPtr<R3000> mCPU;
+
 		Array<Voice, 24> mVoices = {};
 		Volume mMainVolumeLeft = {};
 		Volume mMainVolumeRight = {};

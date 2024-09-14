@@ -6,6 +6,8 @@
 #include <imgui_internal.h>
 #include <imgui.h>
 
+#include "Core/Scheduler.h"
+
 namespace esx {
 
 
@@ -56,7 +58,13 @@ namespace esx {
 						break;
 					}
 					else {
-						mInstance->clock();
+
+						while (mInstance->getClocks() < Scheduler::NextEvent().ClockTarget) {
+							mInstance->clock();
+						}
+						Scheduler::ExecuteEvent();
+						Scheduler::Progress();
+
 						if (mInstance->mPC == 0x80030000 && mEXE) {
 							sideLoad();
 						}
@@ -68,15 +76,21 @@ namespace esx {
 				break;
 			}
 
-			case DebugState::Step:
-				mInstance->clock();
-				mInstance->clock();
+			case DebugState::Step: {
+				while (mInstance->getClocks() != 0) {
+					mInstance->clock();
+				}
+				if (mInstance->getClocks() >= Scheduler::NextEvent().ClockTarget) {
+					Scheduler::ExecuteEvent();
+					Scheduler::Progress();
+				}
 
 				//disassemble(mInstance->mPC - 4 * disassembleRange, 4 * disassembleRange * 2);
 				mScrollToCurrent = true;
 				mCurrent = mInstance->mPC;
 				setDebugState(DebugState::Breakpoint);
 				break;
+			}
 
 
 			case DebugState::StepOver: {

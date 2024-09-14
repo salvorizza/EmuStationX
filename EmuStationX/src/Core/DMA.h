@@ -67,8 +67,6 @@ namespace esx {
 		U16 BlockCount = 0;
 
 		TransferStatus TransferStatus;
-
-		U64 ScheduledDoneClock = 0;
 	};
 
 

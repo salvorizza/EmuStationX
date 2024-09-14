@@ -44,12 +44,6 @@ namespace esx {
 		U16 TargetValue = 0;
 		BIT Pause = ESX_FALSE;
 		BIT IRQHappened = ESX_FALSE;
-
-		U64 ScheduledClockToMaxStart = 0;
-		U64 ScheduledClockToTargetStart = 0;
-
-		U64 ScheduledClockToMax = 0;
-		U64 ScheduledClockToTarget = 0;
 	};
 
 	typedef class GPU;
@@ -114,10 +108,14 @@ namespace esx {
 
 		U64 PreCalculateTimerScheduleClock(ClockSource clockSource, U16 CurrentValue, U16 TargetValue);
 
+		void RescheduleTargetEvent(Counter& timer, ClockSource clockSource, BIT unschedule = ESX_TRUE);
+		void RescheduleMaxEvent(Counter& timer, ClockSource clockSource, BIT unschedule = ESX_TRUE);
+
+
 		U64 GetDivider(ClockSource clockSource);
 		static constexpr ClockSource GetClockSource(U8 counter, U8 clockSource) { return COUNTER_CLOCK_SOURCES[counter][clockSource]; }
 		static constexpr CounterSyncMode GetSyncMode(U8 counter, U8 syncMode) { return COUNTER_SYNC_MODES[counter][syncMode]; }
-		static constexpr U16 CalculateDistance(U16 TargetValue, U16 CurrentValue) { return (CurrentValue < TargetValue) ? (TargetValue - CurrentValue) : (0xFFFF - (CurrentValue - TargetValue) + 1); }
+		static constexpr U16 CalculateDistance(U16 TargetValue, U16 CurrentValue) { return (CurrentValue < TargetValue) ? (TargetValue - CurrentValue) : (CurrentValue - TargetValue); }
 
 	private:
 		Array<Counter, 3> mCounters;

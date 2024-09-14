@@ -93,12 +93,8 @@ namespace esx {
 		}
 		mCyclesToWait--;
 
-		mGPU->clock(mCycles);
-		mTimer->clock(mCycles);
 		mCDROM->clock(mCycles);
 		mSIO0->clock(mCycles);
-		mSPU->clock(mCycles);
-		mDMA->clock(mCycles);
 		if (!mDMA->isRunning()) {
 			mStall = ESX_FALSE;
 		}

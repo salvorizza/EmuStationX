@@ -8,12 +8,25 @@
 #include "Core/SPU.h"
 #include "Core/R3000.h"
 
+#include "Core/Scheduler.h"
+
 namespace esx {
 
 	DMA::DMA()
 		: BusDevice(ESX_TEXT("DMA"))
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801080, BYTE(0x7F), 0xFFFFFFFF);
+
+		Scheduler::AddSchedulerEventHandler(SchedulerEventType::DMAChannelDone, [&](const SchedulerEvent& ev) {
+			if (mRunningDMAs == 0) return;
+			if (mPriorityPorts.size() == 0) return;
+
+			U8 port = ev.Read<U8>();
+			Channel& channel = mChannels[port];
+			if (channel.MasterEnable && channel.TransferStartOrBusy) {
+				setChannelDone(channel);
+			}
+		});
 	}
 
 	DMA::~DMA()
@@ -22,16 +35,6 @@ namespace esx {
 
 	void DMA::clock(U64 clocks)
 	{
-		if (mRunningDMAs == 0) return;
-		if (mPriorityPorts.size() == 0) return;
-
-		for (Port& port : mPriorityPorts) {
-			Channel& channel = mChannels[(U8)port];
-
-			if (channel.MasterEnable && channel.TransferStartOrBusy && clocks >= channel.ScheduledDoneClock) {
-				setChannelDone(channel);
-			}
-		}
 	}
 
 	void DMA::store(const StringView& busName, U32 address, U32 value)
@@ -393,7 +396,13 @@ namespace esx {
 			}
 		}
 
-		channel.ScheduledDoneClock = mCPU->getClocks() + CLOCKS_PER_WORD[(U8)port] * NumWords;
+		SchedulerEvent dmaEvent = {
+			.Type = SchedulerEventType::DMAChannelDone,
+			.ClockStart = mCPU->getClocks(),
+			.ClockTarget = mCPU->getClocks() + CLOCKS_PER_WORD[(U8)port] * NumWords
+		};
+		dmaEvent.Write<U8>(static_cast<U8>(channel.Port));
+		Scheduler::ScheduleEvent(dmaEvent);
 	}
 
 	void DMA::startBlockTransfer(Channel& channel)

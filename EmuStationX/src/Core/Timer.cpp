@@ -6,13 +6,38 @@
 
 #include "optick.h"
 
+#include "Core/Scheduler.h"
+
 namespace esx {
 
 	Timer::Timer()
 		: BusDevice(ESX_TEXT("Timer"))
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801100, BYTE(0x30), 0xFFFFFFFF);
-		reset();
+
+		auto reachTarget = [&](const SchedulerEvent& ev) {
+			U8 counter = ev.Read<U8>();
+			Counter& timer = mCounters[counter];
+			incrementCounter(timer, CalculateDistance(timer.TargetValue, timer.CurrentValue));
+			RescheduleTargetEvent(timer, GetClockSource(timer.Number, timer.Mode.ClockSource), ESX_FALSE);
+		};
+
+
+
+		auto reachMax = [&](const SchedulerEvent& ev) {
+			U8 counter = ev.Read<U8>();
+			Counter& timer = mCounters[counter];
+			incrementCounter(timer, CalculateDistance(0xFFFF, timer.CurrentValue));
+			RescheduleMaxEvent(timer, GetClockSource(timer.Number, timer.Mode.ClockSource), ESX_FALSE);
+		};
+
+		Scheduler::AddSchedulerEventHandler(SchedulerEventType::Timer0ReachTarget, reachTarget);
+		Scheduler::AddSchedulerEventHandler(SchedulerEventType::Timer1ReachTarget, reachTarget);
+		Scheduler::AddSchedulerEventHandler(SchedulerEventType::Timer2ReachTarget, reachTarget);
+
+		Scheduler::AddSchedulerEventHandler(SchedulerEventType::Timer0ReachMax, reachMax);
+		Scheduler::AddSchedulerEventHandler(SchedulerEventType::Timer1ReachMax, reachMax);
+		Scheduler::AddSchedulerEventHandler(SchedulerEventType::Timer2ReachMax, reachMax);
 	}
 
 	Timer::~Timer()
@@ -125,28 +150,12 @@ namespace esx {
 		for (Counter& counter : mCounters) {
 			counter.Number = i;
 			i++;
+			RescheduleMaxEvent(counter, GetClockSource(counter.Number, counter.Mode.ClockSource));
 		}
 	}
 
 	void Timer::clock(U64 clocks)
 	{
-		for (Counter& timer : mCounters) {
-			if (timer.Mode.IRQCounterEqualTargetEnable && clocks >= timer.ScheduledClockToTarget) {
-				incrementCounter(timer, CalculateDistance(timer.TargetValue, timer.CurrentValue));
-
-				timer.ScheduledClockToTargetStart = mCPU->getClocks();
-				timer.ScheduledClockToTarget = PreCalculateTimerScheduleClock(GetClockSource(timer.Number, timer.Mode.ClockSource), timer.CurrentValue, timer.TargetValue);
-			}
-		}
-
-		for (Counter& timer : mCounters) {
-			if (timer.Mode.IRQCounterEqualMaxEnable && clocks >= timer.ScheduledClockToMax) {
-				incrementCounter(timer, CalculateDistance(0xFFFF, timer.CurrentValue));
-
-				timer.ScheduledClockToMaxStart = mCPU->getClocks();
-				timer.ScheduledClockToMax = PreCalculateTimerScheduleClock(GetClockSource(timer.Number, timer.Mode.ClockSource), timer.CurrentValue, 0xFFFF);
-			}
-		}
 	}
 
 	void Timer::startHblank()
@@ -210,11 +219,8 @@ namespace esx {
 
 		timer.IRQHappened = ESX_FALSE;
 
-		timer.ScheduledClockToTargetStart = mCPU->getClocks();
-		timer.ScheduledClockToTarget = PreCalculateTimerScheduleClock(clockSource, timer.CurrentValue, timer.TargetValue);
-
-		timer.ScheduledClockToMaxStart = mCPU->getClocks();
-		timer.ScheduledClockToMax = PreCalculateTimerScheduleClock(clockSource, timer.CurrentValue, 0xFFFF);
+		RescheduleTargetEvent(timer, clockSource);
+		RescheduleMaxEvent(timer, clockSource);
 	}
 
 	U32 Timer::getCounterMode(U8 counter)
@@ -367,18 +373,37 @@ namespace esx {
 
 	void Timer::calculateCurrentValue(Counter& timer)
 	{
+		SchedulerEventType timerEventType = static_cast<SchedulerEventType>(static_cast<U8>(SchedulerEventType::Timer0ReachMax) + timer.Number);
+		auto event = Scheduler::NextEventOfType(timerEventType);
+
+		U64 ScheduledClockToMaxStart = 0;
+		if (event) {
+			ScheduledClockToMaxStart = event.value().ClockStart;
+		}
+
 		U64 currentClocks = mCPU->getClocks();
 		CounterSyncMode syncMode = GetSyncMode(timer.Number, timer.Mode.SyncMode);
 		ClockSource clockSource = GetClockSource(timer.Number, timer.Mode.ClockSource);
 		U64 divider = GetDivider(clockSource);
 
-		U64 distance = (currentClocks - timer.ScheduledClockToMaxStart);
+		U64 distance = (currentClocks - ScheduledClockToMaxStart);
 		if (clockSource == ClockSource::Hblank || clockSource == ClockSource::Dotclock) {
 			distance = GPU::ToGPUClock(distance);
 		}
 		U16 increment = static_cast<U16>(distance / divider);
 		incrementCounter(timer, increment);
-		timer.ScheduledClockToMaxStart = currentClocks;
+		
+		if (event) {
+			SchedulerEvent timerEventMax = {
+				.Type = timerEventType,
+				.ClockStart = currentClocks,
+				.ClockTarget = event.value().ClockTarget
+			};
+			timerEventMax.Write<U8>(static_cast<U8>(timer.Number));
+
+			Scheduler::UnScheduleAllEvents(timerEventType);
+			Scheduler::ScheduleEvent(timerEventMax);
+		}
 	}
 
 	U64 Timer::PreCalculateTimerScheduleClock(ClockSource clockSource, U16 CurrentValue, U16 TargetValue)
@@ -394,6 +419,43 @@ namespace esx {
 		}
 
 		return clocks + clocksToAdd;
+	}
+
+	void Timer::RescheduleTargetEvent(Counter& timer, ClockSource clockSource, BIT unschedule)
+	{
+		if (timer.Mode.IRQCounterEqualTargetEnable) {
+			SchedulerEventType type = static_cast<SchedulerEventType>(static_cast<U8>(SchedulerEventType::Timer0ReachTarget) + timer.Number);
+			U64 clockStart = mCPU->getClocks();
+			U64 clockTarget = PreCalculateTimerScheduleClock(clockSource, timer.CurrentValue, timer.TargetValue);
+
+			SchedulerEvent timerEventTarget = {
+				.Type = type,
+				.ClockStart = clockStart,
+				.ClockTarget = clockTarget,
+			};
+			timerEventTarget.Write<U8>(static_cast<U8>(timer.Number));
+
+			if (unschedule) Scheduler::UnScheduleAllEvents(type);
+			Scheduler::ScheduleEvent(timerEventTarget);
+		}
+	}
+
+	void Timer::RescheduleMaxEvent(Counter& timer, ClockSource clockSource, BIT unschedule)
+	{
+		SchedulerEventType type = static_cast<SchedulerEventType>(static_cast<U8>(SchedulerEventType::Timer0ReachMax) + timer.Number);
+		U64 clockStart = mCPU->getClocks();
+		U64 clockTarget = PreCalculateTimerScheduleClock(clockSource, timer.CurrentValue, 0xFFFF);
+		if (clockStart != clockTarget) {
+			SchedulerEvent timerEventMax = {
+				.Type = type,
+				.ClockStart = clockStart,
+				.ClockTarget = clockTarget,
+			};
+			timerEventMax.Write<U8>(static_cast<U8>(timer.Number));
+
+			if (unschedule) Scheduler::UnScheduleAllEvents(type);
+			Scheduler::ScheduleEvent(timerEventMax);
+		}
 	}
 
 	U64 Timer::GetDivider(ClockSource clockSource)

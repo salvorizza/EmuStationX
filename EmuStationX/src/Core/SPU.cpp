@@ -1,6 +1,9 @@
 #include "SPU.h"
 
+#include "R3000.h"
 #include "InterruptControl.h"
+
+#include "Core/Scheduler.h"
 
 namespace esx {
 	
@@ -132,6 +135,11 @@ namespace esx {
 		: BusDevice(ESX_TEXT("SPU"))
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801C00, BYTE(640), 0xFFFFFFFF);
+
+		Scheduler::AddSchedulerEventHandler(SchedulerEventType::SPUSample, [&](const SchedulerEvent& ev) {
+			sampleClock(ev.ClockTarget);
+		});
+
 		reset();
 	}
 
@@ -143,23 +151,24 @@ namespace esx {
 	const Array<I16, 5> pos_xa_adpcm_table = { 0, 60, 115, 98, 122 };
 	const Array<I16, 5> neg_xa_adpcm_table = { 0, 0, -52, -55, -60 };
 	
-	void SPU::clock(U64 clocks)
+	void SPU::sampleClock(U64 clocks)
 	{
-		if (clocks % 16 == 0) {
-			if (mSPUStatus.TransferMode == TransferMode::ManualWrite && !mFIFO.empty()) {
-				U16 value = mFIFO.front();
-				writeToRAM(value);
-				mFIFO.pop();
-				mSPUStatus.DataTransferBusyFlag = !mFIFO.empty();
-			}
-		}
-
-		if (clocks % 768 == 0 && mSPUControl.Enable) {
+		if (mSPUControl.Enable) {
 			mSPUStatus.CDAudioEnable = mSPUControl.CDAudioEnable;
 			mSPUStatus.ExternalAudioEnable = mSPUControl.ExternalAudioEnable;
 			mSPUStatus.CDAudioReverb = mSPUControl.CDAudioReverb;
 			mSPUStatus.ExternalAudioReverb = mSPUControl.ExternalAudioReverb;
 			mSPUStatus.TransferMode = mSPUControl.TransferMode;
+
+			if (mSPUStatus.TransferMode == TransferMode::ManualWrite) {
+				for (I32 i = 0; i < (768 / 16); i++) {
+					if (mFIFO.empty()) break;
+					U16 value = mFIFO.front();
+					writeToRAM(value);
+					mFIFO.pop();
+					mSPUStatus.DataTransferBusyFlag = !mFIFO.empty();
+				}
+			}
 
 			I32 leftSum = 0, rightSum = 0;
 			I32 reverbLeftSum = 0, reverbRightSum = 0;
@@ -605,6 +614,11 @@ namespace esx {
 		load(busName, address + 0x2, upper);
 
 		output = (static_cast<U32>(upper) << 16) | lower;
+	}
+
+	void SPU::init()
+	{
+		mCPU = getBus("Root")->getDevice<R3000>("R3000");
 	}
 
 	void SPU::reset()
@@ -1339,6 +1353,8 @@ namespace esx {
 
 	void SPU::setControlRegister(U16 value)
 	{
+		BIT oldEnable = mSPUControl.Enable;
+
 		mSPUControl.CDAudioEnable = (value >> 0) & 0x1;
 		mSPUControl.ExternalAudioEnable = (value >> 1) & 0x1;
 		mSPUControl.CDAudioReverb = (value >> 2) & 0x1;
@@ -1350,6 +1366,18 @@ namespace esx {
 		mSPUControl.NoiseFrequencyShift = (value >> 10) & 0xF;
 		mSPUControl.Unmute = (value >> 14) & 0x1;
 		mSPUControl.Enable = (value >> 15) & 0x1;
+
+		if (!oldEnable && mSPUControl.Enable) {
+			SchedulerEvent spuSample = {
+				.Type = SchedulerEventType::SPUSample,
+				.ClockStart = mCPU->getClocks(),
+				.ClockTarget = ((mCPU->getClocks() / 768) * 768) + 768,
+				.Reschedule = ESX_TRUE,
+				.RescheduleClocks = 768
+			};
+			Scheduler::UnScheduleAllEvents(SchedulerEventType::SPUSample);
+			Scheduler::ScheduleEvent(spuSample);
+		}
 	}
 
 	U16 SPU::getStatusRegister()

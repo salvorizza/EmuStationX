@@ -22,6 +22,7 @@ namespace esx {
 		void Begin();
 		void end();
 		void Flush() override;
+		void FlushVRAMWrites() override;
 
 		void SetDrawOffset(I16 offsetX, I16 offsetY) override;
 		void SetDrawTopLeft(U16 x, U16 y) override;
@@ -43,7 +44,6 @@ namespace esx {
 		void refresh16BitData();
 		void refresh24BitTexture();
 
-		void FlushVRAMWrites();
 	public:
 		static const size_t QUAD_VERTEX_SIZE = sizeof(PolygonVertex);
 		static const size_t TRI_SIZE = QUAD_VERTEX_SIZE * 3;

@@ -75,6 +75,7 @@ namespace esx {
 		virtual ~IRenderer() = default;
 
 		virtual void Flush() = 0;
+		virtual void FlushVRAMWrites() = 0;
 		virtual void Begin() = 0;
 		virtual void SetDrawOffset(I16 offsetX, I16 offsetY) = 0;
 		virtual void SetDrawTopLeft(U16 x, U16 y) = 0;
