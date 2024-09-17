@@ -33,7 +33,7 @@ namespace esx {
 	}
 
 	MSF ISO::getTrackStart(U8 trackNumber) {
-		return CompactDisk::fromBinaryPositionToMSF(CompactDisk::calculateBinaryPosition(0, 2, 0));
+		return fromBinaryPositionToMSF(calculateBinaryPosition(0, 2, 0));
 	}
 
 }

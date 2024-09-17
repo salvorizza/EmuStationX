@@ -134,28 +134,6 @@ namespace esx {
 
 		virtual void reset() override;
 
-		constexpr static U8 fromBCD(U8 bcd) { return ((bcd >> 4) & 0xF) * 10 + ((bcd >> 0) & 0xF); }
-		constexpr static U8 toBCD(U8 decimal) { 
-			U8 bcd = 0;
-
-			if (decimal == 0) {
-				return 0;
-			}
-
-			U8 bitsToShift = 0;
-			while (decimal != 0) {
-				U8 remainder = decimal % 10;
-
-				bcd |= (remainder << bitsToShift);
-
-				decimal /= 10;
-				bitsToShift += 4;
-			}
-
-
-			return bcd;
-		}
-
 	private:
 		void command(CommandType command, U32 responseNumber = 1);
 
@@ -209,7 +187,8 @@ namespace esx {
 		CDROMStatusRegister mStat = {};
 		CDROMModeRegister mMode = {};
 
-		Queue<Response> mResponses;
+		U64 mResponsesSerial = 0;
+		UnorderedMap<U64, Response> mResponses;
 
 		BIT mShellOpen = ESX_FALSE;
 		SharedPtr<CompactDisk> mCD;

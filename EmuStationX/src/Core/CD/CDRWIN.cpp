@@ -46,13 +46,13 @@ namespace esx {
 		//TODO: Multiple files
 		if (trackNumber == 0) {
 			CDRWINTrack& lastTrack = mCurrentFile->Tracks[mCurrentFile->Tracks.size() - 1];
-			MSF end = CompactDisk::fromBinaryPositionToMSF(((mCurrentFile->Size / CD_SECTOR_SIZE) * CD_SECTOR_SIZE) + lastTrack.Indexes[lastTrack.Indexes.size() - 1].pregapLba);
+			MSF end = fromBinaryPositionToMSF(((mCurrentFile->Size / CD_SECTOR_SIZE) * CD_SECTOR_SIZE) + lastTrack.Indexes[lastTrack.Indexes.size() - 1].pregapLba);
 			return end;
 		}
 
 		if (trackNumber < mCurrentFile->Tracks.size()) {
 			CDRWINTrack& track = mCurrentFile->Tracks[trackNumber - 1];
-			return CompactDisk::fromBinaryPositionToMSF(track.Indexes[track.Indexes.size() - 1].lba + track.Indexes[track.Indexes.size() - 1].pregapLba);
+			return fromBinaryPositionToMSF(track.Indexes[track.Indexes.size() - 1].lba + track.Indexes[track.Indexes.size() - 1].pregapLba);
 		}
 
 		return {};
@@ -73,7 +73,7 @@ namespace esx {
 		for (CDRWINTrack& track : mCurrentFile->Tracks) {
 			for (CDRWinIndex& index : track.Indexes) {
 				if (mCurrentLBA >= (index.lba + index.pregapLba)) {
-					return index.pregapLba - CompactDisk::calculateBinaryPosition(0, 2, 0);
+					return index.pregapLba - calculateBinaryPosition(0, 2, 0);
 				}
 			}
 		}
@@ -155,8 +155,8 @@ namespace esx {
 
 				timeIss >> sector;
 
-				index.lba = CompactDisk::calculateBinaryPosition(minute, second, sector);
-				index.pregapLba = CompactDisk::calculateBinaryPosition(pregapMinutes, pregapSeconds, pregapSectors);
+				index.lba = calculateBinaryPosition(minute, second, sector);
+				index.pregapLba = calculateBinaryPosition(pregapMinutes, pregapSeconds, pregapSectors);
 			}
 		}
 

@@ -3,13 +3,41 @@
 #include "InterruptControl.h"
 #include "R3000.h"
 
+#include "Core/Scheduler.h"
+
 namespace esx {
 
 	CDROM::CDROM()
 		: BusDevice("CDROM")
 	{
 		addRange(ESX_TEXT("Root"), 0x1F801800, BYTE(0x4), 0xFFFFFFFF);
-		reset();
+
+		Scheduler::AddSchedulerEventHandler(SchedulerEventType::CDROMCommand, [&](const SchedulerEvent& ev) {
+			size_t serial = ev.Read<size_t>();
+			if (mResponses.contains(serial)) {
+				Response& response = mResponses.at(serial);
+
+				mResponseSize = 0;
+				mResponseReadPointer = 0;
+				while (!response.Empty()) {
+					pushResponse(response.Pop());
+				}
+				CDROM_REG3 = response.Code;
+				if ((CDROM_REG3 & CDROM_REG2) == CDROM_REG3) {
+					getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
+				}
+
+				if (mResponses.empty()) {
+					CDROM_REG0.CommandTransmissionBusy = ESX_FALSE;
+				}
+
+				if (response.Number < response.NumberOfResponses) {
+					command(response.CommandType, response.Number + 1);
+				}
+
+				mResponses.erase(serial);
+			}
+		});
 	}
 
 	CDROM::~CDROM()
@@ -18,29 +46,6 @@ namespace esx {
 
 	void CDROM::clock(U64 clocks)
 	{
-		if (!mResponses.empty() && mResponses.front().TargetCycle <= clocks) {
-			auto& response = mResponses.front();
-			
-			mResponseSize = 0;
-			mResponseReadPointer = 0;
-			while (!response.Empty()) {
-				pushResponse(response.Pop());
-			}
-			CDROM_REG3 = response.Code;
-			if ((CDROM_REG3 & CDROM_REG2) == CDROM_REG3) {
-				getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
-			}
-
-			mResponses.pop();
-
-			if (mResponses.empty()) {
-				CDROM_REG0.CommandTransmissionBusy = ESX_FALSE;
-			}
-
-			if (response.Number < response.NumberOfResponses) {
-				command(response.CommandType, response.Number + 1);
-			}
-		}
 	}
 
 	void CDROM::store(const StringView& busName, U32 address, U8 value)
@@ -196,11 +201,11 @@ namespace esx {
 				U8 second = fromBCD(popParameter());
 				U8 sector = fromBCD(popParameter());
 
-				mSeekLBA = CompactDisk::calculateBinaryPosition(minute, second, sector);
+				mSeekLBA = calculateBinaryPosition(minute, second, sector);
 
 				mSetLocUnprocessed = ESX_TRUE;
 
-				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Setloc {:02d}:{:02d}:{:02d} - {:08x}h", cpu->mCurrentInstruction.Address, minute, second, sector, mSeekLBA - CompactDisk::calculateBinaryPosition(0, 2, 0));
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Setloc {:02d}:{:02d}:{:02d} - {:08x}h", cpu->mCurrentInstruction.Address, minute, second, sector, mSeekLBA - calculateBinaryPosition(0, 2, 0));
 				break;
 			}
 			
@@ -258,8 +263,8 @@ namespace esx {
 					mCurrentSector = mNextSector;
 					mNextSector = (mNextSector + 1) % mSectors.size();
 
-					mLastSubQ = generateSubChannelQ();
 					mCD->readSector(&mSectors[mCurrentSector]);
+					mLastSubQ = mCD->getCurrentSubChannelQ().value_or(generateSubChannelQ());
 
 					response.Code = INT1;
 				} else {
@@ -476,7 +481,16 @@ namespace esx {
 		}
 
 		CDROM_REG0.CommandTransmissionBusy = ESX_TRUE;
-		mResponses.push(response);
+
+		mResponses[mResponsesSerial++] = response;
+
+		SchedulerEvent cdromEvent = {
+			.Type = SchedulerEventType::CDROMCommand,
+			.ClockStart = clocks,
+			.ClockTarget = response.TargetCycle
+		};
+		cdromEvent.Write<size_t>(mResponsesSerial - 1);
+		Scheduler::ScheduleEvent(cdromEvent);
 	}
 
 	void CDROM::audioVolumeApplyChanges(U8 value)
@@ -526,9 +540,9 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 
-		ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
+		/*ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
 			cpu->mCurrentInstruction.Address, requestRegister.WantData, requestRegister.BFWR, requestRegister.WantCommandStartInterrupt,
-			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);
+			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);*/
 
 		if (requestRegister.WantData) {
 			if (CDROM_REG0.DataFifoEmpty == ESX_TRUE) {
@@ -655,6 +669,7 @@ namespace esx {
 
 		mParameters = {};
 
+		mResponsesSerial = 0;
 		mResponse = {}; 
 		mResponseSize = 0x00; 
 		mResponseReadPointer = 0x00;
@@ -730,9 +745,9 @@ namespace esx {
 
 		U8 trackNumber = mCD->getTrackNumber();
 		MSF trackStart = mCD->getTrackStart(trackNumber);
-		U64 trackStartLBA = CompactDisk::calculateBinaryPosition(trackStart.Minute, trackStart.Second, trackStart.Sector);
-		MSF absolutePos = CompactDisk::fromBinaryPositionToMSF(mCD->getCurrentPos());
-		MSF relativePos = CompactDisk::fromBinaryPositionToMSF(mCD->getCurrentPos() - trackStartLBA);
+		U64 trackStartLBA = calculateBinaryPosition(trackStart.Minute, trackStart.Second, trackStart.Sector);
+		MSF absolutePos = fromBinaryPositionToMSF(mCD->getCurrentPos());
+		MSF relativePos = fromBinaryPositionToMSF(mCD->getCurrentPos() - trackStartLBA);
 
 		subq.Track = toBCD(trackNumber);
 		subq.Index = toBCD(0x01);

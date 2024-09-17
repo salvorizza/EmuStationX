@@ -52,6 +52,12 @@
     <Filter Include="src\Core\ISO9660">
       <UniqueIdentifier>{74FB37EB-60F4-563D-8926-3CC2757E3649}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Platform">
+      <UniqueIdentifier>{21CA02E5-0D2D-9289-B6B2-CA3FA2F45D0C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Platform\Win32">
+      <UniqueIdentifier>{C356B8F2-AF3A-7948-189B-739B049E63CA}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\UI">
       <UniqueIdentifier>{3A4B661C-26ED-90F2-0FA8-A446FBE81743}</UniqueIdentifier>
     </Filter>
@@ -147,11 +153,17 @@
     <ClInclude Include="src\Core\SPU.h">
       <Filter>src\Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\Scheduler.h">
+      <Filter>src\Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Core\SerialDevice.h">
       <Filter>src\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\Timer.h">
       <Filter>src\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Platform\Win32\CDROMDrive.h">
+      <Filter>src\Platform\Win32</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Application\Application.h">
       <Filter>src\UI\Application</Filter>
@@ -240,7 +252,8 @@
     <ClInclude Include="src\Utils\LoggingSystem.h">
       <Filter>src\Utils</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\Scheduler.h" />
+    <ClInclude Include="src\Core\CD\CDROMDisk.h" />
+    <ClInclude Include="src\Base\CDBase.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -303,11 +316,17 @@
     <ClCompile Include="src\Core\SPU.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
+    <ClCompile Include="src\Core\Scheduler.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
     <ClCompile Include="src\Core\SerialDevice.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\Timer.cpp">
       <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Platform\Win32\CDROMDrive.cpp">
+      <Filter>src\Platform\Win32</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Application\ApplicationManager.cpp">
       <Filter>src\UI\Application</Filter>
@@ -387,7 +406,7 @@
     <ClCompile Include="src\main.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\Scheduler.cpp" />
+    <ClCompile Include="src\Core\CD\CDROMDisk.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="commons\icons\Logo.ico">

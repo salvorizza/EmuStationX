@@ -93,7 +93,6 @@ namespace esx {
 		}
 		mCyclesToWait--;
 
-		mCDROM->clock(mCycles);
 		mSIO0->clock(mCycles);
 		if (!mDMA->isRunning()) {
 			mStall = ESX_FALSE;

@@ -33,10 +33,8 @@ namespace esx {
 
 		template<typename T>
 		void Write(const T& Data) {
-			const U8* dataBytes = reinterpret_cast<const U8*>(&Data);
-			for (I32 i = 0; i < sizeof(T); i++) {
-				UserData.emplace_back(*(dataBytes + i));
-			}
+			UserData.resize(sizeof(T));
+			std::memcpy(UserData.data(), reinterpret_cast<const U8*>(&Data), sizeof(T));
 		}
 
 		template<typename T>

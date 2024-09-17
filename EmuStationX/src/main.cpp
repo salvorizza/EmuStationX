@@ -56,6 +56,9 @@
 
 #include "Core/ISO9660/ISO9660.h"
 
+#include "Platform/Win32/CDROMDrive.h"
+#include "Core/CD/CDROMDisk.h"
+
 
 
 using namespace esx;
@@ -248,6 +251,15 @@ public:
 		loopTimer.init();
 
 		mPlayedSamples = mPreRendered.size();
+
+		Vector<String> cdroms = platform::CDROMDrive::List();
+		mCDROMDrive = MakeShared<platform::CDROMDrive>(cdroms[0]);
+		auto cd = MakeShared<CDROMDisk>(mCDROMDrive);
+		cdrom->insertCD(cd);
+		mISO9660 = MakeShared<ISO9660>(cd);
+		mISOBrowser->setInstance(mISO9660);
+		mCurrentGame = getBootNameFromSystemConfig();
+		hardReset();
 	}
 
 	using HandlerFunction = std::function<SharedPtr<CompactDisk>(const std::filesystem::path&)>;
@@ -495,6 +507,7 @@ private:
 	Array<AudioFrame, 441 * 64> mPreRendered; 
 	U32 mPlayedSamples;
 
+	SharedPtr<platform::CDROMDrive> mCDROMDrive;
 	SharedPtr<ISO9660> mISO9660;
 	String mCurrentGame = "";
 };

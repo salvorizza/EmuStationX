@@ -66,7 +66,7 @@ namespace esx {
 	void ISO9660::ReadPrimaryVolumeDecriptor()
 	{
 		Sector pvd = {};
-		mCD->seek(CompactDisk::calculateBinaryPosition(0, 2, 16));
+		mCD->seek(calculateBinaryPosition(0, 2, 16));
 		mCD->readSector(&pvd);
 		std::memcpy(&mPVD, pvd.UserData.data(), sizeof(PrimaryVolumeDescriptor));
 	}
@@ -76,7 +76,7 @@ namespace esx {
 		if (mFileSystem.Number != 0) return;
 
 		Sector pathTable = {};
-		mCD->seek(CompactDisk::calculateBinaryPosition(0, 2, mPVD.PathTable1BlockNumberLE));
+		mCD->seek(calculateBinaryPosition(0, 2, mPVD.PathTable1BlockNumberLE));
 		mCD->readSector(&pathTable);
 
 		FileSystemDirectory* currentNode = &mFileSystem;
@@ -138,7 +138,7 @@ namespace esx {
 		if (directory->DirectoryInfo.LengthOfDirectoryRecord != 0) return;
 
 		Sector directoryRecords = {};
-		U64 binPos = CompactDisk::calculateBinaryPosition(0, 2, directory->PathTableRecord.DirectoryLogicalBlockNumber);
+		U64 binPos = calculateBinaryPosition(0, 2, directory->PathTableRecord.DirectoryLogicalBlockNumber);
 		mCD->seek(binPos);
 		mCD->readSector(&directoryRecords);
 
@@ -210,7 +210,7 @@ namespace esx {
 		U32 remainingSize = data.size();
 		for (I32 i = 0; i < numSectors; i++) {
 			Sector fileData = {};
-			U64 binPos = CompactDisk::calculateBinaryPosition(0, 2, file.DataLogicalBlockNumberLE + i);
+			U64 binPos = calculateBinaryPosition(0, 2, file.DataLogicalBlockNumberLE + i);
 			mCD->seek(binPos);
 			mCD->readSector(&fileData);
 
