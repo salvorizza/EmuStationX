@@ -14,29 +14,13 @@ namespace esx {
 
 		Scheduler::AddSchedulerEventHandler(SchedulerEventType::CDROMCommand, [&](const SchedulerEvent& ev) {
 			size_t serial = ev.Read<size_t>();
-			if (mResponses.contains(serial)) {
-				Response& response = mResponses.at(serial);
 
-				mResponseSize = 0;
-				mResponseReadPointer = 0;
-				while (!response.Empty()) {
-					pushResponse(response.Pop());
-				}
-				CDROM_REG3 |= response.Code;
-				if ((CDROM_REG3 & CDROM_REG2) == CDROM_REG3) {
-					getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
-				}
-
-				if (response.Number < response.NumberOfResponses) {
-					command(response.CommandType, response.Number + 1);
-				}
-
-				mResponses.erase(serial);
-
-				if (mResponses.empty()) {
-					CDROM_REG0.CommandTransmissionBusy = ESX_FALSE;
-				}
+			if ((CDROM_REG3 & 0xF) != 0) {
+				mQueuedResponses.push(serial);
+				return;
 			}
+
+			handleResponse(serial);
 		});
 	}
 
@@ -366,6 +350,19 @@ namespace esx {
 				break;
 			}
 
+			case CommandType::GetlocL: {
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetlocL", cpu->mCurrentInstruction.Address);
+
+				response.Clear();
+				for (U8 byte : mSectors[mCurrentSector].Header) {
+					response.Push(byte);
+				}
+				for (U8 byte : mSectors[mCurrentSector].Subheader) {
+					response.Push(byte);
+				}
+				break;
+			}
+
 			case CommandType::GetlocP: {
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetlocP", cpu->mCurrentInstruction.Address);
 
@@ -508,6 +505,33 @@ namespace esx {
 
 	}
 
+	void CDROM::handleResponse(U64 serial)
+	{
+		if (mResponses.contains(serial)) {
+			Response& response = mResponses.at(serial);
+
+			mResponseSize = 0;
+			mResponseReadPointer = 0;
+			while (!response.Empty()) {
+				pushResponse(response.Pop());
+			}
+			CDROM_REG3 = (CDROM_REG3 & 0xF0) | response.Code;
+			if ((CDROM_REG3 & CDROM_REG2) == CDROM_REG3) {
+				getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
+			}
+
+			if (response.Number < response.NumberOfResponses) {
+				command(response.CommandType, response.Number + 1);
+			}
+
+			mResponses.erase(serial);
+
+			if (mResponses.empty()) {
+				CDROM_REG0.CommandTransmissionBusy = ESX_FALSE;
+			}
+		}
+	}
+
 	void CDROM::audioVolumeApplyChanges(U8 value)
 	{
 		ApplyVolumeRegister reg = {};
@@ -601,6 +625,12 @@ namespace esx {
 
 		REG &= ~value;
 		REG &= 0x1F;
+
+		if ((REG & 0xF) == 0 && !mQueuedResponses.empty()) {
+			U64 serial = mQueuedResponses.front();
+			mQueuedResponses.pop();
+			handleResponse(serial);
+		}
 	}
 
 	U8 CDROM::getInterruptFlagRegister(U8 REG)
@@ -694,6 +724,7 @@ namespace esx {
 		mLastWholeSector = 0;
 
 		mResponses = {};
+		mQueuedResponses = {};
 
 		mShellOpen = ESX_FALSE;
 		mSeekLBA = 0x00;

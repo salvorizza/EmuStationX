@@ -32,9 +32,9 @@ namespace esx {
 		static void Disconnect(ControllerID cid);
 		static void Update(ControllerID jid, const Vector<U8>& states, const Vector<F32>& axes);
 
-		static BIT IsButtonPressed(I32 button);
-		static BIT IsButtonDown(I32 button);
-		static BIT IsButtonUp(I32 button);
+		static BIT IsButtonPressed(ControllerID cid,I32 button);
+		static BIT IsButtonDown(ControllerID cid, I32 button);
+		static BIT IsButtonUp(ControllerID cid, I32 button);
 	private:
 		static UnorderedMap<ControllerID, InputController> sControllers;
 	};

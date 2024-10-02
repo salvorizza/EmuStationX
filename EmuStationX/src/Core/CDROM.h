@@ -59,6 +59,7 @@ namespace esx {
 		Demute = 0x0C,
 		Setfilter = 0x0D,
 		Setmode = 0x0E,
+		GetlocL = 0x10,
 		GetlocP = 0x11,
 		GetTN = 0x13,
 		GetTD = 0x14,
@@ -136,6 +137,7 @@ namespace esx {
 
 	private:
 		void command(CommandType command, U32 responseNumber = 1);
+		void handleResponse(U64 serial);
 
 		void audioVolumeApplyChanges(U8 value);
 
@@ -191,6 +193,7 @@ namespace esx {
 
 		U64 mResponsesSerial = 0;
 		UnorderedMap<U64, Response> mResponses;
+		Queue<U64> mQueuedResponses;
 
 		BIT mShellOpen = ESX_FALSE;
 		SharedPtr<CompactDisk> mCD;

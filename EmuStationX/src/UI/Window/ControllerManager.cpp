@@ -32,19 +32,22 @@ namespace esx {
 		controller.Axes.insert(controller.Axes.begin(), axes.begin(), axes.end());
 	}
 
-	BIT ControllerManager::IsButtonPressed(I32 button)
+	BIT ControllerManager::IsButtonPressed(ControllerID cid, I32 button)
 	{
-		return sControllers.at(0).CurrentStates[button] == GLFW_PRESS && sControllers.at(0).PreviousStates[button] == GLFW_PRESS;
+		if (!sControllers.contains(cid)) return ESX_FALSE;
+		return sControllers.at(cid).CurrentStates[button] == GLFW_PRESS && sControllers.at(cid).PreviousStates[button] == GLFW_PRESS;
 	}
 
-	BIT ControllerManager::IsButtonDown(I32 button)
+	BIT ControllerManager::IsButtonDown(ControllerID cid, I32 button)
 	{
-		return sControllers.at(0).CurrentStates[button] == GLFW_PRESS && sControllers.at(0).PreviousStates[button] == GLFW_RELEASE;
+		if (!sControllers.contains(cid)) return ESX_FALSE;
+		return sControllers.at(cid).CurrentStates[button] == GLFW_PRESS && sControllers.at(cid).PreviousStates[button] == GLFW_RELEASE;
 	}
 
-	BIT ControllerManager::IsButtonUp(I32 button)
+	BIT ControllerManager::IsButtonUp(ControllerID cid, I32 button)
 	{
-		return sControllers.at(0).CurrentStates[button] == GLFW_RELEASE && sControllers.at(0).PreviousStates[button] == GLFW_PRESS;
+		if (!sControllers.contains(cid)) return ESX_FALSE;
+		return sControllers.at(cid).CurrentStates[button] == GLFW_RELEASE && sControllers.at(cid).PreviousStates[button] == GLFW_PRESS;
 	}
 
 }
