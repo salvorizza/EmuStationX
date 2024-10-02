@@ -163,6 +163,7 @@ namespace esx {
 		U8 getMode();
 		void setMode(U8 value);
 
+		void AbortRead();
 		SubchannelQ generateSubChannelQ();
 
 
@@ -186,6 +187,7 @@ namespace esx {
 
 		CDROMStatusRegister mStat = {};
 		CDROMModeRegister mMode = {};
+		U8 mLastWholeSector = 0;
 
 		U64 mResponsesSerial = 0;
 		UnorderedMap<U64, Response> mResponses;

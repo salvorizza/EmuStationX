@@ -53,21 +53,29 @@ namespace esx {
 			case DebugState::Running: {
 				//U64 startClocks = mInstance->getClocks();
 				do {
-					if (breakFunction(mInstance->mPC)) {
-						setDebugState(DebugState::Breakpoint);
-						break;
-					}
-					else {
-
-						while (mInstance->getClocks() < Scheduler::NextEvent().ClockTarget) {
-							mInstance->clock();
+					while (mInstance->getClocks() < Scheduler::NextEvent().ClockTarget) {
+						if (breakFunction(mInstance->mPC)) {
+							mScrollToCurrent = true;
+							mCurrent = mInstance->mPC;
+							mNextPC = mInstance->mNextPC;
+							setDebugState(DebugState::Breakpoint);
+							break;
 						}
-						Scheduler::ExecuteEvent();
-						Scheduler::Progress();
+
+						mInstance->clock();
 
 						if (mInstance->mPC == 0x80030000 && mEXE) {
 							sideLoad();
 						}
+					}
+
+					if (mInstance->getClocks() >= Scheduler::NextEvent().ClockTarget) {
+						Scheduler::ExecuteEvent();
+						Scheduler::Progress();
+					}
+
+					if (mDebugState == DebugState::Breakpoint) {
+						break;
 					}
 				} while (!mGPU->isNewFrameAvailable());
 				/*U64 endClocks = mInstance->getClocks();
@@ -77,32 +85,52 @@ namespace esx {
 			}
 
 			case DebugState::Step: {
-				while (mInstance->getClocks() != 0) {
-					mInstance->clock();
-				}
-				if (mInstance->getClocks() >= Scheduler::NextEvent().ClockTarget) {
-					Scheduler::ExecuteEvent();
-					Scheduler::Progress();
-				}
+				do {
+					while (mInstance->getClocks() < Scheduler::NextEvent().ClockTarget) {
+						if (mInstance->mPC == mNextPC) {
+							mScrollToCurrent = true;
+							mCurrent = mInstance->mPC;
+							mNextPC = mInstance->mNextPC;
+							setDebugState(DebugState::Breakpoint);
+							break;
+						}
 
-				//disassemble(mInstance->mPC - 4 * disassembleRange, 4 * disassembleRange * 2);
-				mScrollToCurrent = true;
-				mCurrent = mInstance->mPC;
-				setDebugState(DebugState::Breakpoint);
+						mInstance->clock();
+					}
+
+					if (mInstance->getClocks() >= Scheduler::NextEvent().ClockTarget) {
+						Scheduler::ExecuteEvent();
+						Scheduler::Progress();
+					}
+
+					if (mDebugState == DebugState::Breakpoint) {
+						break;
+					}
+				} while (!mGPU->isNewFrameAvailable());
 				break;
 			}
 
 
 			case DebugState::StepOver: {
 				do {
-					if (mInstance->mPC == mNextPC) {
-						mScrollToCurrent = true;
-						mCurrent = mInstance->mPC;
-						setDebugState(DebugState::Breakpoint);
-						break;
-					}
-					else {
+					while (mInstance->getClocks() < Scheduler::NextEvent().ClockTarget) {
+						if (mInstance->mPC == mNextPC) {
+							mScrollToCurrent = true;
+							mCurrent = mInstance->mPC;
+							setDebugState(DebugState::Breakpoint);
+							break;
+						}
+
 						mInstance->clock();
+					}
+
+					if (mInstance->getClocks() >= Scheduler::NextEvent().ClockTarget) {
+						Scheduler::ExecuteEvent();
+						Scheduler::Progress();
+					}
+
+					if (mDebugState == DebugState::Breakpoint) {
+						break;
 					}
 				} while (!mGPU->isNewFrameAvailable());
 				break;

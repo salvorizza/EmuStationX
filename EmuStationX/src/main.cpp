@@ -13,6 +13,7 @@
 
 #include "UI/Graphics/BatchRenderer.h"
 #include "UI/Window/FontAwesome5.h"
+#include "UI/Window/ControllerManager.h"
 #include "UI/Utils.h"
 #include "UI/Application/LoopTimer.h"
 
@@ -253,13 +254,15 @@ public:
 		mPlayedSamples = mPreRendered.size();
 
 		Vector<String> cdroms = platform::CDROMDrive::List();
-		mCDROMDrive = MakeShared<platform::CDROMDrive>(cdroms[0]);
-		auto cd = MakeShared<CDROMDisk>(mCDROMDrive);
-		cdrom->insertCD(cd);
-		mISO9660 = MakeShared<ISO9660>(cd);
-		mISOBrowser->setInstance(mISO9660);
-		mCurrentGame = getBootNameFromSystemConfig();
-		hardReset();
+		if (cdroms.size() > 0) {
+			mCDROMDrive = MakeShared<platform::CDROMDrive>(cdroms[0]);
+			auto cd = MakeShared<CDROMDisk>(mCDROMDrive);
+			cdrom->insertCD(cd);
+			mISO9660 = MakeShared<ISO9660>(cd);
+			mISOBrowser->setInstance(mISO9660);
+			mCurrentGame = getBootNameFromSystemConfig();
+			hardReset();
+		}
 	}
 
 	using HandlerFunction = std::function<SharedPtr<CompactDisk>(const std::filesystem::path&)>;
@@ -334,25 +337,27 @@ public:
 	virtual void onUpdate() override {
 		OPTICK_FRAME("MainThread");
 
-		controller->setButtonState(ControllerButton::JoypadDown, InputManager::IsKeyPressed(GLFW_KEY_S));
-		controller->setButtonState(ControllerButton::JoypadUp, InputManager::IsKeyPressed(GLFW_KEY_W));
-		controller->setButtonState(ControllerButton::JoypadLeft, InputManager::IsKeyPressed(GLFW_KEY_A));
-		controller->setButtonState(ControllerButton::JoypadRight, InputManager::IsKeyPressed(GLFW_KEY_D));
+		controller->setButtonState(ControllerButton::JoypadDown, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_DPAD_DOWN));
+		controller->setButtonState(ControllerButton::JoypadUp, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_DPAD_UP));
+		controller->setButtonState(ControllerButton::JoypadLeft, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_DPAD_LEFT));
+		controller->setButtonState(ControllerButton::JoypadRight, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_DPAD_RIGHT));
 
-		controller->setButtonState(ControllerButton::Cross, InputManager::IsKeyPressed(GLFW_KEY_Z));
-		controller->setButtonState(ControllerButton::Square, InputManager::IsKeyPressed(GLFW_KEY_X));
-		controller->setButtonState(ControllerButton::Triangle, InputManager::IsKeyPressed(GLFW_KEY_C));
-		controller->setButtonState(ControllerButton::Circle, InputManager::IsKeyPressed(GLFW_KEY_V));
+		controller->setButtonState(ControllerButton::Cross, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_CROSS));
+		controller->setButtonState(ControllerButton::Square, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_SQUARE));
+		controller->setButtonState(ControllerButton::Triangle, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_TRIANGLE));
+		controller->setButtonState(ControllerButton::Circle, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_CIRCLE));
 
-		controller->setButtonState(ControllerButton::Select, InputManager::IsKeyPressed(GLFW_KEY_K));
-		controller->setButtonState(ControllerButton::Start, InputManager::IsKeyPressed(GLFW_KEY_L));
+		controller->setButtonState(ControllerButton::Select, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_BACK));
+		controller->setButtonState(ControllerButton::Start, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_START));
 
-		controller->setButtonState(ControllerButton::R1, InputManager::IsKeyPressed(GLFW_KEY_P));
-		controller->setButtonState(ControllerButton::L1, InputManager::IsKeyPressed(GLFW_KEY_Q));
+		controller->setButtonState(ControllerButton::R1, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER));
+		controller->setButtonState(ControllerButton::L1, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_LEFT_BUMPER));
+
+		controller->setButtonState(ControllerButton::R2, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_THUMB));
+		controller->setButtonState(ControllerButton::L2, ControllerManager::IsButtonPressed(GLFW_GAMEPAD_BUTTON_LEFT_THUMB));
 
 		mDisassemblerPanel->onUpdate();
 		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
-		InputManager::Update();
 
 		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
 		loopTimer.update();

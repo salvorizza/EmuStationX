@@ -12,22 +12,17 @@ namespace esx {
 	{
 		mCurrentLBA = seekPos;
 		mSeekPos = mCurrentLBA - calculateBinaryPosition(0, 2, 0);
-
-		Sector dummySector = {};
-		mCDROMDrive->ReadSector(mSeekPos - calculateBinaryPosition(0,0,1), &dummySector, 1);
 	}
 
 	void CDROMDisk::readSector(Sector* pOutSector)
 	{
-		mCDROMDrive->ReadSector(mSeekPos, pOutSector);
+		mCDROMDrive->ReadSector(mSeekPos, pOutSector, &mCurrentSubChannelQ);
 		mSeekPos += sizeof(Sector);
 	}
 
 	Optional<SubchannelQ> CDROMDisk::getCurrentSubChannelQ()
 	{
-		SubchannelQ subchannel = {};
-		mCDROMDrive->ReadSubchannelQ(&subchannel);
-		return subchannel;
+		return mCurrentSubChannelQ;
 	}
 
 	MSF CDROMDisk::getTrackStart(U8 trackNumber) {

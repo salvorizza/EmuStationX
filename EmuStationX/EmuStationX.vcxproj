@@ -208,6 +208,7 @@
     <ClInclude Include="src\UI\Panels\TTYPanel.h" />
     <ClInclude Include="src\UI\Panels\ViewportPanel.h" />
     <ClInclude Include="src\UI\Utils.h" />
+    <ClInclude Include="src\UI\Window\ControllerManager.h" />
     <ClInclude Include="src\UI\Window\FontAwesome5.h" />
     <ClInclude Include="src\UI\Window\ImGuiManager.h" />
     <ClInclude Include="src\UI\Window\InputManager.h" />
@@ -261,6 +262,7 @@
     <ClCompile Include="src\UI\Panels\TTYPanel.cpp" />
     <ClCompile Include="src\UI\Panels\ViewportPanel.cpp" />
     <ClCompile Include="src\UI\Utils.cpp" />
+    <ClCompile Include="src\UI\Window\ControllerManager.cpp" />
     <ClCompile Include="src\UI\Window\ImGuiManager.cpp" />
     <ClCompile Include="src\UI\Window\InputManager.cpp" />
     <ClCompile Include="src\UI\Window\Window.cpp" />

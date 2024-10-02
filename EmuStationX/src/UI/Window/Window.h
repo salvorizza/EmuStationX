@@ -13,6 +13,7 @@
 
 
 namespace esx {
+	class ControllerManager;
 
 	class Window {
 	public:
@@ -37,6 +38,9 @@ namespace esx {
 		inline bool isMaximized() const { return mMaximized; }
 
 		GLFWwindow* getHandle() { return mWindowHandle; }
+		
+
+
 	private:
 		GLFWwindow* mWindowHandle = nullptr;
 		bool mMaximized = false;

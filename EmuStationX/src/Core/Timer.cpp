@@ -20,6 +20,7 @@ namespace esx {
 			Counter& timer = mCounters[counter];
 			incrementCounter(timer, CalculateDistance(timer.TargetValue, timer.CurrentValue));
 			RescheduleTargetEvent(timer, GetClockSource(timer.Number, timer.Mode.ClockSource), ESX_FALSE);
+			RescheduleMaxEvent(timer, GetClockSource(timer.Number, timer.Mode.ClockSource));
 		};
 
 
@@ -29,6 +30,7 @@ namespace esx {
 			Counter& timer = mCounters[counter];
 			incrementCounter(timer, CalculateDistance(0xFFFF, timer.CurrentValue));
 			RescheduleMaxEvent(timer, GetClockSource(timer.Number, timer.Mode.ClockSource), ESX_FALSE);
+			RescheduleTargetEvent(timer, GetClockSource(timer.Number, timer.Mode.ClockSource));
 		};
 
 		Scheduler::AddSchedulerEventHandler(SchedulerEventType::Timer0ReachTarget, reachTarget);
@@ -185,6 +187,9 @@ namespace esx {
 	void Timer::setCurrentValue(U8 counter, U32 value)
 	{
 		mCounters[counter].CurrentValue = value & 0xFFFF;
+
+		RescheduleTargetEvent(mCounters[counter], GetClockSource(counter, mCounters[counter].Mode.ClockSource));
+		RescheduleMaxEvent(mCounters[counter], GetClockSource(counter, mCounters[counter].Mode.ClockSource));
 	}
 
 	U32 Timer::getCurrentValue(U8 counter)
@@ -250,6 +255,8 @@ namespace esx {
 	void Timer::setTargetValue(U8 counter, U32 value)
 	{
 		mCounters[counter].TargetValue = value & 0xFFFF;
+
+		RescheduleTargetEvent(mCounters[counter], GetClockSource(counter, mCounters[counter].Mode.ClockSource));
 	}
 
 	U32 Timer::getTargetValue(U8 counter)

@@ -22,6 +22,7 @@ namespace esx {
 
 	private:
 		SharedPtr<platform::CDROMDrive> mCDROMDrive;
+		SubchannelQ mCurrentSubChannelQ;
 		U64 mSeekPos = 0;
 	};
 

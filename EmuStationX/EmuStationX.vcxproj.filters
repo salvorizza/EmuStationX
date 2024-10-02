@@ -254,6 +254,7 @@
     </ClInclude>
     <ClInclude Include="src\Core\CD\CDROMDisk.h" />
     <ClInclude Include="src\Base\CDBase.h" />
+    <ClInclude Include="src\UI\Window\ControllerManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -407,6 +408,7 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\CD\CDROMDisk.cpp" />
+    <ClCompile Include="src\UI\Window\ControllerManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="commons\icons\Logo.ico">

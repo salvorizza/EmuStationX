@@ -12,7 +12,7 @@ namespace esx::platform {
         String filePath = String("\\\\.\\") + String(devicePath);
         filePath.erase(filePath.find_last_of(':') + 1, filePath.size() - filePath.find_last_of(':') - 1);
 
-        HANDLE hDevice = CreateFile(filePath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        HANDLE hDevice = CreateFile(filePath.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, NULL);
         if (hDevice == INVALID_HANDLE_VALUE) {
             ESX_CORE_LOG_ERROR("CreateFile failed with {} code", GetLastError());
             return;
@@ -27,6 +27,7 @@ namespace esx::platform {
             return;
         }
 
+
         mDeviceHandle = hDevice;
         mTOC = toc;
     }
@@ -36,44 +37,68 @@ namespace esx::platform {
         CloseHandle(mDeviceHandle);
     }
 
-    void CDROMDrive::ReadSector(U32 lbaBytes, Sector* sector,U32 numSectors)
+    void CDROMDrive::ReadSector(U32 lbaBytes, Sector* sector, SubchannelQ* subchannel, U32 numSectors)
     {
-        RAW_READ_INFO rawReadInfo = { 0 };
-        DWORD bytesRead = 0;
+        struct read_cd {
+            SCSI_PASS_THROUGH_DIRECT scsiPassThrough = { 0 };
+            uint8_t dataBuffer[2352];
+            uint8_t subQ[16];
+            U8 senseBuffer[18];
+        };
 
-        rawReadInfo.DiskOffset.QuadPart = (lbaBytes / 2352) * 2048;
-        rawReadInfo.SectorCount = numSectors;
-        rawReadInfo.TrackMode = YellowMode2;
+        ULONGLONG lba = (lbaBytes / 0x930);
 
-        BOOL bResult = DeviceIoControl(mDeviceHandle, IOCTL_CDROM_RAW_READ, &rawReadInfo, sizeof(RAW_READ_INFO), sector, sizeof(Sector), &bytesRead, (LPOVERLAPPED)NULL);
+        struct read_cd readCd = {};
+        readCd.scsiPassThrough.Length = sizeof(readCd.scsiPassThrough);
+        readCd.scsiPassThrough.ScsiStatus = 0;
+        readCd.scsiPassThrough.CdbLength = 12;
+        readCd.scsiPassThrough.DataIn = SCSI_IOCTL_DATA_IN;
+        readCd.scsiPassThrough.DataTransferLength = 2352 + 16;
+        readCd.scsiPassThrough.TimeOutValue = 20;
+        readCd.scsiPassThrough.DataBuffer = readCd.dataBuffer;
+        readCd.scsiPassThrough.SenseInfoLength = 18;
+        readCd.scsiPassThrough.SenseInfoOffset = ((uint8_t*)&readCd.senseBuffer) - ((uint8_t*)&readCd);
+
+        readCd.scsiPassThrough.Cdb[0] = 0xBE; //Operation Code
+        readCd.scsiPassThrough.Cdb[1] = 0x0; //Flags
+
+        //LBA
+        readCd.scsiPassThrough.Cdb[2] = (lba >> 24) & 0xFF;
+        readCd.scsiPassThrough.Cdb[3] = (lba >> 16) & 0xFF;
+        readCd.scsiPassThrough.Cdb[4] = (lba >> 8) & 0xFF;
+        readCd.scsiPassThrough.Cdb[5] = lba & 0xFF;
+
+        //Transfer Length
+        readCd.scsiPassThrough.Cdb[6] = 0;
+        readCd.scsiPassThrough.Cdb[7] = 0;
+        readCd.scsiPassThrough.Cdb[8] = 1;
+
+        //Data Type
+        readCd.scsiPassThrough.Cdb[9] = (1 << 7) | (0b11 << 5) | (1 << 4) | (1 << 3) | (0b00 << 1);
+
+        readCd.scsiPassThrough.Cdb[10] = 0b010;
+        readCd.scsiPassThrough.Cdb[11] = 0x10;
+
+        DWORD bytesReturned;
+
+        BOOL bResult = DeviceIoControl(mDeviceHandle, IOCTL_SCSI_PASS_THROUGH_DIRECT, &readCd, sizeof(readCd), &readCd, sizeof(readCd), &bytesReturned, NULL);
         if (bResult == FALSE) {
             DWORD error = GetLastError();
-            ESX_CORE_LOG_ERROR("IOCTL_CDROM_RAW_READ failed with {} code", error);
-            return;
-        }
-    }
-
-    void CDROMDrive::ReadSubchannelQ(SubchannelQ* subchannelQ)
-    {
-        CDROM_SUB_Q_DATA_FORMAT subQDataFormat = { 0 };
-        SUB_Q_CHANNEL_DATA subQChannelData = { 0 };
-        DWORD bytesRead = 0;
-
-        subQDataFormat.Format = IOCTL_CDROM_CURRENT_POSITION;
-
-        BOOL bResult = DeviceIoControl(mDeviceHandle, IOCTL_CDROM_READ_Q_CHANNEL, &subQDataFormat, sizeof(CDROM_SUB_Q_DATA_FORMAT), &subQChannelData, sizeof(SUB_Q_CHANNEL_DATA), &bytesRead, (LPOVERLAPPED)NULL);
-        if (bResult == FALSE) {
-            DWORD error = GetLastError();
-            ESX_CORE_LOG_ERROR("IOCTL_CDROM_READ_Q_CHANNEL failed with {} code", error);
+            ESX_CORE_LOG_ERROR("IOCTL_SCSI_PASS_THROUGH_DIRECT failed with {} code", error);
             return;
         }
 
-        
-        subchannelQ->Track = subQChannelData.CurrentPosition.TrackNumber;
-        subchannelQ->Index = subQChannelData.CurrentPosition.IndexNumber;
-        subchannelQ->Absolute.Minute = subQChannelData.CurrentPosition.AbsoluteAddress[0];
-    }
+        std::memcpy(sector, readCd.dataBuffer, sizeof(Sector));
 
+        subchannel->Track = readCd.subQ[1];
+        subchannel->Index = readCd.subQ[2];
+        subchannel->Relative.Minute = readCd.subQ[3];
+        subchannel->Relative.Second = readCd.subQ[4];
+        subchannel->Relative.Sector = readCd.subQ[5];
+        subchannel->Absolute.Minute = readCd.subQ[7];
+        subchannel->Absolute.Second = readCd.subQ[8];
+        subchannel->Absolute.Sector = readCd.subQ[9];
+    }
 
     Vector<String> CDROMDrive::List() {
         Vector<String> result = {};

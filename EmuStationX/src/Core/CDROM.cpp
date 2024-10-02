@@ -22,13 +22,9 @@ namespace esx {
 				while (!response.Empty()) {
 					pushResponse(response.Pop());
 				}
-				CDROM_REG3 = response.Code;
+				CDROM_REG3 |= response.Code;
 				if ((CDROM_REG3 & CDROM_REG2) == CDROM_REG3) {
 					getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
-				}
-
-				if (mResponses.empty()) {
-					CDROM_REG0.CommandTransmissionBusy = ESX_FALSE;
 				}
 
 				if (response.Number < response.NumberOfResponses) {
@@ -36,6 +32,10 @@ namespace esx {
 				}
 
 				mResponses.erase(serial);
+
+				if (mResponses.empty()) {
+					CDROM_REG0.CommandTransmissionBusy = ESX_FALSE;
+				}
 			}
 		});
 	}
@@ -201,7 +201,7 @@ namespace esx {
 				U8 second = fromBCD(popParameter());
 				U8 sector = fromBCD(popParameter());
 
-				mSeekLBA = calculateBinaryPosition(minute, second, sector);
+				mSeekLBA = calculateBinaryPosition(minute, second, sector) - (mMode.IgnoreBit ? calculateBinaryPosition(0,0,rand() % 4) : 0);
 
 				mSetLocUnprocessed = ESX_TRUE;
 
@@ -217,6 +217,19 @@ namespace esx {
 					ESX_CORE_LOG_INFO("{:08x}h - CDROM - Play {}", cpu->mCurrentInstruction.Address, response.Number);
 				}
 
+				if (mSetLocUnprocessed && response.Number == 1) {
+					mCD->seek(mSeekLBA);
+
+					mStat.Read = ESX_FALSE;
+					mStat.Play = ESX_FALSE;
+					mStat.Seek = ESX_TRUE;
+
+					response.Clear();
+					response.Push(getStatus());
+					mStat.Seek = ESX_FALSE;
+
+					mSetLocUnprocessed = ESX_FALSE;
+				}
 
 				mStat.Rotating = ESX_TRUE;
 
@@ -224,16 +237,16 @@ namespace esx {
 				mStat.Play = ESX_TRUE;
 				mStat.Seek = ESX_FALSE;
 
-				mResponses = {};
+				AbortRead();
 				break;
 			}
 
 			case CommandType::ReadS:
 			case CommandType::ReadN: {
 
-				if (command == CommandType::ReadS) {
+				if (command == CommandType::ReadS && response.Number == 1) {
 					ESX_CORE_LOG_INFO("{:08x}h - CDROM - ReadS {}", cpu->mCurrentInstruction.Address, response.Number);
-				} else if (command == CommandType::ReadN) {
+				} else if (command == CommandType::ReadN && response.Number == 1) {
 					ESX_CORE_LOG_INFO("{:08x}h - CDROM - ReadN {}", cpu->mCurrentInstruction.Address, response.Number);
 				}
 
@@ -268,7 +281,7 @@ namespace esx {
 
 					response.Code = INT1;
 				} else {
-					mResponses = {};
+					AbortRead();
 				}
 
 				response.TargetCycle = clocks + (mMode.DoubleSpeed ? CD_READ_DELAY_2X : CD_READ_DELAY);
@@ -281,6 +294,7 @@ namespace esx {
 				response.NumberOfResponses = 2;
 
 				if (response.Number == 1) {
+					AbortRead();
 					mResponses = {};
 					mStat.Read = ESX_FALSE;
 					response.Clear();
@@ -297,7 +311,7 @@ namespace esx {
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
 					if (mStat.Read) {
-						mResponses = {};
+						AbortRead();
 						mStat.Read = ESX_FALSE;
 					}
 				}
@@ -401,7 +415,7 @@ namespace esx {
 
 					mCD->seek(mSeekLBA);
 					if (mStat.Read) {
-						mResponses = {};
+						AbortRead();
 						mStat.Read = ESX_FALSE;
 					}
 				}
@@ -491,6 +505,7 @@ namespace esx {
 		};
 		cdromEvent.Write<size_t>(mResponsesSerial - 1);
 		Scheduler::ScheduleEvent(cdromEvent);
+
 	}
 
 	void CDROM::audioVolumeApplyChanges(U8 value)
@@ -540,15 +555,15 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 
-		/*ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
+		ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
 			cpu->mCurrentInstruction.Address, requestRegister.WantData, requestRegister.BFWR, requestRegister.WantCommandStartInterrupt,
-			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);*/
+			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);
 
 		if (requestRegister.WantData) {
 			if (CDROM_REG0.DataFifoEmpty == ESX_TRUE) {
 				std::memcpy(mData.data(), &mSectors[mOldSector], mData.size());
-				mDataReadPointer = mMode.WholeSector ? offsetof(Sector, Header) : offsetof(Sector, UserData);
-				mDataWritePointer = mMode.WholeSector ? CD_SECTOR_SIZE : CD_SECTOR_DATA_SIZE;
+				mDataReadPointer = mLastWholeSector ? offsetof(Sector, Header) : offsetof(Sector, UserData);
+				mDataWritePointer = mLastWholeSector ? CD_SECTOR_SIZE : CD_SECTOR_DATA_SIZE;
 				mDataWritePointer += mDataReadPointer;
 
 				CDROM_REG0.DataFifoEmpty = ESX_FALSE;
@@ -676,6 +691,7 @@ namespace esx {
 
 		mStat = {};
 		mMode = {};
+		mLastWholeSector = 0;
 
 		mResponses = {};
 
@@ -735,6 +751,15 @@ namespace esx {
 		mMode.WholeSector = (value >> 5) & 0x1;
 		mMode.XAADPCM = (value >> 6) & 0x1;
 		mMode.DoubleSpeed = (value >> 7) & 0x1;
+
+		if (!mMode.IgnoreBit) {
+			mLastWholeSector = mMode.WholeSector;
+		}
+	}
+
+	void CDROM::AbortRead()
+	{
+		std::erase_if(mResponses, [](const Pair<U64, Response>& response) { return response.second.CommandType == CommandType::ReadS || response.second.CommandType == CommandType::ReadN;  });
 	}
 
 	SubchannelQ CDROM::generateSubChannelQ()
