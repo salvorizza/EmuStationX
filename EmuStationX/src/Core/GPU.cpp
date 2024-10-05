@@ -449,7 +449,7 @@ namespace esx {
 
 	void GPU::gp0ClearCacheCommand()
 	{
-		ESX_CORE_LOG_ERROR("{} not implemented yet", __FUNCTION__);
+		//ESX_CORE_LOG_ERROR("{} not implemented yet", __FUNCTION__);
 	}
 
 	void GPU::gp0Unknown()
@@ -516,9 +516,9 @@ namespace esx {
 		Color flatColor = unpackColor(command & 0xFFFFFF);
 		U16 page = 0,clut = 0;
 
-		Vector<PolygonVertex> vertices(quad ? 4 : 3);
-
+		Array<PolygonVertex, 4> vertices = {};
 		I32 numVertices = quad ? 4 : 3;
+
 		for(I32 i = numVertices - 1; i >= 0;i--) {
 			if (textured) {
 				U32 uvWord = mCommandBuffer.pop();
@@ -576,7 +576,7 @@ namespace esx {
 		}
 
 		//ESX_CORE_LOG_TRACE("GPU::gp0DrawPolygonPrimitiveCommand");
-		mRenderer->DrawPolygon(vertices);
+		mRenderer->DrawPolygon(vertices, numVertices);
 
 	}
 
@@ -691,7 +691,7 @@ namespace esx {
 			break;
 		}
 
-		Vector<PolygonVertex> vertices(4);
+		Array<PolygonVertex, 4> vertices = {};
 		for (PolygonVertex& vertex : vertices) {
 			vertex.color = color;
 			vertex.textured = textured;
@@ -718,7 +718,7 @@ namespace esx {
 		}
 
 		//ESX_CORE_LOG_TRACE("GPU::gp0DrawRectanglePrimitiveCommand");
-		mRenderer->DrawPolygon(vertices);
+		mRenderer->DrawPolygon(vertices, 4);
 	}
 
 	Command GPU::gp0VRAMtoVRAMBlitCommands(U32 instruction) const

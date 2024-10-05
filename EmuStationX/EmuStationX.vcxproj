@@ -220,6 +220,7 @@
     <ClInclude Include="src\UI\Window\ImGuiManager.h" />
     <ClInclude Include="src\UI\Window\InputManager.h" />
     <ClInclude Include="src\UI\Window\Window.h" />
+    <ClInclude Include="src\Utils\Geometry.h" />
     <ClInclude Include="src\Utils\LoggingSystem.h" />
   </ItemGroup>
   <ItemGroup>
@@ -273,6 +274,7 @@
     <ClCompile Include="src\UI\Window\ImGuiManager.cpp" />
     <ClCompile Include="src\UI\Window\InputManager.cpp" />
     <ClCompile Include="src\UI\Window\Window.cpp" />
+    <ClCompile Include="src\Utils\Geometry.cpp" />
     <ClCompile Include="src\Utils\LoggingSystem.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>

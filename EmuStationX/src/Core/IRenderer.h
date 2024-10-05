@@ -84,7 +84,7 @@ namespace esx {
 		virtual void SetCheckMask(BIT value) = 0;
 		virtual void SetDisplayMode24(BIT value) = 0;
 		virtual void Clear(U16 x, U16 y, U16 w, U16 h, Color& color) = 0;
-		virtual void DrawPolygon(Vector<PolygonVertex>& vertices) = 0;
+		virtual void DrawPolygon(Array<PolygonVertex, 4>& vertices, U32 numVertices) = 0;
 		virtual void DrawLineStrip(Vector<PolygonVertex>& vertices) = 0;
 
 		virtual void Reset() = 0;

@@ -3,6 +3,8 @@
 
 #include <glad/glad.h>
 
+#include "Utils/Geometry.h"
+
 namespace esx {
 
 
@@ -211,21 +213,61 @@ namespace esx {
 		mRefreshVRAMData = ESX_TRUE;
 	}
 
-	void BatchRenderer::DrawPolygon(Vector<PolygonVertex>& vertices)
+	void BatchRenderer::DrawPolygon(Array<PolygonVertex, 4>& vertices, U32 numVertices)
 	{
-		ptrdiff_t numIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
-		if ((numIndices + vertices.size()) >= TRI_MAX_VERTICES || (numIndices > 0 && vertices.at(0).semiTransparency != 255)) {
-			FlushVRAMWrites();
-			Flush();
-			Begin();
-		}
-
 		//ESX_CORE_LOG_TRACE("BatchRenderer::DrawPolygon");
 		for (PolygonVertex& vertex : vertices) {
 			vertex.vertex.x += mDrawOffset.x;
 			vertex.vertex.y += mDrawOffset.y;
 
 			//ESX_CORE_LOG_TRACE(" Vertex({},{}),Color({},{},{}),UV({},{}),ClutUV({},{}),Textured({})", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v, vertex.clutUV.u,vertex.clutUV.v, vertex.textured);
+		}
+
+		ptrdiff_t numIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
+		if ((numIndices + vertices.size()) >= TRI_MAX_VERTICES) {
+			FlushVRAMWrites();
+			Flush();
+			Begin();
+		}
+
+		if (numIndices > 0 && vertices.at(0).semiTransparency != 255) {
+			BIT overlapped = ESX_FALSE;
+
+			Vertex& triA_a = vertices.at(0).vertex;
+			Vertex& triA_b = vertices.at(1).vertex;
+			Vertex& triA_c = vertices.at(2).vertex;
+			for (auto it = mTriVerticesBase.begin(); it < mTriCurrentVertex;) {
+				Vertex& triB_a = it->vertex; it++;
+				Vertex& triB_b = it->vertex; it++;
+				Vertex& triB_c = it->vertex; it++;
+
+				if (checkOverlap(triA_a, triA_b, triA_c, triB_a, triB_b, triB_c)) {
+					overlapped = ESX_TRUE;
+					break;
+				}
+			}
+
+			if (!overlapped && numVertices == 4) {
+				Vertex& triA_a = vertices.at(1).vertex;
+				Vertex& triA_b = vertices.at(2).vertex;
+				Vertex& triA_c = vertices.at(3).vertex;
+				for (auto it = mTriVerticesBase.begin(); it < mTriCurrentVertex;) {
+					Vertex& triB_a = it->vertex; it++;
+					Vertex& triB_b = it->vertex; it++;
+					Vertex& triB_c = it->vertex; it++;
+
+					if (checkOverlap(triA_a, triA_b, triA_c, triB_a, triB_b, triB_c)) {
+						overlapped = ESX_TRUE;
+						break;
+					}
+				}
+			}
+
+			if (overlapped) {
+				FlushVRAMWrites();
+				Flush();
+				Begin();
+			}
 		}
 
 		for (U64 i = 0; i < 3; i++) {
@@ -235,7 +277,7 @@ namespace esx {
 			mTriCurrentVertex++;
 		}
 
-		if (vertices.size() == 4) {
+		if (numVertices == 4) {
 			for (U64 i = 1; i < 4; i++) {
 				const PolygonVertex& vertex = vertices[i];
 
@@ -247,16 +289,16 @@ namespace esx {
 
 	void BatchRenderer::DrawLineStrip(Vector<PolygonVertex>& vertices)
 	{
+		for (PolygonVertex& vertex : vertices) {
+			vertex.vertex.x += mDrawOffset.x;
+			vertex.vertex.y += mDrawOffset.y;
+		}
+
 		ptrdiff_t numIndices = std::distance(mLineStripVerticesBase.begin(), mLineStripCurrentVertex);
 		if ((numIndices + vertices.size()) >= MAX_LINE_STRIP_VERTICES || (numIndices > 0 && vertices.at(0).semiTransparency != 255)) {
 			FlushVRAMWrites();
 			Flush();
 			Begin();
-		}
-
-		for (PolygonVertex& vertex : vertices) {
-			vertex.vertex.x += mDrawOffset.x;
-			vertex.vertex.y += mDrawOffset.y;
 		}
 
 		for (U64 i = 0; i < vertices.size(); i++) {

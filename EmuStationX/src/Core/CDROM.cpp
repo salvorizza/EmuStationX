@@ -351,15 +351,21 @@ namespace esx {
 			}
 
 			case CommandType::GetlocL: {
-				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetlocL", cpu->mCurrentInstruction.Address);
-
 				response.Clear();
-				for (U8 byte : mSectors[mCurrentSector].Header) {
-					response.Push(byte);
+				for (I32 i = 0; i < mSectors[mCurrentSector].Header.size();i++) {
+					response.Push(mSectors[mCurrentSector].Header[i]);
 				}
-				for (U8 byte : mSectors[mCurrentSector].Subheader) {
-					response.Push(byte);
+				response.Push(mSectors[mCurrentSector].Mode);
+				for (I32 i = 0; i < 4; i++) {
+					response.Push(mSectors[mCurrentSector].Subheader[i]);
 				}
+
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetlocL {:02X}h,{:02X}h,{:02X}h,{:02X}h,{:02X}h,{:02X}h,{:02X}h,{:02X}h", 
+					cpu->mCurrentInstruction.Address,
+					response.Data[0], response.Data[1], response.Data[2], response.Data[3], 
+					response.Data[4], response.Data[5], response.Data[6], response.Data[7] 
+				);
+
 				break;
 			}
 
@@ -579,9 +585,9 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 
-		ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
+		/*ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
 			cpu->mCurrentInstruction.Address, requestRegister.WantData, requestRegister.BFWR, requestRegister.WantCommandStartInterrupt,
-			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);
+			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);*/
 
 		if (requestRegister.WantData) {
 			if (CDROM_REG0.DataFifoEmpty == ESX_TRUE) {

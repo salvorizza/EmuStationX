@@ -31,7 +31,7 @@ namespace esx {
 		void SetCheckMask(BIT value) override;
 		virtual void SetDisplayMode24(BIT value) override;
 		void Clear(U16 x, U16 y, U16 w, U16 h, Color& color) override;
-		void DrawPolygon(Vector<PolygonVertex>& vertices) override;
+		void DrawPolygon(Array<PolygonVertex,4>& vertices, U32 numVertices) override;
 		void DrawLineStrip(Vector<PolygonVertex>& vertices) override;
 		void VRAMWrite(U16 x, U16 y, U32 width, U32 height, const Vector<VRAMColor>& pixels) override;
 		void VRAMRead(U16 x, U16 y, U32 width, U32 height, Vector<VRAMColor>& pixels) override;
