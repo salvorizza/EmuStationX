@@ -11,10 +11,13 @@ namespace esx {
 		Array<U8, 12> SyncBytes;
 		Array<U8, 3> Header;
 		U8 Mode;
-		Array<U8, 8> Subheader;
+		Array<U8, 4> Subheader;
+		Array<U8, 4> CopyOfSubheader;
 		Array<U8, CD_SECTOR_DATA_SIZE> UserData;
 		Array<U8, 4> EDC;
 		Array<U8, 276> ECC;
+
+		inline BIT IsADPCM() const { return Subheader[3] != 0; }
 	};
 
 	constexpr U32 CD_SECTOR_SIZE = sizeof(Sector);
@@ -30,6 +33,16 @@ namespace esx {
 		U8 Index;
 		MSF Relative;
 		MSF Absolute;
+	};
+
+	struct AudioFrame {
+		I16 Left = 0, Right = 0;
+
+		AudioFrame() = default;
+
+		AudioFrame(I16 left, I16 right)
+			: Left(left), Right(right)
+		{}
 	};
 
 	constexpr static U8 fromBCD(U8 bcd) { return ((bcd >> 4) & 0xF) * 10 + ((bcd >> 0) & 0xF); }

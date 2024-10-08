@@ -7,9 +7,9 @@
 
 namespace esx {
 
-	constexpr size_t CD_READ_DELAY = 33868800 / CD_SECTORS_PER_SECOND;
-	constexpr size_t CD_READ_DELAY_2X = 33868800 / (2 * CD_SECTORS_PER_SECOND);
-	constexpr size_t CD_1_MS = 33868800 / 1000;
+	constexpr size_t CD_READ_DELAY = 33868800llu * 0x930llu / 4llu / 44100llu;
+	constexpr size_t CD_READ_DELAY_2X = CD_READ_DELAY / 2llu;
+	constexpr size_t CD_1_MS = 33868800llu / 1000llu;
 
 	using FIFO = Queue<U8>;
 
@@ -112,6 +112,7 @@ namespace esx {
 		U32 Number = 0;
 		U32 NumberOfResponses = 0;
 		CommandType CommandType = CommandType::None;
+		BIT GenerateInterrupt = ESX_TRUE;
 
 		void Push(U8 value) { Data[Size++] = value; }
 		U8 Pop() { return Data[ReadPointer++]; }
@@ -134,6 +135,9 @@ namespace esx {
 		U8 popData();
 
 		virtual void reset() override;
+
+		BIT HasAudioFramesAvailable() { return mAudioFrames.empty() ? ESX_FALSE : ESX_TRUE; }
+		AudioFrame GetAudioFrame();
 
 	private:
 		void command(CommandType command, U32 responseNumber = 1);
@@ -166,6 +170,7 @@ namespace esx {
 		void setMode(U8 value);
 
 		void AbortRead();
+		void Abort(CommandType type);
 		SubchannelQ generateSubChannelQ();
 
 
@@ -199,8 +204,16 @@ namespace esx {
 		SharedPtr<CompactDisk> mCD;
 		U64 mSeekLBA;
 		BIT mSetLocUnprocessed = ESX_FALSE;
+		
+		BIT mPlayPeekRight = ESX_FALSE;
+		BIT mAudioStreamingMute = ESX_FALSE;
+
+		U8 mXAFilterFile = 0;
+		U8 mXAFilterChannel = 0;
+
 
 		SubchannelQ mLastSubQ = {};
+		Deque<AudioFrame> mAudioFrames = {};
 	};
 
 }

@@ -210,6 +210,9 @@
     <ClInclude Include="src\UI\Panels\ConsolePanel.h">
       <Filter>src\UI\Panels</Filter>
     </ClInclude>
+    <ClInclude Include="src\UI\Panels\ControllerPanel.h">
+      <Filter>src\UI\Panels</Filter>
+    </ClInclude>
     <ClInclude Include="src\UI\Panels\DisassemblerPanel.h">
       <Filter>src\UI\Panels</Filter>
     </ClInclude>
@@ -258,10 +261,12 @@
     <ClInclude Include="src\UI\Window\Window.h">
       <Filter>src\UI\Window</Filter>
     </ClInclude>
+    <ClInclude Include="src\Utils\Geometry.h">
+      <Filter>src\Utils</Filter>
+    </ClInclude>
     <ClInclude Include="src\Utils\LoggingSystem.h">
       <Filter>src\Utils</Filter>
     </ClInclude>
-    <ClInclude Include="src\Utils\Geometry.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Base\Bus.cpp">
@@ -372,6 +377,9 @@
     <ClCompile Include="src\UI\Panels\ConsolePanel.cpp">
       <Filter>src\UI\Panels</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI\Panels\ControllerPanel.cpp">
+      <Filter>src\UI\Panels</Filter>
+    </ClCompile>
     <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp">
       <Filter>src\UI\Panels</Filter>
     </ClCompile>
@@ -414,13 +422,15 @@
     <ClCompile Include="src\UI\Window\Window.cpp">
       <Filter>src\UI\Window</Filter>
     </ClCompile>
+    <ClCompile Include="src\Utils\Geometry.cpp">
+      <Filter>src\Utils</Filter>
+    </ClCompile>
     <ClCompile Include="src\Utils\LoggingSystem.cpp">
       <Filter>src\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\Utils\Geometry.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="commons\icons\Logo.ico">

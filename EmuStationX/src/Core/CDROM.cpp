@@ -15,12 +15,15 @@ namespace esx {
 		Scheduler::AddSchedulerEventHandler(SchedulerEventType::CDROMCommand, [&](const SchedulerEvent& ev) {
 			size_t serial = ev.Read<size_t>();
 
-			if ((CDROM_REG3 & 0xF) != 0) {
-				mQueuedResponses.push(serial);
-				return;
-			}
+			if (mResponses.contains(serial)) {
+				const Response& response = mResponses.at(serial);
+				if ((CDROM_REG3 & 0xF) != 0 && response.GenerateInterrupt == ESX_TRUE) {
+					mQueuedResponses.push(serial);
+					return;
+				}
 
-			handleResponse(serial);
+				handleResponse(serial);
+			}
 		});
 	}
 
@@ -196,23 +199,36 @@ namespace esx {
 			case CommandType::Play: {		
 				if (response.Number == 1) {
 					U8 track = mParameters.size() != 0 ? popParameter() : 0;
+
 					ESX_CORE_LOG_INFO("{:08x}h - CDROM - Play {} {}", cpu->mCurrentInstruction.Address, track, response.Number);
-				} else {
-					ESX_CORE_LOG_INFO("{:08x}h - CDROM - Play {}", cpu->mCurrentInstruction.Address, response.Number);
-				}
 
-				if (mSetLocUnprocessed && response.Number == 1) {
-					mCD->seek(mSeekLBA);
+					if (track == 0) {
+						if (mSetLocUnprocessed) {
+							mCD->seek(mSeekLBA);
 
-					mStat.Read = ESX_FALSE;
-					mStat.Play = ESX_FALSE;
-					mStat.Seek = ESX_TRUE;
+							mStat.Read = ESX_FALSE;
+							mStat.Play = ESX_FALSE;
+							mStat.Seek = ESX_TRUE;
 
-					response.Clear();
-					response.Push(getStatus());
-					mStat.Seek = ESX_FALSE;
+							response.Clear();
+							response.Push(getStatus());
+							mStat.Seek = ESX_FALSE;
 
-					mSetLocUnprocessed = ESX_FALSE;
+							mSetLocUnprocessed = ESX_FALSE;
+						}
+					} else {
+						MSF msf = mCD->getTrackStart(track);
+						mSeekLBA = calculateBinaryPosition(msf.Minute, msf.Second, msf.Sector);
+						mCD->seek(mSeekLBA);
+
+						mStat.Read = ESX_FALSE;
+						mStat.Play = ESX_FALSE;
+						mStat.Seek = ESX_TRUE;
+
+						response.Clear();
+						response.Push(getStatus());
+						mStat.Seek = ESX_FALSE;
+					}
 				}
 
 				mStat.Rotating = ESX_TRUE;
@@ -221,13 +237,71 @@ namespace esx {
 				mStat.Play = ESX_TRUE;
 				mStat.Seek = ESX_FALSE;
 
-				AbortRead();
+				response.NumberOfResponses++;
+				if (response.Number > 1) {
+					if (mMode.AutoPause) {
+						ESX_CORE_LOG_ERROR("AutoPause not working");
+					}
+
+					mOldSector = mCurrentSector;
+					mCurrentSector = mNextSector;
+					mNextSector = (mNextSector + 1) % mSectors.size();
+
+					Sector& currentSector = mSectors[mCurrentSector];
+
+					mCD->readSector(&currentSector);
+					mPlayPeekRight = !mPlayPeekRight;
+
+					U32 peek = 0;
+					Span<I16> buffer(reinterpret_cast<I16*>(&currentSector), reinterpret_cast<I16*>(reinterpret_cast<U8*>(&currentSector) + sizeof(Sector)));
+					for (I32 i = 0; i < buffer.size(); i++) {
+						I16 sampleLeft = buffer[i + 0];
+						I16 sampleRight = buffer[i + 1];
+
+						mAudioFrames.emplace_back(sampleLeft, sampleRight);
+
+						peek = std::max<U16>(mPlayPeekRight ? std::abs(sampleRight) : std::abs(sampleLeft), peek);
+					}
+					peek = std::min<U32>(peek, 0x7FFF) | (mPlayPeekRight ? 0x8000 : 0x0000);
+
+					response.GenerateInterrupt = ESX_FALSE;
+					if (mMode.Report) {
+						if ((mLastSubQ.Absolute.Sector & 0xF) == 0) {
+							BIT isEven = ((mLastSubQ.Absolute.Sector >> 4) % 2) == 0;
+							response.Clear();
+							response.Push(getStatus());
+							response.Push(mCD->getTrackNumber());
+							response.Push(0x01);
+							if (isEven) {
+								response.Push(mLastSubQ.Absolute.Minute);
+								response.Push(mLastSubQ.Absolute.Second);
+								response.Push(mLastSubQ.Absolute.Sector);
+							}
+							else {
+								response.Push(mLastSubQ.Relative.Minute);
+								response.Push(mLastSubQ.Relative.Second | 0x80);
+								response.Push(mLastSubQ.Relative.Sector);
+							}
+							response.Push(static_cast<U8>(peek & 0xFF));
+							response.Push(static_cast<U8>((peek >> 8) & 0xFF));
+
+							response.GenerateInterrupt = ESX_TRUE;
+							response.Code = INT1;
+						}
+					}
+
+					mLastSubQ = mCD->getCurrentSubChannelQ().value_or(generateSubChannelQ());
+				}
+				else {
+					AbortRead();
+				}
+
+				response.TargetCycle = clocks + (mMode.DoubleSpeed ? CD_READ_DELAY_2X : CD_READ_DELAY);
 				break;
 			}
 
 			case CommandType::ReadS:
 			case CommandType::ReadN: {
-
 				if (command == CommandType::ReadS && response.Number == 1) {
 					ESX_CORE_LOG_INFO("{:08x}h - CDROM - ReadS {}", cpu->mCurrentInstruction.Address, response.Number);
 				} else if (command == CommandType::ReadN && response.Number == 1) {
@@ -260,8 +334,20 @@ namespace esx {
 					mCurrentSector = mNextSector;
 					mNextSector = (mNextSector + 1) % mSectors.size();
 
-					mCD->readSector(&mSectors[mCurrentSector]);
+					Sector& currentSector = mSectors[mCurrentSector];
+
+					mCD->readSector(&currentSector);
 					mLastSubQ = mCD->getCurrentSubChannelQ().value_or(generateSubChannelQ());
+
+					//If XA-ADPCM (and/or XA-Filter) is enabled via Setmode, then INT1 is generated only for non-ADPCM sectors.
+					response.GenerateInterrupt = ((mMode.XAADPCM == ESX_TRUE && mMode.XAFilter == ESX_TRUE) && currentSector.IsADPCM() == ESX_TRUE) ? ESX_FALSE : ESX_TRUE;
+
+					if (mMode.XAADPCM == ESX_TRUE) {
+						BIT skip = ((mMode.XAFilter == ESX_TRUE) && (currentSector.Subheader[0] != mXAFilterFile || (currentSector.Subheader[1] & 0x1F) != mXAFilterChannel)) ? ESX_TRUE : ESX_FALSE;
+						if (skip == ESX_FALSE) {
+
+						}
+					}
 
 					response.Code = INT1;
 				} else {
@@ -294,9 +380,15 @@ namespace esx {
 
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
+					mAudioFrames.clear();
+
 					if (mStat.Read) {
 						AbortRead();
 						mStat.Read = ESX_FALSE;
+					}
+					if (mStat.Play) {
+						Abort(CommandType::Play);
+						mStat.Play = ESX_FALSE;
 					}
 				}
 				else {
@@ -328,11 +420,13 @@ namespace esx {
 
 			case CommandType::Mute: {
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Mute", cpu->mCurrentInstruction.Address);
+				mAudioStreamingMute = ESX_TRUE;
 				break;
 			}
 
 			case CommandType::Demute: {
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Demute", cpu->mCurrentInstruction.Address);
+				mAudioStreamingMute = ESX_FALSE;
 				break;
 			}
 
@@ -340,6 +434,9 @@ namespace esx {
 				U8 channel = popParameter();
 				U8 file = popParameter();
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Setfilter {},{}", cpu->mCurrentInstruction.Address, file, channel);
+
+				mXAFilterFile = file;
+				mXAFilterChannel = channel;
 				break;
 			}
 
@@ -351,20 +448,13 @@ namespace esx {
 			}
 
 			case CommandType::GetlocL: {
-				response.Clear();
-				for (I32 i = 0; i < mSectors[mCurrentSector].Header.size();i++) {
-					response.Push(mSectors[mCurrentSector].Header[i]);
-				}
-				response.Push(mSectors[mCurrentSector].Mode);
-				for (I32 i = 0; i < 4; i++) {
-					response.Push(mSectors[mCurrentSector].Subheader[i]);
-				}
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetlocL", cpu->mCurrentInstruction.Address);
 
-				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetlocL {:02X}h,{:02X}h,{:02X}h,{:02X}h,{:02X}h,{:02X}h,{:02X}h,{:02X}h", 
-					cpu->mCurrentInstruction.Address,
-					response.Data[0], response.Data[1], response.Data[2], response.Data[3], 
-					response.Data[4], response.Data[5], response.Data[6], response.Data[7] 
-				);
+				response.Clear();
+				U8* begin = reinterpret_cast<U8*>(&(mSectors[mCurrentSector].Header[0]));
+				for (U8* it = begin; it < (begin + 8); it++) {
+					response.Push(*it);
+				}
 
 				break;
 			}
@@ -516,14 +606,16 @@ namespace esx {
 		if (mResponses.contains(serial)) {
 			Response& response = mResponses.at(serial);
 
-			mResponseSize = 0;
-			mResponseReadPointer = 0;
-			while (!response.Empty()) {
-				pushResponse(response.Pop());
-			}
-			CDROM_REG3 = (CDROM_REG3 & 0xF0) | response.Code;
-			if ((CDROM_REG3 & CDROM_REG2) == CDROM_REG3) {
-				getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
+			if (response.GenerateInterrupt) {
+				mResponseSize = 0;
+				mResponseReadPointer = 0;
+				while (!response.Empty()) {
+					pushResponse(response.Pop());
+				}
+				CDROM_REG3 = (CDROM_REG3 & 0xF0) | response.Code;
+				if ((CDROM_REG3 & CDROM_REG2) == CDROM_REG3) {
+					getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::CDROM, 0, 1);
+				}
 			}
 
 			if (response.Number < response.NumberOfResponses) {
@@ -585,9 +677,9 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 
-		/*ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
+		ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
 			cpu->mCurrentInstruction.Address, requestRegister.WantData, requestRegister.BFWR, requestRegister.WantCommandStartInterrupt,
-			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);*/
+			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);
 
 		if (requestRegister.WantData) {
 			if (CDROM_REG0.DataFifoEmpty == ESX_TRUE) {
@@ -735,6 +827,10 @@ namespace esx {
 		mShellOpen = ESX_FALSE;
 		mSeekLBA = 0x00;
 
+		mPlayPeekRight = ESX_FALSE;
+		mAudioFrames = {};
+		mAudioStreamingMute = ESX_FALSE;
+
 		//Init
 		mShellOpen = ESX_FALSE;
 
@@ -744,6 +840,24 @@ namespace esx {
 		std::fill(mData.begin(), mData.end(), 0x00);
 
 		mSetLocUnprocessed = ESX_FALSE;
+	}
+
+	AudioFrame CDROM::GetAudioFrame()
+	{
+		AudioFrame& audioFrame = mAudioFrames.front();
+
+		I16 left = 0, right = 0;
+		if (!mAudioStreamingMute) {
+			left = (I32(audioFrame.Left) * I32(mLeftCDOutToLeftSPUIn) >> 7) + (I32(audioFrame.Right) * I32(mRightCDOutToLeftSPUIn) >> 7);
+			right = (I32(audioFrame.Right) * I32(mRightCDOutToRightSPUIn) >> 7) + (I32(audioFrame.Left) * I32(mLeftCDOutToRightSPUIn) >> 7);
+
+			left = std::clamp<I16>(left, -0x8000, 0x7FFF);
+			right = std::clamp<I16>(right, -0x8000, 0x7FFF);
+		}
+	
+		mAudioFrames.pop_front();
+
+		return AudioFrame(left,right);
 	}
 
 	U8 CDROM::getStatus()
@@ -796,7 +910,13 @@ namespace esx {
 
 	void CDROM::AbortRead()
 	{
-		std::erase_if(mResponses, [](const Pair<U64, Response>& response) { return response.second.CommandType == CommandType::ReadS || response.second.CommandType == CommandType::ReadN;  });
+		Abort(CommandType::ReadS);
+		Abort(CommandType::ReadN);
+	}
+
+	void CDROM::Abort(CommandType type)
+	{
+		std::erase_if(mResponses, [&](const Pair<U64, Response>& response) { return response.second.CommandType == type;  });
 	}
 
 	SubchannelQ CDROM::generateSubChannelQ()

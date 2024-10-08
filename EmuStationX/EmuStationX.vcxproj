@@ -204,6 +204,7 @@
     <ClInclude Include="src\UI\Graphics\VertexBuffer.h" />
     <ClInclude Include="src\UI\Panels\CPUStatusPanel.h" />
     <ClInclude Include="src\UI\Panels\ConsolePanel.h" />
+    <ClInclude Include="src\UI\Panels\ControllerPanel.h" />
     <ClInclude Include="src\UI\Panels\DisassemblerPanel.h" />
     <ClInclude Include="src\UI\Panels\FileDialogPanel.h" />
     <ClInclude Include="src\UI\Panels\ISOBrowser.h" />
@@ -260,6 +261,7 @@
     <ClCompile Include="src\UI\Graphics\VertexBuffer.cpp" />
     <ClCompile Include="src\UI\Panels\CPUStatusPanel.cpp" />
     <ClCompile Include="src\UI\Panels\ConsolePanel.cpp" />
+    <ClCompile Include="src\UI\Panels\ControllerPanel.cpp" />
     <ClCompile Include="src\UI\Panels\DisassemblerPanel.cpp" />
     <ClCompile Include="src\UI\Panels\FileDialogPanel.cpp" />
     <ClCompile Include="src\UI\Panels\ISOBrowser.cpp" />

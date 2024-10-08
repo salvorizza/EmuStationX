@@ -1,6 +1,7 @@
 #include "SPU.h"
 
 #include "R3000.h"
+#include "CDROM.h"
 #include "InterruptControl.h"
 
 #include "Core/Scheduler.h"
@@ -212,6 +213,21 @@ namespace esx {
 				if (mNoiseTimer < 0) mNoiseLevel = mNoiseLevel * 2 + parityBit;
 				if (mNoiseTimer < 0) mNoiseTimer += 0x20000 << mSPUControl.NoiseFrequencyShift;
 				if (mNoiseTimer < 0) mNoiseTimer += 0x20000 << mSPUControl.NoiseFrequencyShift;
+			}
+
+			if (mSPUControl.CDAudioEnable && mCDROM->HasAudioFramesAvailable()) {
+				AudioFrame audioFrame = mCDROM->GetAudioFrame();
+
+				I16 left = (I32(audioFrame.Left) * I32(mCDInputVolume.Left)) >> 15;
+				I16 right = (I32(audioFrame.Right) * I32(mCDInputVolume.Right)) >> 15;
+
+				leftSum += left;
+				rightSum += right;
+
+				if (mSPUControl.CDAudioReverb) {
+					reverbLeftSum += left;
+					reverbRightSum += right;
+				}
 			}
 
 
@@ -619,6 +635,7 @@ namespace esx {
 	void SPU::init()
 	{
 		mCPU = getBus("Root")->getDevice<R3000>("R3000");
+		mCDROM = getBus("Root")->getDevice<CDROM>("CDROM");
 	}
 
 	void SPU::reset()

@@ -4,6 +4,7 @@
 
 #include "Base/Base.h"
 #include "Base/Bus.h"
+#include "Base/CDBase.h"
 
 namespace esx {
 
@@ -237,10 +238,6 @@ namespace esx {
 		TransferMode TransferMode = TransferMode::Stop;
 	};
 
-	struct AudioFrame {
-		I16 Left, Right;
-	};
-
 	#define SATURATE(x) std::clamp((x), -0x8000, 0x7FFF)
 
 	constexpr Array<U64, 7> CLOCKS_PER_WORD = {
@@ -254,6 +251,7 @@ namespace esx {
 	};
 
 	class R3000;
+	class CDROM;
 	
 
 	class SPU : public BusDevice {
@@ -414,6 +412,7 @@ namespace esx {
 		static I16 reverbFirFilter(I16 sample);
 	private:
 		SharedPtr<R3000> mCPU;
+		SharedPtr<CDROM> mCDROM;
 
 		Array<Voice, 24> mVoices = {};
 		Volume mMainVolumeLeft = {};

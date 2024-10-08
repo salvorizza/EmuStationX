@@ -63,7 +63,41 @@
 
 
 using namespace esx;
+#undef max;
+#undef min;
 
+struct FPSCounter {
+	LoopTimer Timer = {};
+	I32 MaxFPS = 0;
+	I32 MinFPS = 0;
+	I32 CurrentFPS = 0;
+	U64 NumSamples = 0;
+	U64 SumFPS = 0;
+
+	void Init() {
+		Timer.init();
+		MaxFPS = 0;
+		MinFPS = 0;
+		CurrentFPS = 0;
+		NumSamples = 0;
+		SumFPS = 0;
+	}
+
+	void Update() {
+		Timer.update();
+		NumSamples++;
+
+		CurrentFPS = (I32)(1.0 / Timer.getDeltaTimeInSeconds());
+		MaxFPS = std::max<I32>(MaxFPS, CurrentFPS);
+		MinFPS = std::min<I32>(MinFPS, CurrentFPS);
+		SumFPS += CurrentFPS;
+	}
+
+	I32 AvgFPS() {
+		if (NumSamples == 0) return 0;
+		return SumFPS / NumSamples;
+	}
+};
 
 class EmuStationXLogger : public Logger {
 public:
@@ -249,7 +283,7 @@ public:
 		ma_device_start(&mAudioDevice);
 
 		InputManager::Init();
-		loopTimer.init();
+		fpsCounter.Init();
 
 		mPlayedSamples = mPreRendered.size();
 
@@ -378,7 +412,7 @@ public:
 		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
 
 		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
-		loopTimer.update();
+		fpsCounter.Update();
 	}
 
 	virtual void onRender() override {
@@ -443,7 +477,10 @@ public:
 				ImGui::EndMenu();
 			}
 
-			ImGui::Text("FPS: %d", (int)(1 / loopTimer.getDeltaTimeInSeconds()));
+			ImGui::Text("Min FPS: %d", fpsCounter.MinFPS);
+			ImGui::Text("Avg FPS: %d", fpsCounter.AvgFPS());
+			ImGui::Text("Max FPS: %d", fpsCounter.MaxFPS);
+			ImGui::Text("Current FPS: %d", fpsCounter.CurrentFPS);
 
 			ImGui::TextUnformatted(mCurrentGame.c_str());
 
@@ -469,6 +506,7 @@ public:
 	}
 
 	void hardReset() {
+		fpsCounter.Init();
 		cpu->reset();
 		mainRAM->reset();
 		scratchPad->reset();
@@ -509,7 +547,7 @@ private:
 	SharedPtr<Controller> controller;
 	SharedPtr<MemoryCard> memoryCard, memoryCard2;
 	SharedPtr<MDEC> mdec;
-	LoopTimer loopTimer;
+	FPSCounter fpsCounter;
 
 
 	SharedPtr<CPUStatusPanel> mCPUStatusPanel;
