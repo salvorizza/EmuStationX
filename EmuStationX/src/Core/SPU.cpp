@@ -130,7 +130,7 @@ namespace esx {
 	}
 
 
-	static Array<std::ofstream, 24> sStreams;
+	//static Array<std::ofstream, 24> sStreams;
 
 	SPU::SPU()
 		: BusDevice(ESX_TEXT("SPU"))
@@ -146,7 +146,7 @@ namespace esx {
 
 	SPU::~SPU()
 	{
-		sStreams[0].close();
+		//sStreams[0].close();
 	}
 
 	const Array<I16, 5> pos_xa_adpcm_table = { 0, 60, 115, 98, 122 };
@@ -165,7 +165,7 @@ namespace esx {
 				for (I32 i = 0; i < (768 / 16); i++) {
 					if (mFIFO.empty()) break;
 					U16 value = mFIFO.front();
-					writeToRAM(value);
+					writeToRAM<U16>(value);
 					mFIFO.pop();
 					mSPUStatus.DataTransferBusyFlag = !mFIFO.empty();
 				}
@@ -240,7 +240,7 @@ namespace esx {
 			I16 left = static_cast<I16>((SATURATE(leftSum) * processVolume(mMainVolumeLeft)) >> 15);
 			I16 right = static_cast<I16>((SATURATE(rightSum) * processVolume(mMainVolumeRight)) >> 15);
 
-			sStreams[0].write((char*)&left, 2);
+			//sStreams[0].write((char*)&left, 2);
 
 			std::scoped_lock<std::mutex> lc(mSamplesMutex);
 			mSamples[mSamplesWrite].Left = left;
@@ -673,20 +673,8 @@ namespace esx {
 		std::fill(mRAM.begin(),mRAM.end(),0x00);
 		for (U32 i = 0; i < 24; i++) {
 			mVoices[i].Number = i;
-			if(i==0 && !sStreams[i].is_open()) sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
+			//if(i==0 && !sStreams[i].is_open()) sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
 		}
-	}
-
-	void SPU::writeToRAM(U16 value)
-	{
-		*reinterpret_cast<U16*>(&mRAM[mCurrentTransferAddress]) = value;
-		mCurrentTransferAddress += 2;
-	}
-
-	void SPU::writeToRAM(U32 value)
-	{
-		*reinterpret_cast<U32*>(&mRAM[mCurrentTransferAddress]) = value;
-		mCurrentTransferAddress += 2;
 	}
 
 	Pair<I16, I16> SPU::reverb(I16 LeftInput, I16 RightInput)
@@ -1439,6 +1427,10 @@ namespace esx {
 	void SPU::setDataTransferControl(U16 value)
 	{
 		mDataTransferControl.TransferType = (value >> 1) & 0x7;
+
+		if (mDataTransferControl.TransferType != 2) {
+			ESX_CORE_LOG_ERROR("{} Data Transfer Control {} not supported yet", __FUNCTION__, mDataTransferControl.TransferType);
+		}
 	}
 
 	void SPU::setDataTransferFifo(U16 value)

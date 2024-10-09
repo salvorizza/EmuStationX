@@ -467,7 +467,7 @@ namespace esx {
 					}
 
 					case Port::SPU: {
-						ESX_CORE_LOG_ERROR("SPU Read DMA {} not supported yet", (U8)channel.Port);
+						valueToWrite = mSPU->readFromRAM<U32>();
 						break;
 					}
 
@@ -489,7 +489,7 @@ namespace esx {
 						break;
 					}
 					case Port::SPU: {
-						mSPU->writeToRAM(value);
+						mSPU->writeToRAM<U32>(value);
 						break;
 					}
 					case Port::GPU: {

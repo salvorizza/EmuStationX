@@ -27,19 +27,20 @@ namespace esx {
 
 	bool DisassemblerPanel::breakFunction(U32 address)
 	{
-		if (mBreakpoints.size() > 0) {
-			auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.PhysAddress == Bus::toPhysicalAddress(address) && b.Enabled; });
-			if (it != mBreakpoints.end()) {
-				//disassemble(address - 4 * disassembleRange, 4 * disassembleRange * 2);
+		switch (mDebugState) {
+			case DebugState::Running:
+				if (mBreakpoints.size() > 0) {
+					auto it = std::find_if(mBreakpoints.begin(), mBreakpoints.end(), [&](Breakpoint& b) { return b.PhysAddress == Bus::toPhysicalAddress(address) && b.Enabled; });
+					return it != mBreakpoints.end();
+				}
+				return false;
 
-				setDebugState(DebugState::Breakpoint);
-				mScrollToCurrent = true;
-				mCurrent = address;
-				return true;
-			}
+			case DebugState::Step:
+			case DebugState::StepOver:
+				return mInstance->mPC == mNextPC;
 		}
-		return false;
 
+		return false;
 	}
 
 
@@ -50,6 +51,8 @@ namespace esx {
 				setDebugState(DebugState::Running);
 				break;
 
+			case DebugState::StepOver:
+			case DebugState::Step:
 			case DebugState::Running: {
 				//U64 startClocks = mInstance->getClocks();
 				do {
@@ -64,7 +67,7 @@ namespace esx {
 
 						mInstance->clock();
 
-						if (mInstance->mPC == 0x80030000 && mEXE) {
+						if (mEXE && mInstance->mPC == 0x80030000) {
 							sideLoad();
 						}
 					}
@@ -83,59 +86,6 @@ namespace esx {
 
 				break;
 			}
-
-			case DebugState::Step: {
-				do {
-					while (mInstance->getClocks() < Scheduler::NextEvent().ClockTarget) {
-						if (mInstance->mPC == mNextPC) {
-							mScrollToCurrent = true;
-							mCurrent = mInstance->mPC;
-							mNextPC = mInstance->mNextPC;
-							setDebugState(DebugState::Breakpoint);
-							break;
-						}
-
-						mInstance->clock();
-					}
-
-					if (mInstance->getClocks() >= Scheduler::NextEvent().ClockTarget) {
-						Scheduler::ExecuteEvent();
-						Scheduler::Progress();
-					}
-
-					if (mDebugState == DebugState::Breakpoint) {
-						break;
-					}
-				} while (!mGPU->isNewFrameAvailable());
-				break;
-			}
-
-
-			case DebugState::StepOver: {
-				do {
-					while (mInstance->getClocks() < Scheduler::NextEvent().ClockTarget) {
-						if (mInstance->mPC == mNextPC) {
-							mScrollToCurrent = true;
-							mCurrent = mInstance->mPC;
-							setDebugState(DebugState::Breakpoint);
-							break;
-						}
-
-						mInstance->clock();
-					}
-
-					if (mInstance->getClocks() >= Scheduler::NextEvent().ClockTarget) {
-						Scheduler::ExecuteEvent();
-						Scheduler::Progress();
-					}
-
-					if (mDebugState == DebugState::Breakpoint) {
-						break;
-					}
-				} while (!mGPU->isNewFrameAvailable());
-				break;
-			}
-
 
 			case DebugState::Stop:
 				setDebugState(DebugState::Idle);
@@ -402,11 +352,12 @@ namespace esx {
 	void DisassemblerPanel::sideLoad()
 	{
 		SharedPtr<RAM> pRAM = mBus->getDevice<RAM>("RAM");
-		Sector headerSector = {};
-		mEXE->seek(0);
-		mEXE->readSector(&headerSector);
+		Sector sector = {};
 
-		EXEHeader* pExeHeader = reinterpret_cast<EXEHeader*>(headerSector.UserData.data());
+		mEXE->seek(0);
+		mEXE->readSector(&sector);
+
+		EXEHeader* pExeHeader = reinterpret_cast<EXEHeader*>(sector.UserData.data());
 
 		mInstance->mPC = pExeHeader->InitialPC;
 		mInstance->mNextPC = mInstance->mPC + 4;
@@ -419,10 +370,9 @@ namespace esx {
 		U32 numSectors = pExeHeader->FileSize / 0x800;
 		U32 currentRAMAddress = Bus::toPhysicalAddress(pExeHeader->DestinationAddressInRAM);
 		for (I32 i = 0; i < numSectors; i++) {
-			Sector currentSector = {};
-			mEXE->readSector(&currentSector);
+			mEXE->readSector(&sector);
 
-			std::memcpy(&pRAM->mMemory[currentRAMAddress & (pRAM->mMemory.size() - 1)], currentSector.UserData.data(), currentSector.UserData.size());
+			std::memcpy(&pRAM->mMemory[currentRAMAddress & (pRAM->mMemory.size() - 1)], sector.UserData.data(), sector.UserData.size());
 
 			currentRAMAddress += 0x800;
 		}

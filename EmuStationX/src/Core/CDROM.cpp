@@ -104,7 +104,7 @@ namespace esx {
 					}
 
 					case 0x2: {
-						mLeftCDOutToLeftSPUIn = value;
+						mLeftCDOutToRightSPUIn = value;
 						break;
 					}
 
@@ -202,6 +202,8 @@ namespace esx {
 
 					ESX_CORE_LOG_INFO("{:08x}h - CDROM - Play {} {}", cpu->mCurrentInstruction.Address, track, response.Number);
 
+					mAudioFrames.clear();
+
 					if (track == 0) {
 						if (mSetLocUnprocessed) {
 							mCD->seek(mSeekLBA);
@@ -250,7 +252,6 @@ namespace esx {
 					Sector& currentSector = mSectors[mCurrentSector];
 
 					mCD->readSector(&currentSector);
-					mPlayPeekRight = !mPlayPeekRight;
 
 					U32 peek = 0;
 					Span<I16> buffer(reinterpret_cast<I16*>(&currentSector), reinterpret_cast<I16*>(reinterpret_cast<U8*>(&currentSector) + sizeof(Sector)));
@@ -263,6 +264,7 @@ namespace esx {
 						peek = std::max<U16>(mPlayPeekRight ? std::abs(sampleRight) : std::abs(sampleLeft), peek);
 					}
 					peek = std::min<U32>(peek, 0x7FFF) | (mPlayPeekRight ? 0x8000 : 0x0000);
+					mPlayPeekRight = !mPlayPeekRight;
 
 					response.GenerateInterrupt = ESX_FALSE;
 					if (mMode.Report) {
@@ -847,13 +849,13 @@ namespace esx {
 		AudioFrame& audioFrame = mAudioFrames.front();
 
 		I16 left = 0, right = 0;
-		if (!mAudioStreamingMute) {
+		//if (!mAudioStreamingMute) {
 			left = (I32(audioFrame.Left) * I32(mLeftCDOutToLeftSPUIn) >> 7) + (I32(audioFrame.Right) * I32(mRightCDOutToLeftSPUIn) >> 7);
 			right = (I32(audioFrame.Right) * I32(mRightCDOutToRightSPUIn) >> 7) + (I32(audioFrame.Left) * I32(mLeftCDOutToRightSPUIn) >> 7);
 
 			left = std::clamp<I16>(left, -0x8000, 0x7FFF);
 			right = std::clamp<I16>(right, -0x8000, 0x7FFF);
-		}
+		//}
 	
 		mAudioFrames.pop_front();
 

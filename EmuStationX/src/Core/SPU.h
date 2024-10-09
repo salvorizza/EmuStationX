@@ -271,8 +271,18 @@ namespace esx {
 		virtual void init() override;
 		virtual void reset() override;
 
-		void writeToRAM(U16 value);
-		void writeToRAM(U32 value);
+		template<typename T>
+		void writeToRAM(T value) {
+			*reinterpret_cast<T*>(&mRAM[mCurrentTransferAddress]) = value;
+			mCurrentTransferAddress += sizeof(T);
+		}
+
+		template<typename T>
+		T readFromRAM() {
+			T value = *reinterpret_cast<T*>(&mRAM[mCurrentTransferAddress]);
+			mCurrentTransferAddress += sizeof(T);
+			return value;
+		}
 
 	private:
 		ADPCMBlock readADPCMBlock(U16 address);
