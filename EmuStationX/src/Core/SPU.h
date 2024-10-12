@@ -111,7 +111,7 @@ namespace esx {
 		EnvelopePhase Envelope;
 		SweepPhase SweepPhase = SweepPhase::Positive;
 
-		U32 Tick = 0;
+		U16 Tick = 0;
 		I16 Step = 0;
 	};
 
@@ -159,7 +159,8 @@ namespace esx {
 		I16 Step = 0;
 
 		ADSRPhaseType Phase = ADSRPhaseType::Off;
-		U32 Tick = 0;
+		U16 TickTarget = 0;
+		U16 TickCounter = 0;
 	};
 
 	struct StereoVolume {
@@ -208,7 +209,9 @@ namespace esx {
 	};
 
 	struct DataTransferControl {
+		U8 Unknown1 = 0x00;
 		U8 TransferType = 0x00;
+		U16 Unknown2 = 0x00;
 	};
 
 	struct SPUControl {
@@ -239,16 +242,6 @@ namespace esx {
 	};
 
 	#define SATURATE(x) std::clamp((x), -0x8000, 0x7FFF)
-
-	constexpr Array<U64, 7> CLOCKS_PER_WORD = {
-		1,
-		1,
-		1,
-		40,
-		4,
-		20,
-		1
-	};
 
 	class R3000;
 	class CDROM;
@@ -450,7 +443,9 @@ namespace esx {
 		U32 mCurrentTransferAddress = 0;
 	public:
 		std::mutex mSamplesMutex = {};
-		Array<AudioFrame, 441 * 64 * 2> mSamples = {}; U32 mSamplesWrite = 0; U32 mSamplesRead = 0; U32 mBufferCount = 0;
+
+		Deque<AudioBatch> mFramesQueue = {};
+		U32 mCurrentSample = 0;
 	};
 
 }

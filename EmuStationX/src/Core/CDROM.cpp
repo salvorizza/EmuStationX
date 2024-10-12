@@ -51,7 +51,7 @@ namespace esx {
 					}
 
 					case 0x3: {
-						mRightCDOutToRightSPUIn = value;
+						mRightCDOutToRightSPUInTemp = value;
 						break;
 					}
 
@@ -75,12 +75,12 @@ namespace esx {
 					}
 
 					case 0x2: {
-						mLeftCDOutToRightSPUIn = value;
+						mLeftCDOutToRightSPUInTemp = value;
 						break;
 					}
 
 					case 0x3: {
-						mRightCDOutToLeftSPUIn = value;
+						mRightCDOutToLeftSPUInTemp = value;
 						break;
 					}
 
@@ -104,7 +104,7 @@ namespace esx {
 					}
 
 					case 0x2: {
-						mLeftCDOutToRightSPUIn = value;
+						mLeftCDOutToRightSPUInTemp = value;
 						break;
 					}
 
@@ -422,13 +422,13 @@ namespace esx {
 
 			case CommandType::Mute: {
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Mute", cpu->mCurrentInstruction.Address);
-				mAudioStreamingMute = ESX_TRUE;
+				mAudioStreamingMuteCDDA = mAudioStreamingMuteADPCM = ESX_TRUE;
 				break;
 			}
 
 			case CommandType::Demute: {
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Demute", cpu->mCurrentInstruction.Address);
-				mAudioStreamingMute = ESX_FALSE;
+				mAudioStreamingMuteCDDA = mAudioStreamingMuteADPCM = ESX_FALSE;
 				break;
 			}
 
@@ -639,12 +639,13 @@ namespace esx {
 		reg.MuteADPCM = (value >> 0) & 0x1;
 		reg.ApplyChanges = (value >> 5) & 0x1;
 
-		if (reg.MuteADPCM) {
-			ESX_CORE_LOG_ERROR("CDROM - Mute ADPCM not implemented yet");
-		}
+		mAudioStreamingMuteADPCM = reg.MuteADPCM;
 
 		if (reg.ApplyChanges) {
-			ESX_CORE_LOG_ERROR("CDROM - Apply changes not implemented yet");
+			mLeftCDOutToLeftSPUIn = mLeftCDOutToLeftSPUInTemp;
+			mLeftCDOutToRightSPUIn = mLeftCDOutToRightSPUInTemp;
+			mRightCDOutToLeftSPUIn = mRightCDOutToLeftSPUInTemp;
+			mRightCDOutToRightSPUIn = mRightCDOutToRightSPUInTemp;
 		}
 	}
 
@@ -831,7 +832,8 @@ namespace esx {
 
 		mPlayPeekRight = ESX_FALSE;
 		mAudioFrames = {};
-		mAudioStreamingMute = ESX_FALSE;
+		mAudioStreamingMuteCDDA = ESX_FALSE;
+		mAudioStreamingMuteADPCM = ESX_FALSE;
 
 		//Init
 		mShellOpen = ESX_FALSE;
@@ -849,13 +851,13 @@ namespace esx {
 		AudioFrame& audioFrame = mAudioFrames.front();
 
 		I16 left = 0, right = 0;
-		//if (!mAudioStreamingMute) {
-			left = (I32(audioFrame.Left) * I32(mLeftCDOutToLeftSPUIn) >> 7) + (I32(audioFrame.Right) * I32(mRightCDOutToLeftSPUIn) >> 7);
-			right = (I32(audioFrame.Right) * I32(mRightCDOutToRightSPUIn) >> 7) + (I32(audioFrame.Left) * I32(mLeftCDOutToRightSPUIn) >> 7);
+		if (mAudioStreamingMuteCDDA ==ESX_FALSE) {
+			left =  (I32(audioFrame.Left) * I32(mLeftCDOutToLeftSPUIn ) >> 7) + (I32(audioFrame.Right) * I32(mRightCDOutToLeftSPUIn ) >> 7);
+			right = (I32(audioFrame.Left) * I32(mLeftCDOutToRightSPUIn) >> 7) + (I32(audioFrame.Right) * I32(mRightCDOutToRightSPUIn) >> 7);
 
 			left = std::clamp<I16>(left, -0x8000, 0x7FFF);
 			right = std::clamp<I16>(right, -0x8000, 0x7FFF);
-		//}
+		}
 	
 		mAudioFrames.pop_front();
 

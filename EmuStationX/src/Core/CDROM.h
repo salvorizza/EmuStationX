@@ -180,6 +180,11 @@ namespace esx {
 		U8 CDROM_REG2 = 0x00;
 		U8 CDROM_REG3 = 0x00;
 
+		U8 mLeftCDOutToLeftSPUInTemp = 0;
+		U8 mLeftCDOutToRightSPUInTemp = 0;
+		U8 mRightCDOutToRightSPUInTemp = 0;
+		U8 mRightCDOutToLeftSPUInTemp = 0;
+
 		U8 mLeftCDOutToLeftSPUIn = 0;
 		U8 mLeftCDOutToRightSPUIn = 0;
 		U8 mRightCDOutToRightSPUIn = 0;
@@ -206,7 +211,8 @@ namespace esx {
 		BIT mSetLocUnprocessed = ESX_FALSE;
 		
 		BIT mPlayPeekRight = ESX_FALSE;
-		BIT mAudioStreamingMute = ESX_FALSE;
+		BIT mAudioStreamingMuteCDDA = ESX_FALSE;
+		BIT mAudioStreamingMuteADPCM = ESX_FALSE;
 
 		U8 mXAFilterFile = 0;
 		U8 mXAFilterChannel = 0;

@@ -88,6 +88,16 @@ namespace esx {
 		}
 	};
 
+	constexpr Array<U64, 7> CLOCKS_PER_WORD = {
+		1,
+		1,
+		1,
+		40,
+		4,
+		20,
+		1
+	};
+
 	class InterruptControl;
 	class GPU;
 	class CDROM;

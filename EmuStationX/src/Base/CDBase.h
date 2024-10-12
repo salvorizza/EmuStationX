@@ -45,6 +45,15 @@ namespace esx {
 		{}
 	};
 
+	struct AudioBatch {
+		Array<AudioFrame, 441> Batch = {};
+		U32 CurrentFrame = 0;
+
+		BIT Complete() const {
+			return CurrentFrame == Batch.size() ? ESX_TRUE : ESX_FALSE;
+		}
+	};
+
 	constexpr static U8 fromBCD(U8 bcd) { return ((bcd >> 4) & 0xF) * 10 + ((bcd >> 0) & 0xF); }
 	constexpr static U8 toBCD(U8 decimal) {
 		U8 bcd = 0;

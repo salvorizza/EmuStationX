@@ -196,6 +196,10 @@ namespace esx {
 			ESX_CORE_LOG_ERROR("DMA - Chopping not implemented yet");
 		}
 
+		if (mChannels[(U8)port].Dummy) {
+			ESX_CORE_LOG_ERROR("DMA - Dummmy CHCR not implemented yet");
+		}
+
 		if (isChannelActive(port)) {
 			startTransfer(port);
 		}
@@ -249,12 +253,18 @@ namespace esx {
 	{
 		Channel& channel = mChannels[(U8)port];
 
-		BIT trigger = ESX_TRUE;
-		if (channel.SyncMode == SyncMode::Burst) {
-			trigger = channel.ForceTransferStart;
-		}
+		/*
+		*   TODO: Test
+		*	Seems useless 
+		*	Bit 28 is automatically cleared upon BEGIN of the transfer, this bit needs to be set only in SyncMode=0
+		*
+		*	BIT trigger = ESX_TRUE;
+		*	if (channel.SyncMode == SyncMode::Burst) {
+		*		trigger = channel.ForceTransferStart;
+		*	}
+		*/
 
-		return (channel.MasterEnable && channel.TransferStartOrBusy && trigger) ? ESX_TRUE : ESX_FALSE;
+		return (channel.MasterEnable && channel.TransferStartOrBusy) ? ESX_TRUE : ESX_FALSE;
 	}
 
 	void DMA::setChannelDone(Channel& channel)

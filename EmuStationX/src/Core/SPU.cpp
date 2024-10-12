@@ -58,17 +58,17 @@ namespace esx {
 		stereoVolume.Right = (value >> 16) & 0xFFFF;
 	}
 
-	static void tickEnvelope(EnvelopePhase& phase, BIT PhaseNegative, I16& outVolume, U32& outTick, I16& outStep) {
-		/*BIT Decreasing = phase.Direction == EnvelopeDirection::Decrease;
+	static void tickEnvelope(EnvelopePhase& phase, BIT PhaseNegative, I16& outVolume, U16& outTick, I16& outStep) {
+		BIT Decreasing = phase.Direction == EnvelopeDirection::Decrease;
 		BIT Increase = phase.Direction == EnvelopeDirection::Increase;
 		BIT Exponential = phase.Mode == EnvelopeMode::Exponential;
 
-		I32 AdsrStep = 7 - phase.Step;
+		I16 StepValue = 7 - phase.Step;
 		if (Decreasing ^ PhaseNegative) {
-			AdsrStep = ~AdsrStep;
+			StepValue = ~StepValue;
 		}
-		AdsrStep = phase.Step << std::max(0, 11 - phase.Shift);
-		U32 CounterIncrement = 0x8000 >> std::max(0, phase.Shift - 11);
+		I16 AdsrStep = StepValue << std::max(0, 11 - phase.Shift);
+		U16 CounterIncrement = 0x8000 >> std::max(0, phase.Shift - 11);
 		if (Exponential && Increase && outVolume > 0x6000) {
 			if (phase.Shift < 10) {
 				AdsrStep /= 4;
@@ -78,12 +78,12 @@ namespace esx {
 				AdsrStep /= 4;
 				CounterIncrement /= 4;
 			}
-		} else if (Exponential && Increase) {
-			AdsrStep = AdsrStep * outVolume / 0x8000;
+		} else if (Exponential && Decreasing) {
+			AdsrStep = (I32(AdsrStep) * I32(outVolume)) / 0x8000;
 		}
 
 		if ((phase.Step | (phase.Step << 2)) != 0xFF) {
-			CounterIncrement = std::max<U32>(CounterIncrement, 1);
+			CounterIncrement = std::max<U16>(CounterIncrement, 1);
 		}
 
 		outTick += CounterIncrement;
@@ -99,23 +99,22 @@ namespace esx {
 		} else {
 			outVolume = std::max<I16>(outVolume, 0);
 		}
-		outStep = AdsrStep;*/
+		outStep = AdsrStep;
 
-		I32 step = phase.Direction == EnvelopeDirection::Increase ? (7 - phase.Step) : (-8 + phase.Step);
+		/*I32 step = phase.Direction == EnvelopeDirection::Increase ? (7 - phase.Step) : (-8 + phase.Step);
 		U32 cycles = 1 << std::max(0, phase.Shift - 11);
 		I32 envelopeStep = step << std::max(0, 11 - phase.Shift);
 		if (phase.Mode == EnvelopeMode::Exponential) {
 			if (phase.Direction == EnvelopeDirection::Increase && outVolume > 0x6000) {
 				cycles *= 4;
-			}
-			else if (phase.Direction == EnvelopeDirection::Decrease) {
+			} else if (phase.Direction == EnvelopeDirection::Decrease) {
 				envelopeStep = (envelopeStep * outVolume) >> 15;
 			}
 		}
 		outTick = cycles;
 		outStep = envelopeStep;
 
-		outVolume = std::clamp(outVolume + envelopeStep, 0x0000, 0x7FFF);
+		outVolume = std::clamp(outVolume + envelopeStep, 0x0000, 0x7FFF);*/
 	}
 
 	static I16 processVolume(Volume& volume) {
@@ -154,13 +153,13 @@ namespace esx {
 	
 	void SPU::sampleClock(U64 clocks)
 	{
-		if (mSPUControl.Enable) {
-			mSPUStatus.CDAudioEnable = mSPUControl.CDAudioEnable;
-			mSPUStatus.ExternalAudioEnable = mSPUControl.ExternalAudioEnable;
-			mSPUStatus.CDAudioReverb = mSPUControl.CDAudioReverb;
-			mSPUStatus.ExternalAudioReverb = mSPUControl.ExternalAudioReverb;
-			mSPUStatus.TransferMode = mSPUControl.TransferMode;
+		mSPUStatus.CDAudioEnable = mSPUControl.CDAudioEnable;
+		mSPUStatus.ExternalAudioEnable = mSPUControl.ExternalAudioEnable;
+		mSPUStatus.CDAudioReverb = mSPUControl.CDAudioReverb;
+		mSPUStatus.ExternalAudioReverb = mSPUControl.ExternalAudioReverb;
+		mSPUStatus.TransferMode = mSPUControl.TransferMode;
 
+		if (mSPUControl.Enable) {
 			if (mSPUStatus.TransferMode == TransferMode::ManualWrite) {
 				for (I32 i = 0; i < (768 / 16); i++) {
 					if (mFIFO.empty()) break;
@@ -177,7 +176,6 @@ namespace esx {
 			for (Voice& voice : mVoices) {
 				if (voice.KeyOff) {
 					voice.ADSR.Phase = ADSRPhaseType::Release;
-					voice.ADSR.Tick = 0;
 					voice.KeyOff = ESX_FALSE;
 				}
 
@@ -243,14 +241,12 @@ namespace esx {
 			//sStreams[0].write((char*)&left, 2);
 
 			std::scoped_lock<std::mutex> lc(mSamplesMutex);
-			mSamples[mSamplesWrite].Left = left;
-			mSamples[mSamplesWrite].Right = right;
-			mSamplesWrite = (mSamplesWrite + 1) % mSamples.size();
-			if (mBufferCount < mSamples.size()) {
-				mBufferCount++;
-			} else {
-				mSamplesRead = (mSamplesRead + 1) % mSamples.size();
-			}
+			auto& currentFrame = !mFramesQueue.empty() ? mFramesQueue.back() : mFramesQueue.emplace_back();
+			AudioFrame& sample = currentFrame.Batch[currentFrame.CurrentFrame];
+			sample.Left = left;
+			sample.Right = right;
+			currentFrame.CurrentFrame++;
+			if (currentFrame.Complete()) mFramesQueue.emplace_back();
 		}
 	}
 
@@ -664,10 +660,7 @@ namespace esx {
 		mCurrentTransferAddress = 0;
 
 		std::scoped_lock lc(mSamplesMutex);
-		mSamples = {}; 
-		mSamplesWrite = 0; 
-		mSamplesRead = 0;
-		mBufferCount = 0;
+		mFramesQueue = {};
 
 		mRAM.resize(KIBI(512));
 		std::fill(mRAM.begin(),mRAM.end(),0x00);
@@ -910,7 +903,8 @@ namespace esx {
 		voice.ADPCMCurrentAddress = voice.ADPCMStartAddress;
 		voice.ADSR.Phase = ADSRPhaseType::Attack;
 		voice.ADSR.CurrentVolume = 0;
-		voice.ADSR.Tick = 0;
+		voice.ADSR.TickCounter = 0;
+		voice.ADSR.TickTarget = 0;
 		voice.HasSamples = ESX_FALSE;
 		voice.LastSamples.fill(0);
 
@@ -1100,17 +1094,16 @@ namespace esx {
 	{
 		ADSR& adsr = voice.ADSR;
 		if (adsr.Phase != ADSRPhaseType::Off) {
-			if (adsr.Tick > 0) {
-				adsr.Tick--;
+			if (adsr.TickCounter != adsr.TickTarget) {
+				adsr.TickCounter++;
 				return;
 			}
 
 			EnvelopePhase& currentPhase = adsr.Phases[(U8)adsr.Phase];
-			tickEnvelope(currentPhase, ESX_FALSE, adsr.CurrentVolume, adsr.Tick, adsr.Step);
+			tickEnvelope(currentPhase, ESX_FALSE, adsr.CurrentVolume, adsr.TickTarget, adsr.Step);
 			BIT goToNextPhase = currentPhase.Direction == EnvelopeDirection::Decrease ? (adsr.CurrentVolume <= currentPhase.Target) : (adsr.CurrentVolume >= currentPhase.Target);
 			if (goToNextPhase && adsr.Phase != ADSRPhaseType::Sustain) {
 				adsr.Phase = (ADSRPhaseType)((U8)adsr.Phase + 1);
-				adsr.Tick = 0;
 			}
 		}
 	}
@@ -1419,14 +1412,18 @@ namespace esx {
 	{
 		U16 value = 0;
 
+		value |= (mDataTransferControl.Unknown1 << 0);
 		value |= (mDataTransferControl.TransferType << 1);
+		value |= (mDataTransferControl.Unknown2 << 4);
 
 		return value;
 	}
 
 	void SPU::setDataTransferControl(U16 value)
 	{
+		mDataTransferControl.Unknown1 = (value >> 0) & 0x1;
 		mDataTransferControl.TransferType = (value >> 1) & 0x7;
+		mDataTransferControl.Unknown2 = (value >> 4) & 0xFFF;
 
 		if (mDataTransferControl.TransferType != 2) {
 			ESX_CORE_LOG_ERROR("{} Data Transfer Control {} not supported yet", __FUNCTION__, mDataTransferControl.TransferType);

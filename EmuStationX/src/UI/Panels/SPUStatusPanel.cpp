@@ -129,7 +129,7 @@ namespace esx {
 					ImGui::Text("%04X", voice.ADPCMCurrentAddress);
 
 					ImGui::TableNextColumn();
-					ImGui::Text("%04X", voice.ADPCMCurrentAddress);
+					ImGui::Text("%04X", voice.ADPCMStartAddress);
 
 					ImGui::TableNextColumn();
 					ImGui::Text("%04X", voice.ADPCMRepeatAddress);
@@ -166,7 +166,7 @@ namespace esx {
 					ImGui::Text("%.2f", (voice.ADSR.CurrentVolume / (float)0x7FFF) * 100);
 
 					ImGui::TableNextColumn();
-					ImGui::Text("%d", voice.ADSR.Tick);
+					ImGui::Text("%d", voice.ADSR.TickCounter);
 
 					ImGui::PopStyleColor();
 				}

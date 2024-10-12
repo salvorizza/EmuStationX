@@ -281,11 +281,10 @@ public:
 		}
 
 		ma_device_start(&mAudioDevice);
+		mNumPrerendered = PRERENDERED_SIZE;
 
 		InputManager::Init();
 		fpsCounter.Init();
-
-		mPlayedSamples = mPreRendered.size();
 
 		Vector<String> cdroms = platform::CDROMDrive::List();
 		if (cdroms.size() > 0) {
@@ -352,19 +351,22 @@ public:
 		}
 
 		EmuStationXApp* pApp = (EmuStationXApp*)pDevice->pUserData;
+		auto spu = pApp->spu;
 
-		std::scoped_lock<std::mutex> lc(pApp->spu->mSamplesMutex);
-		if (pApp->mPlayedSamples == pApp->mPreRendered.size() && pApp->spu->mBufferCount >= pApp->mPreRendered.size()) {
-			std::memcpy(pApp->mPreRendered.data(), pApp->spu->mSamples.data() + pApp->spu->mSamplesRead, pApp->mPreRendered.size() * 2 * sizeof(I16));
-			pApp->spu->mSamplesRead = (pApp->spu->mSamplesRead + pApp->mPreRendered.size()) % pApp->spu->mSamples.size();
-			pApp->spu->mBufferCount -= pApp->mPreRendered.size();
-
-			pApp->mPlayedSamples = 0;
+		std::scoped_lock<std::mutex> lc(spu->mSamplesMutex);
+		if (spu->mFramesQueue.empty()) {
+			return;
 		}
 
-		if (pApp->mPlayedSamples < pApp->mPreRendered.size()) {
-			std::memcpy(pOutput, pApp->mPreRendered.data() + pApp->mPlayedSamples, frameCount * 2 * sizeof(I16));
-			pApp->mPlayedSamples += frameCount;
+		auto& batch = spu->mFramesQueue.front();
+		if (pApp->mNumPrerendered == pApp->PRERENDERED_SIZE && (spu->mFramesQueue.size() - 1) >= pApp->PRERENDERED_SIZE) {
+			pApp->mNumPrerendered = 0;
+		}
+
+		if (pApp->mNumPrerendered > 0 && batch.Complete()) {
+			std::memcpy(pOutput, batch.Batch.data(), sizeof(AudioFrame) * frameCount);
+			spu->mFramesQueue.pop_front();
+			pApp->mNumPrerendered++;
 		}
 	}
 
@@ -565,8 +567,8 @@ private:
 	glm::mat4 mProjectionMatrix;
 
 	ma_device mAudioDevice;
-	Array<AudioFrame, 441 * 64> mPreRendered; 
-	U32 mPlayedSamples;
+	const U32 PRERENDERED_SIZE = 64;
+	U32 mNumPrerendered = 0;
 
 	SharedPtr<platform::CDROMDrive> mCDROMDrive;
 	SharedPtr<ISO9660> mISO9660;

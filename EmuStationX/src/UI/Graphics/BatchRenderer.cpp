@@ -224,7 +224,7 @@ namespace esx {
 		}
 
 		ptrdiff_t numIndices = std::distance(mTriVerticesBase.begin(), mTriCurrentVertex);
-		if ((numIndices + vertices.size()) >= TRI_MAX_VERTICES) {
+		if ((numIndices + vertices.size()) >= TRI_MAX_VERTICES /* || (numIndices > 0 && vertices.at(0).semiTransparency != 255)*/) {
 			FlushVRAMWrites();
 			Flush();
 			Begin();
