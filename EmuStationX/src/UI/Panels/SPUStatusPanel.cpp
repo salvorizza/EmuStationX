@@ -96,7 +96,7 @@ namespace esx {
 		}
 
 		if (ImGui::CollapsingHeader("Voice State")) {
-			if (ImGui::BeginTable("SPUVoiceStatusTable", 12)) {
+			if (ImGui::BeginTable("SPUVoiceStatusTable", 13)) {
 				ImGui::TableSetupColumn("#");
 				ImGui::TableSetupColumn("InterpIndex");
 				ImGui::TableSetupColumn("SampleIndex");
@@ -109,6 +109,7 @@ namespace esx {
 				ImGui::TableSetupColumn("ADSRPhase");
 				ImGui::TableSetupColumn("ADSRVol");
 				ImGui::TableSetupColumn("ADSRTick");
+				ImGui::TableSetupColumn("ADSRStep");
 				ImGui::TableHeadersRow();
 
 				for (const Voice& voice : mInstance->mVoices) {
@@ -166,7 +167,68 @@ namespace esx {
 					ImGui::Text("%.2f", (voice.ADSR.CurrentVolume / (float)0x7FFF) * 100);
 
 					ImGui::TableNextColumn();
-					ImGui::Text("%d", voice.ADSR.TickCounter);
+					ImGui::Text("%d", voice.ADSR.Tick);
+
+					ImGui::TableNextColumn();
+					ImGui::Text("%d", voice.ADSR.Step);
+
+					ImGui::PopStyleColor();
+				}
+
+				ImGui::EndTable();
+			}
+		}
+
+		if (ImGui::CollapsingHeader("ADSR")) {
+			if (ImGui::BeginTable("SPUADSRVoiceStatusTable", 18)) {
+				ImGui::TableSetupColumn("#");
+				ImGui::TableSetupColumn("Attack Mode");
+				ImGui::TableSetupColumn("Attack Direction");
+				ImGui::TableSetupColumn("Attack Shift");
+				ImGui::TableSetupColumn("Attack Step");
+				ImGui::TableSetupColumn("Decay Mode");
+				ImGui::TableSetupColumn("Decay Direction");
+				ImGui::TableSetupColumn("Decay Shift");
+				ImGui::TableSetupColumn("Decay Step");
+				ImGui::TableSetupColumn("Sustain Mode");
+				ImGui::TableSetupColumn("Sustain Direction");
+				ImGui::TableSetupColumn("Sustain Shift");
+				ImGui::TableSetupColumn("Sustain Step");
+				ImGui::TableSetupColumn("Sustain Level");
+				ImGui::TableSetupColumn("Release Mode");
+				ImGui::TableSetupColumn("Release Direction");
+				ImGui::TableSetupColumn("Release Shift");
+				ImGui::TableSetupColumn("Release Step");
+				ImGui::TableHeadersRow();
+
+				for (const Voice& voice : mInstance->mVoices) {
+					ImGui::TableNextRow();
+
+					ImGui::PushStyleColor(ImGuiCol_Text, voice.ADSR.Phase == ADSRPhaseType::Off ? kDisabled : kEnabled);
+
+					ImGui::TableNextColumn();
+					ImGui::Text("%d", voice.Number);
+
+					for (U8 i = 0; i < U8(ADSRPhaseType::Off); i++) {
+						const EnvelopePhase& phase = voice.ADSR.Phases[i];
+
+						ImGui::TableNextColumn();
+						ImGui::Text("%s", phase.Mode == EnvelopeMode::Exponential ? "Exponential" : "Linear");
+
+						ImGui::TableNextColumn();
+						ImGui::Text("%s", phase.Direction == EnvelopeDirection::Increase ? "Increase" : "Decrease");
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0x%02X", phase.Shift);
+
+						ImGui::TableNextColumn();
+						ImGui::Text("%d", phase.Step);
+
+						if (i == U8(ADSRPhaseType::Sustain)) {
+							ImGui::TableNextColumn();
+							ImGui::Text("0x%02X", voice.ADSR.SustainLevel);
+						}
+					}
 
 					ImGui::PopStyleColor();
 				}

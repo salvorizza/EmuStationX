@@ -255,6 +255,16 @@ namespace esx {
 
 					U32 peek = 0;
 					Span<I16> buffer(reinterpret_cast<I16*>(&currentSector), reinterpret_cast<I16*>(reinterpret_cast<U8*>(&currentSector) + sizeof(Sector)));
+
+					I32 numSamples = buffer.size() / 2;
+					I32 remainingSpace = (44100 * 2) - mAudioFrames.size();
+					if (remainingSpace < numSamples) {
+						I32 samplesToDiscard = numSamples - remainingSpace;
+						for (I32 i = 0; i < samplesToDiscard; i++) {
+							mAudioFrames.pop_front();
+						}
+					}
+
 					for (I32 i = 0; i < buffer.size(); i++) {
 						I16 sampleLeft = buffer[i + 0];
 						I16 sampleRight = buffer[i + 1];

@@ -411,6 +411,7 @@ public:
 #endif
 
 		mDisassemblerPanel->onUpdate();
+
 		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
 
 		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
@@ -531,6 +532,9 @@ public:
 	}
 
 private:
+	SharedPtr<Controller> controller;
+	SharedPtr<MemoryCard> memoryCard, memoryCard2;
+
 	SharedPtr<Bus> root;
 	SharedPtr<R3000> cpu;
 	SharedPtr<RAM> mainRAM;
@@ -546,8 +550,6 @@ private:
 	SharedPtr<CDROM> cdrom;
 	SharedPtr<SIO> sio0;
 	SharedPtr<SIO> sio1;
-	SharedPtr<Controller> controller;
-	SharedPtr<MemoryCard> memoryCard, memoryCard2;
 	SharedPtr<MDEC> mdec;
 	FPSCounter fpsCounter;
 

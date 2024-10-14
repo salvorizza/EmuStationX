@@ -111,7 +111,7 @@ namespace esx {
 		EnvelopePhase Envelope;
 		SweepPhase SweepPhase = SweepPhase::Positive;
 
-		U16 Tick = 0;
+		U32 Tick = 0;
 		I16 Step = 0;
 	};
 
@@ -120,7 +120,8 @@ namespace esx {
 		Decay,
 		Sustain,
 		Release,
-		Off
+		Off,
+		Max
 	};
 
 	struct ADPCMBlock {
@@ -159,8 +160,7 @@ namespace esx {
 		I16 Step = 0;
 
 		ADSRPhaseType Phase = ADSRPhaseType::Off;
-		U16 TickTarget = 0;
-		U16 TickCounter = 0;
+		U32 Tick = 0;
 	};
 
 	struct StereoVolume {

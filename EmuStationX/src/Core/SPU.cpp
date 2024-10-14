@@ -58,7 +58,7 @@ namespace esx {
 		stereoVolume.Right = (value >> 16) & 0xFFFF;
 	}
 
-	static void tickEnvelope(EnvelopePhase& phase, BIT PhaseNegative, I16& outVolume, U16& outTick, I16& outStep) {
+	static void tickEnvelope(EnvelopePhase& phase, BIT PhaseNegative, I16& outVolume, U32& outTick, I16& outStep) {
 		BIT Decreasing = phase.Direction == EnvelopeDirection::Decrease;
 		BIT Increase = phase.Direction == EnvelopeDirection::Increase;
 		BIT Exponential = phase.Mode == EnvelopeMode::Exponential;
@@ -69,17 +69,20 @@ namespace esx {
 		}
 		I16 AdsrStep = StepValue << std::max(0, 11 - phase.Shift);
 		U16 CounterIncrement = 0x8000 >> std::max(0, phase.Shift - 11);
+
+		if (CounterIncrement == 0) return;
+
 		if (Exponential && Increase && outVolume > 0x6000) {
 			if (phase.Shift < 10) {
-				AdsrStep /= 4;
+				AdsrStep >>= 2;
 			} else if (phase.Shift >= 11) {
-				CounterIncrement /= 4;
+				CounterIncrement >>= 2;
 			} else {
-				AdsrStep /= 4;
-				CounterIncrement /= 4;
+				AdsrStep >>= 1;;
+				CounterIncrement >>= 1;
 			}
 		} else if (Exponential && Decreasing) {
-			AdsrStep = (I32(AdsrStep) * I32(outVolume)) / 0x8000;
+			AdsrStep = (I32(AdsrStep) * I32(outVolume)) >> 15;
 		}
 
 		if ((phase.Step | (phase.Step << 2)) != 0xFF) {
@@ -90,15 +93,17 @@ namespace esx {
 		if ((outTick & 0x8000) == 0) {
 			return;
 		}
+		outTick = 0;
 
-		outVolume = outVolume + AdsrStep;
+		I32 newVolume = outVolume + AdsrStep;
 		if (Increase) {
-			outVolume = std::clamp<I16>(outVolume, -0x8000, 0x7FFF);
+			newVolume = std::clamp<I32>(newVolume, -0x8000, 0x7FFF);
 		} else if (PhaseNegative) {
-			outVolume = std::clamp<I16>(outVolume, -0x8000, 0);
+			newVolume = std::clamp<I32>(newVolume, -0x8000, 0);
 		} else {
-			outVolume = std::max<I16>(outVolume, 0);
+			newVolume = std::max<I32>(newVolume, 0);
 		}
+		outVolume = static_cast<I16>(newVolume);
 		outStep = AdsrStep;
 
 		/*I32 step = phase.Direction == EnvelopeDirection::Increase ? (7 - phase.Step) : (-8 + phase.Step);
@@ -903,8 +908,7 @@ namespace esx {
 		voice.ADPCMCurrentAddress = voice.ADPCMStartAddress;
 		voice.ADSR.Phase = ADSRPhaseType::Attack;
 		voice.ADSR.CurrentVolume = 0;
-		voice.ADSR.TickCounter = 0;
-		voice.ADSR.TickTarget = 0;
+		voice.ADSR.Tick = 0;
 		voice.HasSamples = ESX_FALSE;
 		voice.LastSamples.fill(0);
 
@@ -1067,7 +1071,7 @@ namespace esx {
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Shift = (value >> 4) & 0xF;
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Direction = EnvelopeDirection::Decrease; // Fixed
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Mode = EnvelopeMode::Exponential; // Fixed
-		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Target = (mVoices[voice].ADSR.SustainLevel + 1) * 0x800;
+		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Decay].Target = std::min<I32>((mVoices[voice].ADSR.SustainLevel + 1) * 0x800, 0x7FFF);
 
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Step = (value >> 8) & 0x3;
 		mVoices[voice].ADSR.Phases[(U8)ADSRPhaseType::Attack].Shift = (value >> 10) & 0x1F;
@@ -1094,15 +1098,11 @@ namespace esx {
 	{
 		ADSR& adsr = voice.ADSR;
 		if (adsr.Phase != ADSRPhaseType::Off) {
-			if (adsr.TickCounter != adsr.TickTarget) {
-				adsr.TickCounter++;
-				return;
-			}
-
 			EnvelopePhase& currentPhase = adsr.Phases[(U8)adsr.Phase];
-			tickEnvelope(currentPhase, ESX_FALSE, adsr.CurrentVolume, adsr.TickTarget, adsr.Step);
+			tickEnvelope(currentPhase, ESX_FALSE, adsr.CurrentVolume, adsr.Tick, adsr.Step);
 			BIT goToNextPhase = currentPhase.Direction == EnvelopeDirection::Decrease ? (adsr.CurrentVolume <= currentPhase.Target) : (adsr.CurrentVolume >= currentPhase.Target);
 			if (goToNextPhase && adsr.Phase != ADSRPhaseType::Sustain) {
+				adsr.CurrentVolume = currentPhase.Target;
 				adsr.Phase = (ADSRPhaseType)((U8)adsr.Phase + 1);
 			}
 		}
