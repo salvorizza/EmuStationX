@@ -358,15 +358,15 @@ public:
 			return;
 		}
 
-		auto& batch = spu->mFramesQueue.front();
-		if (pApp->mNumPrerendered == pApp->PRERENDERED_SIZE && (spu->mFramesQueue.size() - 1) >= pApp->PRERENDERED_SIZE) {
+		if (pApp->mNumPrerendered < pApp->PRERENDERED_SIZE) {
+			auto& batch = spu->mFramesQueue.front();
+			if (batch.Complete()) {
+				std::memcpy(pOutput, batch.Batch.data(), sizeof(AudioFrame) * frameCount);
+				spu->mFramesQueue.pop_front();
+				pApp->mNumPrerendered++;
+			}
+		} else if(spu->mFramesQueue.size() > pApp->PRERENDERED_SIZE) {
 			pApp->mNumPrerendered = 0;
-		}
-
-		if (pApp->mNumPrerendered > 0 && batch.Complete()) {
-			std::memcpy(pOutput, batch.Batch.data(), sizeof(AudioFrame) * frameCount);
-			spu->mFramesQueue.pop_front();
-			pApp->mNumPrerendered++;
 		}
 	}
 

@@ -14,58 +14,61 @@ namespace esx {
 
 		seekPos -= calculateBinaryPosition(0, 2, 0);
 
-		computeCurrentFile();
-
 		mTrackNumber = computeCurrentTrack();
 
-		mCurrentFile->mStream.seekg(seekPos, mCurrentFile->mStream.beg);
+		mCurrentFile->mStream.seekg(seekPos - mCurrentFile->Start, mCurrentFile->mStream.beg);
 	}
 
 	void CDRWIN::readSector(Sector* pOutSector)
 	{
-		if ((mCurrentLBA - calculateBinaryPosition(0, 2, 0) + sizeof(Sector)) < mCurrentFile->Size) {
-			mCurrentFile->mStream.read(reinterpret_cast<char*>(pOutSector), sizeof(Sector));
-			if (mCurrentFile->mStream.fail() == ESX_TRUE) {
-				ESX_CORE_LOG_TRACE("Strano");
-			}
-			mCurrentLBA += sizeof(Sector);
-		} else {
-			ESX_CORE_LOG_ERROR("LBA Greater than file size");
+		mCurrentFile->mStream.read(reinterpret_cast<char*>(pOutSector), sizeof(Sector));
+		if (mCurrentFile->mStream.fail() == ESX_TRUE) {
+			ESX_CORE_LOG_TRACE("Strano");
 		}
+		mCurrentLBA += sizeof(Sector);
 
-		if ((mTrackNumber + 1) < mCurrentFile->Tracks.size()) {
-			auto& index = mCurrentFile->Tracks[mTrackNumber + 1].Indexes[0];
-			if (mTrackNumber < (mCurrentFile->Tracks.size() - 1) && mCurrentLBA >(index.lba + index.pregapLba)) {
-				mTrackNumber++;
-			}
-		}
+		mTrackNumber = computeCurrentTrack();
+	}
+
+	U8 CDRWIN::getLastTrack()
+	{
+		const auto& lastFile = mFiles[mFiles.size() - 1];
+		return lastFile.Tracks[lastFile.Tracks.size() - 1].Number;
 	}
 
 	MSF CDRWIN::getTrackStart(U8 trackNumber)
 	{
-		//TODO: Multiple files
 		if (trackNumber == 0) {
-			CDRWINTrack& lastTrack = mCurrentFile->Tracks[mCurrentFile->Tracks.size() - 1];
-			MSF end = fromBinaryPositionToMSF(((mCurrentFile->Size / CD_SECTOR_SIZE) * CD_SECTOR_SIZE) + lastTrack.Indexes[lastTrack.Indexes.size() - 1].pregapLba);
-			return end;
+			return fromBinaryPositionToMSF(mFiles[mFiles.size() - 1].End + calculateBinaryPosition(0, 2, 0));
 		}
 
-		if (trackNumber < mCurrentFile->Tracks.size()) {
-			CDRWINTrack& track = mCurrentFile->Tracks[trackNumber - 1];
-			return fromBinaryPositionToMSF(track.Indexes[track.Indexes.size() - 1].lba + track.Indexes[track.Indexes.size() - 1].pregapLba);
+		auto trackFile = getFileByTrackNumber(trackNumber);
+		if (trackFile != mFiles.end()) {
+			auto track = std::find_if(trackFile->Tracks.begin(), trackFile->Tracks.end(), [&](const CDRWINTrack& track) { return track.Number == trackNumber; });
+			return fromBinaryPositionToMSF(trackFile->Start + track->Indexes[track->Indexes.size() - 1].lba + track->Indexes[track->Indexes.size() - 1].pregapLba);
 		}
 
 		return {};
 	}
 
-	void CDRWIN::computeCurrentFile()
+	Vector<CDRWinFile>::iterator CDRWIN::computeFile(U64 lba)
 	{
-		mCurrentFile = mFiles.begin();
-		if (mCurrentLBA > mCurrentFile->Size) {
-			ESX_CORE_LOG_ERROR("LBA greater than track size");
-			mCurrentFile = mFiles.begin() + 1;
-			mCurrentLBA = 0;
+		return std::find_if(mFiles.begin(), mFiles.end(), [&](const CDRWinFile& file) { return lba >= file.Start && lba < file.End; });
+	}
+
+	Vector<CDRWinFile>::iterator esx::CDRWIN::getFileByTrackNumber(U8 track)
+	{
+		auto foundIt = mFiles.end();
+
+		for (auto it = mFiles.begin(); it < mFiles.end(); ++it) {
+			auto foundTrack = std::find_if(it->Tracks.begin(), it->Tracks.end(), [&](const CDRWINTrack& fileTrack) { return fileTrack.Number == track; });
+			if (foundTrack != it->Tracks.end()) {
+				foundIt = it;
+				break;
+			}
 		}
+
+		return foundIt;
 	}
 
 	U64 CDRWIN::computeGapLBA()
@@ -81,10 +84,18 @@ namespace esx {
 
 	U8 CDRWIN::computeCurrentTrack()
 	{
-		for (CDRWINTrack& track : mCurrentFile->Tracks) {
-			for (CDRWinIndex& index : track.Indexes) {
-				if (mCurrentLBA >= (index.lba + index.pregapLba)) {
-					return track.Number;
+		mCurrentFile = computeFile(mCurrentLBA);
+		if (mCurrentFile == mFiles.end()) {
+			ESX_CORE_LOG_ERROR("LBA greater than track size");
+			mCurrentFile = mFiles.begin() + 1;
+			mCurrentLBA = 0;
+		}
+
+		for (auto it = mCurrentFile->Tracks.begin(); it < mCurrentFile->Tracks.end();++it) {
+			for (CDRWinIndex& index : it->Indexes) {
+				if (mCurrentLBA >= (mCurrentFile->Start + index.lba + index.pregapLba)) {
+					mCurrentTrack = it;
+					return it->Number;
 				}
 			}
 		}
@@ -109,12 +120,15 @@ namespace esx {
 				iss >> std::quoted(file.FileName);
 				auto filePath = cuePath.parent_path() / file.FileName;
 				file.mStream.open(filePath, std::ios::binary);
-				file.Size = std::filesystem::file_size(filePath);
+				file.Start = ((mFiles.size() == 1) ? 0 : mFiles[mFiles.size() - 2].End);
+				file.End = file.Start + std::filesystem::file_size(filePath);
 			} else if (token == "TRACK") {
 				CDRWinFile& file = mFiles.back();
 				CDRWINTrack& track = file.Tracks.emplace_back();
 				
 				iss >> track.Number >> track.TrackMode;
+
+				track.AudioTrack = track.TrackMode == "AUDIO" ? ESX_TRUE : ESX_FALSE;
 			} else if (token == "PREGAP") {
 				String time = "";
 				Char delimiter = '\0';

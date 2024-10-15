@@ -75,7 +75,7 @@ namespace esx {
 					}
 
 					case 0x2: {
-						mLeftCDOutToRightSPUInTemp = value;
+						mLeftCDOutToLeftSPUInTemp = value;
 						break;
 					}
 
@@ -241,9 +241,7 @@ namespace esx {
 
 				response.NumberOfResponses++;
 				if (response.Number > 1) {
-					if (mMode.AutoPause) {
-						ESX_CORE_LOG_ERROR("AutoPause not working");
-					}
+					
 
 					mOldSector = mCurrentSector;
 					mCurrentSector = mNextSector;
@@ -254,24 +252,21 @@ namespace esx {
 					mCD->readSector(&currentSector);
 
 					U32 peek = 0;
-					Span<I16> buffer(reinterpret_cast<I16*>(&currentSector), reinterpret_cast<I16*>(reinterpret_cast<U8*>(&currentSector) + sizeof(Sector)));
+					Span<AudioFrame> buffer(reinterpret_cast<AudioFrame*>(&currentSector), reinterpret_cast<AudioFrame*>(reinterpret_cast<U8*>(&currentSector) + sizeof(Sector)));
 
-					I32 numSamples = buffer.size() / 2;
+					/*I32 numSamples = buffer.size();
 					I32 remainingSpace = (44100 * 2) - mAudioFrames.size();
 					if (remainingSpace < numSamples) {
 						I32 samplesToDiscard = numSamples - remainingSpace;
 						for (I32 i = 0; i < samplesToDiscard; i++) {
 							mAudioFrames.pop_front();
 						}
-					}
+					}*/
 
-					for (I32 i = 0; i < buffer.size(); i++) {
-						I16 sampleLeft = buffer[i + 0];
-						I16 sampleRight = buffer[i + 1];
+					for (AudioFrame& frame : buffer) {
+						mAudioFrames.emplace_back(frame);
 
-						mAudioFrames.emplace_back(sampleLeft, sampleRight);
-
-						peek = std::max<U16>(mPlayPeekRight ? std::abs(sampleRight) : std::abs(sampleLeft), peek);
+						peek = std::max<U32>(mPlayPeekRight ? std::abs(frame.Right) : std::abs(frame.Left), peek);
 					}
 					peek = std::min<U32>(peek, 0x7FFF) | (mPlayPeekRight ? 0x8000 : 0x0000);
 					mPlayPeekRight = !mPlayPeekRight;
@@ -302,7 +297,17 @@ namespace esx {
 						}
 					}
 
-					mLastSubQ = mCD->getCurrentSubChannelQ().value_or(generateSubChannelQ());
+					SubchannelQ newSubQ = mCD->getCurrentSubChannelQ().value_or(generateSubChannelQ());
+					if (mMode.AutoPause && newSubQ.Track != mLastSubQ.Track && response.Number > 2) {
+						response.NumberOfResponses--;
+						mStat.Play = ESX_FALSE;
+
+						response.Clear();
+						response.Push(getStatus());
+						response.Code = INT4;
+						response.GenerateInterrupt = ESX_TRUE;
+					}
+					mLastSubQ = newSubQ;
 				}
 				else {
 					AbortRead();
@@ -348,18 +353,28 @@ namespace esx {
 
 					Sector& currentSector = mSectors[mCurrentSector];
 
+
 					mCD->readSector(&currentSector);
 					mLastSubQ = mCD->getCurrentSubChannelQ().value_or(generateSubChannelQ());
 
-					//If XA-ADPCM (and/or XA-Filter) is enabled via Setmode, then INT1 is generated only for non-ADPCM sectors.
-					response.GenerateInterrupt = ((mMode.XAADPCM == ESX_TRUE && mMode.XAFilter == ESX_TRUE) && currentSector.IsADPCM() == ESX_TRUE) ? ESX_FALSE : ESX_TRUE;
+					BIT isntCDDA = mCD->isAudioTrack() == ESX_FALSE;
+					BIT isMode2 = currentSector.Mode == 2;
+					BIT isADPCMEnabled = mMode.XAADPCM == ESX_TRUE;
+					BIT isFilterEnabled = mMode.XAFilter == ESX_TRUE;
+					BIT isFiltered = isFilterEnabled == ESX_TRUE && (mSectors[mCurrentSector].Subheader[0] != mXAFilterFile || (mSectors[mCurrentSector].Subheader[1] & 0x1F) != mXAFilterChannel);
+					BIT isAudioRealtime = (currentSector.Subheader[2] & 0x44) == 0x44;
 
-					if (mMode.XAADPCM == ESX_TRUE) {
-						BIT skip = ((mMode.XAFilter == ESX_TRUE) && (currentSector.Subheader[0] != mXAFilterFile || (currentSector.Subheader[1] & 0x1F) != mXAFilterChannel)) ? ESX_TRUE : ESX_FALSE;
-						if (skip == ESX_FALSE) {
-
+					BIT decodeADPCM = isntCDDA && isMode2 && isADPCMEnabled && (isFiltered == ESX_FALSE) && isAudioRealtime;
+					if (decodeADPCM) {
+						ESX_CORE_LOG_TRACE("Decoding XA-ADPCM");
+						response.GenerateInterrupt = ESX_FALSE;
+					} else {
+						if (isFilterEnabled && isAudioRealtime) {
+							response.GenerateInterrupt = ESX_FALSE;
 						}
 					}
+
+					
 
 					response.Code = INT1;
 				} else {
@@ -496,12 +511,14 @@ namespace esx {
 
 			case CommandType::GetTD: {
 				U8 track = popParameter();
-				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetTD {}", cpu->mCurrentInstruction.Address, track);
 
 				MSF msf = mCD->getTrackStart(fromBCD(track));
 
 				response.Push(toBCD(msf.Minute));
 				response.Push(toBCD(msf.Second));
+
+				ESX_CORE_LOG_INFO("{:08x}h - CDROM - GetTD {:02X} {:02X} {:02X}", cpu->mCurrentInstruction.Address, track, response.Data[1], response.Data[2]);
+
 				break;
 			}
 
@@ -564,7 +581,8 @@ namespace esx {
 					response.Clear();
 					//mStat.IdError = ESX_TRUE;
 					response.Push(getStatus());
-					response.Push(0x00); //response.Push(GetIdFlagsUnlicensed | GetIdFlagsMissing);
+					response.Push(0x00); 
+					//response.Push(GetIdFlagsUnlicensed | GetIdFlagsMissing);
 					response.Push(GetIdDiskTypeMode2);
 					response.Push(0x00);
 					response.Push('S');
@@ -740,6 +758,20 @@ namespace esx {
 		if ((REG & 0xF) == 0 && !mQueuedResponses.empty()) {
 			U64 serial = mQueuedResponses.front();
 			mQueuedResponses.pop();
+			
+			BIT canDeliverResponse = ESX_TRUE;
+			if (mResponses.contains(serial)) {
+				Response& response = mResponses.at(serial);
+				if ((response.CommandType == CommandType::ReadN || response.CommandType == CommandType::ReadS) && response.Code == INT1) {
+					BIT isFilterEnabled = mMode.XAFilter == ESX_TRUE;
+					BIT isFiltered = isFilterEnabled == ESX_TRUE && (mSectors[mCurrentSector].Subheader[0] != mXAFilterFile || (mSectors[mCurrentSector].Subheader[1] & 0x1F) != mXAFilterChannel);
+
+					if (isFiltered == ESX_TRUE) {
+						response.GenerateInterrupt = ESX_FALSE;
+					}
+				}
+			}
+
 			handleResponse(serial);
 		}
 	}

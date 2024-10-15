@@ -5,6 +5,7 @@
 #include "Base/Base.h"
 #include "Base/Bus.h"
 #include "Base/CDBase.h"
+#include "InterruptControl.h"
 
 namespace esx {
 
@@ -266,12 +267,22 @@ namespace esx {
 
 		template<typename T>
 		void writeToRAM(T value) {
+			if (mSPUControl.IRQ9Enable && (mCurrentTransferAddress / 8) == mSoundRAMIRQAddress) {
+				getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
+				mSPUStatus.IRQ9Flag = ESX_TRUE;
+			}
+
 			*reinterpret_cast<T*>(&mRAM[mCurrentTransferAddress]) = value;
 			mCurrentTransferAddress += sizeof(T);
 		}
 
 		template<typename T>
 		T readFromRAM() {
+			if (mSPUControl.IRQ9Enable && (mCurrentTransferAddress / 8) == mSoundRAMIRQAddress) {
+				getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
+				mSPUStatus.IRQ9Flag = ESX_TRUE;
+			}
+
 			T value = *reinterpret_cast<T*>(&mRAM[mCurrentTransferAddress]);
 			mCurrentTransferAddress += sizeof(T);
 			return value;
@@ -287,6 +298,9 @@ namespace esx {
 		Pair<I16, I16> reverb(I16 LeftInput, I16 RightInput);
 		I16 loadReverb(U16 addr);
 		void writeReverb(U16 addr,I16 value);
+
+		void writeCaptureBuffer(I32 index, I16 value);
+		void advanceCaptureBufferPointer();
 
 		void startVoice(Voice& voice);
 		void stopVoice(Voice& voice);
@@ -429,6 +443,8 @@ namespace esx {
 		DataTransferControl mDataTransferControl = {};
 		U16 mUnknown1F801DA0 = 0x0000;
 		U16 mSoundRAMIRQAddress = 0x0000;
+
+		U32 mCaptureBufferPointer = 0;
 
 		I32 mNoiseTimer = 0;
 		I16 mNoiseLevel = 0;

@@ -2,7 +2,6 @@
 
 #include "R3000.h"
 #include "CDROM.h"
-#include "InterruptControl.h"
 
 #include "Core/Scheduler.h"
 
@@ -218,11 +217,10 @@ namespace esx {
 				if (mNoiseTimer < 0) mNoiseTimer += 0x20000 << mSPUControl.NoiseFrequencyShift;
 			}
 
+			AudioFrame cdFrame = mCDROM->HasAudioFramesAvailable() ? mCDROM->GetAudioFrame() : AudioFrame();
 			if (mSPUControl.CDAudioEnable && mCDROM->HasAudioFramesAvailable()) {
-				AudioFrame audioFrame = mCDROM->GetAudioFrame();
-
-				I16 left = (I32(audioFrame.Left) * I32(mCDInputVolume.Left)) >> 15;
-				I16 right = (I32(audioFrame.Right) * I32(mCDInputVolume.Right)) >> 15;
+				I16 left = (I32(cdFrame.Left) * I32(mCDInputVolume.Left)) >> 15;
+				I16 right = (I32(cdFrame.Right) * I32(mCDInputVolume.Right)) >> 15;
 
 				leftSum += left;
 				rightSum += right;
@@ -233,6 +231,11 @@ namespace esx {
 				}
 			}
 
+			writeCaptureBuffer(0, cdFrame.Left);
+			writeCaptureBuffer(1, cdFrame.Right);
+			writeCaptureBuffer(2, mVoices[1].Latest);
+			writeCaptureBuffer(3, mVoices[3].Latest);
+			advanceCaptureBufferPointer();
 
 			if (clocks % 1536 == 0) {
 				auto [leftReverb, rightReverb] = reverb(static_cast<I16>(SATURATE(reverbLeftSum)), static_cast<I16>(SATURATE(reverbRightSum)));
@@ -243,7 +246,8 @@ namespace esx {
 			I16 left = static_cast<I16>((SATURATE(leftSum) * processVolume(mMainVolumeLeft)) >> 15);
 			I16 right = static_cast<I16>((SATURATE(rightSum) * processVolume(mMainVolumeRight)) >> 15);
 
-			//sStreams[0].write((char*)&left, 2);
+			/*sStreams[0].write((char*)&left, 2);
+			sStreams[0].write((char*)&right, 2);*/
 
 			std::scoped_lock<std::mutex> lc(mSamplesMutex);
 			auto& currentFrame = !mFramesQueue.empty() ? mFramesQueue.back() : mFramesQueue.emplace_back();
@@ -811,6 +815,11 @@ namespace esx {
 			return {};
 		}
 
+		if (mSPUControl.IRQ9Enable && voice.ADPCMCurrentAddress == mSoundRAMIRQAddress) {
+			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
+			mSPUStatus.IRQ9Flag = ESX_TRUE;
+		}
+
 		if (!voice.HasSamples) {
 			ADPCMBlock currentBlock = readADPCMBlock(voice.ADPCMCurrentAddress);
 			decodeBlock(voice, currentBlock);
@@ -889,6 +898,11 @@ namespace esx {
 		U32 relative = ((address << 3) + mCurrentBufferAddress - (mReverb[mBASE] << 3)) % (0x80000 - (mReverb[mBASE] << 3));
 		U32 wrapped = ((mReverb[mBASE] << 3) + relative) & 0x7FFFE;
 
+		if (mSPUControl.IRQ9Enable && (wrapped / 8) == mSoundRAMIRQAddress) {
+			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
+			mSPUStatus.IRQ9Flag = ESX_TRUE;
+		}
+
 		return *(I16*)(mRAM.data() + wrapped);
 	}
 
@@ -899,7 +913,29 @@ namespace esx {
 		U32 relative = ((address << 3) + mCurrentBufferAddress - (mReverb[mBASE] << 3)) % (0x80000 - (mReverb[mBASE] << 3));
 		U32 wrapped = ((mReverb[mBASE] << 3) + relative) & 0x7FFFE;
 
+		if (mSPUControl.IRQ9Enable && (wrapped / 8) == mSoundRAMIRQAddress) {
+			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
+			mSPUStatus.IRQ9Flag = ESX_TRUE;
+		}
+
 		*(I16*)(mRAM.data() + wrapped) = value;
+	}
+
+	void SPU::writeCaptureBuffer(I32 index, I16 value)
+	{
+		U32 writeAddress = (index * 0x400) + mCaptureBufferPointer;
+		*reinterpret_cast<I16*>(&mRAM[writeAddress]) = value;
+		if (mSPUControl.IRQ9Enable && (writeAddress / 8) == mSoundRAMIRQAddress) {
+			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
+			mSPUStatus.IRQ9Flag = ESX_TRUE;
+		}
+		mSPUStatus.WriteToSecondHalf = mCaptureBufferPointer >= 0x200;
+	}
+
+	void SPU::advanceCaptureBufferPointer()
+	{
+		mCaptureBufferPointer += sizeof(I16);
+		mCaptureBufferPointer %= 0x400;
 	}
 
 	void SPU::startVoice(Voice& voice)
@@ -1364,6 +1400,10 @@ namespace esx {
 		mSPUControl.NoiseFrequencyShift = (value >> 10) & 0xF;
 		mSPUControl.Unmute = (value >> 14) & 0x1;
 		mSPUControl.Enable = (value >> 15) & 0x1;
+
+		if (mSPUControl.IRQ9Enable == ESX_FALSE && mSPUStatus.IRQ9Flag == ESX_TRUE) {
+			mSPUStatus.IRQ9Flag = ESX_FALSE;
+		}
 
 		if (!oldEnable && mSPUControl.Enable) {
 			SchedulerEvent spuSample = {

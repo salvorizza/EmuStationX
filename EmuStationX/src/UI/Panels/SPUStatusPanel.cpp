@@ -64,7 +64,7 @@ namespace esx {
 			{
 				ImGui::SameLine();
 				ImGui::TextColored(mInstance->mSPUControl.IRQ9Enable ? kEnabled : kDisabled, 
-					mInstance->mSPUControl.IRQ9Enable ? "Enabled" : "Disabled");
+					mInstance->mSPUControl.IRQ9Enable ? "Enabled (%04Xh)" : "Disabled", mInstance->mSoundRAMIRQAddress);
 			}
 
 			ImGui::TextUnformatted("Volume:");

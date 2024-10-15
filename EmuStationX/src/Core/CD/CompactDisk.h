@@ -17,6 +17,7 @@ namespace esx {
 		virtual Optional<SubchannelQ> getCurrentSubChannelQ() { return {}; }
 
 		virtual U64 getCurrentPos() { return mCurrentLBA; }
+		virtual BIT isAudioTrack() { return ESX_FALSE; }
 
 		U8 getTrackNumber() { return mTrackNumber; }
 

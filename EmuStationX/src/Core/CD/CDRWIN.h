@@ -30,12 +30,14 @@ namespace esx {
 	struct CDRWINTrack {
 		I32 Number = 0;
 		String TrackMode = "";
+		BIT AudioTrack = ESX_FALSE;
 		Vector<CDRWinIndex> Indexes = {};
 	};
 
 	struct CDRWinFile {
 		String FileName = "";
-		U64 Size = 0;
+		U64 Start = 0;
+		U64 End = 0;
 		FileInputStream mStream = {};
 		Vector<CDRWINTrack> Tracks = {};
 	};
@@ -47,10 +49,12 @@ namespace esx {
 
 		virtual void seek(U64 seekPos) override;
 		virtual void readSector(Sector* pOutSector) override;
-		virtual U8 getLastTrack() override { return mCurrentFile != mFiles.end() ? mCurrentFile->Tracks.size() : 0; }
+		virtual U8 getLastTrack() override;
 		virtual MSF getTrackStart(U8 trackNumber) override;
+		virtual BIT isAudioTrack() { return mCurrentTrack->AudioTrack; }
 
-		void computeCurrentFile();
+		Vector<CDRWinFile>::iterator computeFile(U64 lba);
+		Vector<CDRWinFile>::iterator getFileByTrackNumber(U8 track);
 		U64 computeGapLBA();
 		U8 computeCurrentTrack();
 
@@ -61,6 +65,7 @@ namespace esx {
 		StringView mCuePath;
 		Vector<CDRWinFile> mFiles;
 		Vector<CDRWinFile>::iterator mCurrentFile;
+		Vector<CDRWINTrack>::iterator mCurrentTrack;
 	};
 
 }
