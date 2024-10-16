@@ -20,6 +20,17 @@ namespace esx {
 		inline BIT IsADPCM() const { return Subheader[3] != 0; }
 	};
 
+	enum SubmodeFlags : U8 {
+		SubmodeFlagEOR = 1 << 0,
+		SubmodeFlagVideo = 1 << 1,
+		SubmodeFlagAudio = 1 << 2,
+		SubmodeFlagData = 1 << 3,
+		SubmodeFlagTrigger = 1 << 4,
+		SubmodeFlagForm2 = 1 << 5,
+		SubmodeFlagRealTime = 1 << 6,
+		SubmodeFlagEOF = 1 << 7
+	};
+
 	constexpr U32 CD_SECTOR_SIZE = sizeof(Sector);
 
 	struct MSF {
@@ -89,4 +100,7 @@ namespace esx {
 
 		return result;
 	}
+
+	const Array<I16, 5> pos_xa_adpcm_table = { 0, 60, 115, 98, 122 };
+	const Array<I16, 5> neg_xa_adpcm_table = { 0, 0, -52, -55, -60 };
 }

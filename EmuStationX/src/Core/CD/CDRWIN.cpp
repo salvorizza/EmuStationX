@@ -45,7 +45,13 @@ namespace esx {
 		auto trackFile = getFileByTrackNumber(trackNumber);
 		if (trackFile != mFiles.end()) {
 			auto track = std::find_if(trackFile->Tracks.begin(), trackFile->Tracks.end(), [&](const CDRWINTrack& track) { return track.Number == trackNumber; });
-			return fromBinaryPositionToMSF(trackFile->Start + track->Indexes[track->Indexes.size() - 1].lba + track->Indexes[track->Indexes.size() - 1].pregapLba);
+			
+			U32 trackIndexLBA = track->Indexes[0].lba + track->Indexes[0].pregapLba + calculateBinaryPosition(0, 2, 0);
+			if (track->Indexes.size() > 1) {
+				trackIndexLBA = track->Indexes[1].lba + track->Indexes[1].pregapLba + calculateBinaryPosition(0, 2, 0);
+			}
+
+			return fromBinaryPositionToMSF(trackFile->Start + trackIndexLBA);
 		}
 
 		return {};
@@ -75,7 +81,7 @@ namespace esx {
 	{
 		for (CDRWINTrack& track : mCurrentFile->Tracks) {
 			for (CDRWinIndex& index : track.Indexes) {
-				if (mCurrentLBA >= (index.lba + index.pregapLba)) {
+				if ((mCurrentLBA - calculateBinaryPosition(0, 2, 0)) >= (index.lba + index.pregapLba)) {
 					return index.pregapLba - calculateBinaryPosition(0, 2, 0);
 				}
 			}
@@ -84,16 +90,16 @@ namespace esx {
 
 	U8 CDRWIN::computeCurrentTrack()
 	{
-		mCurrentFile = computeFile(mCurrentLBA);
+		mCurrentFile = computeFile(mCurrentLBA - calculateBinaryPosition(0,2,0));
 		if (mCurrentFile == mFiles.end()) {
 			ESX_CORE_LOG_ERROR("LBA greater than track size");
 			mCurrentFile = mFiles.begin() + 1;
-			mCurrentLBA = 0;
+			mCurrentLBA = mCurrentFile->Start + calculateBinaryPosition(0, 2, 0);
 		}
 
 		for (auto it = mCurrentFile->Tracks.begin(); it < mCurrentFile->Tracks.end();++it) {
 			for (CDRWinIndex& index : it->Indexes) {
-				if (mCurrentLBA >= (mCurrentFile->Start + index.lba + index.pregapLba)) {
+				if ((mCurrentLBA - calculateBinaryPosition(0, 2, 0)) >= (mCurrentFile->Start + index.lba + index.pregapLba)) {
 					mCurrentTrack = it;
 					return it->Number;
 				}

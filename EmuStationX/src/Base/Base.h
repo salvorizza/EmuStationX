@@ -176,6 +176,45 @@ namespace esx {
 		}
 	};
 
+	template<typename T, size_t Size>
+	class CircularBuffer {
+	public:
+		CircularBuffer() = default;
+		~CircularBuffer() = default;
+
+		void push_back(const T& data) {
+			mBuffer[mWriteIndex] = data;
+			mWriteIndex = (mWriteIndex + 1) % mBuffer.size();
+		}
+
+		const T& front() const {
+			return mBuffer[mReadIndex];
+		}
+
+		const T& get(size_t index) const {
+			return mBuffer[index % mBuffer.size()];
+		}
+
+		BIT pop_front() {
+			if (mWriteIndex == mReadIndex) {
+				return ESX_FALSE;
+			}
+
+			mReadIndex = (mReadIndex + 1) % mBuffer.size();
+
+			return ESX_TRUE;
+		}
+
+		inline size_t write_index() const { return mWriteIndex; }
+		inline size_t size() const { return mBuffer.size(); }
+
+
+	private:
+		Array<T, Size> mBuffer = {};
+		size_t mWriteIndex = 0;
+		size_t mReadIndex = 0;
+	};
+
 
 #ifdef ESX_DEBUG
 #if defined(ESX_PLATFORM_WINDOWS)

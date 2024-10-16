@@ -151,9 +151,6 @@ namespace esx {
 	{
 		//sStreams[0].close();
 	}
-
-	const Array<I16, 5> pos_xa_adpcm_table = { 0, 60, 115, 98, 122 };
-	const Array<I16, 5> neg_xa_adpcm_table = { 0, 0, -52, -55, -60 };
 	
 	void SPU::sampleClock(U64 clocks)
 	{

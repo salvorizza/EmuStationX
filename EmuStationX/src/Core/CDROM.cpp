@@ -203,6 +203,7 @@ namespace esx {
 					ESX_CORE_LOG_INFO("{:08x}h - CDROM - Play {} {}", cpu->mCurrentInstruction.Address, track, response.Number);
 
 					mAudioFrames.clear();
+					CDROM_REG0.ADPCMFifoEmpty = ESX_TRUE;
 
 					if (track == 0) {
 						if (mSetLocUnprocessed) {
@@ -264,7 +265,7 @@ namespace esx {
 					}*/
 
 					for (AudioFrame& frame : buffer) {
-						mAudioFrames.emplace_back(frame);
+						Output44100Hz(frame);
 
 						peek = std::max<U32>(mPlayPeekRight ? std::abs(frame.Right) : std::abs(frame.Left), peek);
 					}
@@ -357,24 +358,24 @@ namespace esx {
 					mCD->readSector(&currentSector);
 					mLastSubQ = mCD->getCurrentSubChannelQ().value_or(generateSubChannelQ());
 
-					BIT isntCDDA = mCD->isAudioTrack() == ESX_FALSE;
-					BIT isMode2 = currentSector.Mode == 2;
-					BIT isADPCMEnabled = mMode.XAADPCM == ESX_TRUE;
-					BIT isFilterEnabled = mMode.XAFilter == ESX_TRUE;
-					BIT isFiltered = isFilterEnabled == ESX_TRUE && (mSectors[mCurrentSector].Subheader[0] != mXAFilterFile || (mSectors[mCurrentSector].Subheader[1] & 0x1F) != mXAFilterChannel);
-					BIT isAudioRealtime = (currentSector.Subheader[2] & 0x44) == 0x44;
+					U8 audioRealTimeMask = SubmodeFlagAudio | SubmodeFlagRealTime;
+					BIT rejectADPCM = (
+						mCD->isAudioTrack() == ESX_TRUE ||
+						currentSector.Mode != 2 ||
+						mMode.XAADPCM == ESX_FALSE ||
+						(mMode.XAFilter == ESX_TRUE && (currentSector.Subheader[0] != mXAFilterFile || (currentSector.Subheader[1] & 0x1F) != mXAFilterChannel)) ||
+						((currentSector.Subheader[2] & audioRealTimeMask) != audioRealTimeMask)
+					);
 
-					BIT decodeADPCM = isntCDDA && isMode2 && isADPCMEnabled && (isFiltered == ESX_FALSE) && isAudioRealtime;
-					if (decodeADPCM) {
-						ESX_CORE_LOG_TRACE("Decoding XA-ADPCM");
+					if (rejectADPCM == ESX_FALSE) {
+						decodeXAADPCMSector(currentSector);
+
 						response.GenerateInterrupt = ESX_FALSE;
 					} else {
-						if (isFilterEnabled && isAudioRealtime) {
+						if (mMode.XAFilter == ESX_TRUE && ((currentSector.Subheader[2] & audioRealTimeMask) == audioRealTimeMask)) {
 							response.GenerateInterrupt = ESX_FALSE;
 						}
 					}
-
-					
 
 					response.Code = INT1;
 				} else {
@@ -408,6 +409,7 @@ namespace esx {
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
 					mAudioFrames.clear();
+					CDROM_REG0.ADPCMFifoEmpty = ESX_TRUE;
 
 					if (mStat.Read) {
 						AbortRead();
@@ -660,6 +662,136 @@ namespace esx {
 		}
 	}
 
+	void CDROM::decodeXAADPCMSector(const Sector& sector)
+	{
+		ESX_CORE_LOG_INFO("XA-ADPCM Decoding");
+		
+		BIT isStereo = ((sector.Subheader[3] >> 0) & 0x3) == 1 ? ESX_TRUE: ESX_FALSE;
+		U32 sampleRate = ((sector.Subheader[3] >> 2) & 0x3) == 1 ? 18900 : 37800;
+		U8 bitsPerSample = ((sector.Subheader[3] >> 4) & 0x3) == 1 ? 8 : 4;
+		BIT emphasis = ((sector.Subheader[3] >> 6) & 0x1) == 1 ? ESX_TRUE : ESX_FALSE;
+
+		if (bitsPerSample != 4) {
+			ESX_CORE_LOG_ERROR("XA-ADPCM {} bpp not implemented yet", bitsPerSample);
+			return;
+		}
+
+		if (sampleRate == 18900) {
+			ESX_CORE_LOG_ERROR("XA-ADPCM {}hz sample rate not implemented yet", sampleRate);
+			return;
+		}
+
+		if (emphasis == ESX_TRUE) {
+			ESX_CORE_LOG_ERROR("XA-ADPCM emphasis not implemented yet");
+			return;
+		}
+
+		CDROM_REG0.ADPCMFifoEmpty = ESX_FALSE;
+
+		auto xaSector = reinterpret_cast<const XAADPCMSector*>(sector.UserData.data());
+
+		for (const XAADPCMPortion& portion : xaSector->Portions) {
+			for (I32 blk = 0; blk < 4; blk++) {
+				mXAADPCMDecoder.DstLeft = 0;
+				mXAADPCMDecoder.DstRight = 0;
+				mXAADPCMDecoder.DstMono = 0;
+
+				if (isStereo == ESX_TRUE) {
+					decodeXAADPCM28Nibbles(portion, blk, 0, mXAADPCMDecoder.Decoded, mXAADPCMDecoder.DstLeft, mXAADPCMDecoder.OldLeft, mXAADPCMDecoder.OlderLeft, 1);
+					decodeXAADPCM28Nibbles(portion, blk, 1, mXAADPCMDecoder.Decoded, mXAADPCMDecoder.DstRight, mXAADPCMDecoder.OldRight, mXAADPCMDecoder.OlderRight, 2);
+				} else {
+					decodeXAADPCM28Nibbles(portion, blk, 0, mXAADPCMDecoder.Decoded, mXAADPCMDecoder.DstMono, mXAADPCMDecoder.OldMono, mXAADPCMDecoder.OlderMono, 0);
+					decodeXAADPCM28Nibbles(portion, blk, 1, mXAADPCMDecoder.Decoded, mXAADPCMDecoder.DstMono, mXAADPCMDecoder.OldMono, mXAADPCMDecoder.OlderMono, 0);
+				}
+
+				I32 numSamples = (isStereo == ESX_TRUE) ? 28 : 56;
+				for (I32 i = 0; i < numSamples;i++) {
+					Output37800Hz(mXAADPCMDecoder.Decoded[i]);
+				}
+			}
+		}
+	}
+
+	void CDROM::decodeXAADPCM28Nibbles(const XAADPCMPortion& portion, I32 blk, U8 nibble, Array<AudioFrame, 56>& halfwords, U32& dst, I16& old, I16& older, U8 mode)
+	{
+		I32 shift = (portion.Headers[4 + blk * 2 + nibble] & 0x0F);
+		if (shift > 12) {
+			shift = 9;
+		}
+
+		U8 filter = (portion.Headers[4 + blk * 2 + nibble] & 0x30) >> 4;
+		I16 f0 = pos_xa_adpcm_table[filter];
+		I16 f1 = neg_xa_adpcm_table[filter];
+
+		for (I32 i = 0; i < 28; i++) {
+			U8 dataNibble = ((portion.Data[blk + i * 4] >> (nibble * 4)) & 0x0F);
+			I16 t = static_cast<I16>(static_cast<U16>(dataNibble) << 12);
+			I16 s = (t >> shift) + ((old * f0 + older * f1 + 32) / 64);
+			s = std::clamp<I16>(s, -0x8000, 0x7FFF);
+
+			AudioFrame& frame = halfwords[dst];
+			switch (mode) {
+				case 0: {
+					frame.Left = frame.Right = s;
+					break;
+				}
+				case 1: {
+					frame.Left = s;
+					break;
+				}
+				case 2: {
+					frame.Right = s;
+					break;
+				}
+			}
+			dst++;
+
+			older = old;
+			old = s;
+		}
+
+	}
+
+	void CDROM::Output44100Hz(const AudioFrame& sample)
+	{
+		mAudioFrames.emplace_back(sample);
+	}
+
+	void CDROM::Output37800Hz(const AudioFrame& sample)
+	{
+		size_t p = mRingBuf.write_index();
+		mRingBuf.push_back(sample);
+		mSixStep--;
+		if (mSixStep == 0) {
+			mSixStep = 6;
+
+			Output44100Hz(ZigZagInterpolate(p, Table1));
+			Output44100Hz(ZigZagInterpolate(p, Table2));
+			Output44100Hz(ZigZagInterpolate(p, Table3));
+			Output44100Hz(ZigZagInterpolate(p, Table4));
+			Output44100Hz(ZigZagInterpolate(p, Table5));
+			Output44100Hz(ZigZagInterpolate(p, Table6));
+			Output44100Hz(ZigZagInterpolate(p, Table7));
+		}
+	}
+
+	AudioFrame CDROM::ZigZagInterpolate(size_t p, const Array<I16, 29>& TableX)
+	{
+		I64 sumLeft = 0;
+		I64 sumRight = 0;
+		for (I32 i = 0; i < 29; i++) {
+			const AudioFrame& frame = mRingBuf.get(p - i);
+			sumLeft += (I64(frame.Left) * I64(TableX[i])) >> 15;
+			sumRight += (I64(frame.Right) * I64(TableX[i])) >> 15;
+		}
+
+		I16 left = static_cast<I16>(std::clamp<I64>(sumLeft, -0x8000, 0x7FFF));
+		I16 right = static_cast<I16>(std::clamp<I64>(sumRight, -0x8000, 0x7FFF));
+
+		return AudioFrame(left, right);
+	}
+
+
 	void CDROM::audioVolumeApplyChanges(U8 value)
 	{
 		ApplyVolumeRegister reg = {};
@@ -763,10 +895,7 @@ namespace esx {
 			if (mResponses.contains(serial)) {
 				Response& response = mResponses.at(serial);
 				if ((response.CommandType == CommandType::ReadN || response.CommandType == CommandType::ReadS) && response.Code == INT1) {
-					BIT isFilterEnabled = mMode.XAFilter == ESX_TRUE;
-					BIT isFiltered = isFilterEnabled == ESX_TRUE && (mSectors[mCurrentSector].Subheader[0] != mXAFilterFile || (mSectors[mCurrentSector].Subheader[1] & 0x1F) != mXAFilterChannel);
-
-					if (isFiltered == ESX_TRUE) {
+					if ((mMode.XAFilter == ESX_TRUE && (mSectors[mCurrentSector].Subheader[0] != mXAFilterFile || (mSectors[mCurrentSector].Subheader[1] & 0x1F) != mXAFilterChannel))) {
 						response.GenerateInterrupt = ESX_FALSE;
 					}
 				}
@@ -874,6 +1003,7 @@ namespace esx {
 
 		mPlayPeekRight = ESX_FALSE;
 		mAudioFrames = {};
+		mXAADPCMDecoder = {};
 		mAudioStreamingMuteCDDA = ESX_FALSE;
 		mAudioStreamingMuteADPCM = ESX_FALSE;
 
@@ -886,6 +1016,9 @@ namespace esx {
 		std::fill(mData.begin(), mData.end(), 0x00);
 
 		mSetLocUnprocessed = ESX_FALSE;
+
+		mSixStep = 6;
+		mRingBuf = {};
 	}
 
 	AudioFrame CDROM::GetAudioFrame()
