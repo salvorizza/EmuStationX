@@ -64,6 +64,7 @@ namespace esx {
 		GetTN = 0x13,
 		GetTD = 0x14,
 		SeekL = 0x15,
+		SeekP = 0x16,
 		Test = 0x19,
 		GetID = 0x1A,
 		ReadS = 0x1B,

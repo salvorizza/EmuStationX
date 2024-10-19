@@ -50,7 +50,7 @@ namespace esx {
 		virtual void seek(U64 seekPos) override;
 		virtual void readSector(Sector* pOutSector) override;
 		virtual U8 getLastTrack() override;
-		virtual MSF getTrackStart(U8 trackNumber) override;
+		virtual MSF getTrackStart(U8 trackNumber, BIT useIndex1 = ESX_FALSE) override;
 		virtual BIT isAudioTrack() { return mCurrentTrack->AudioTrack; }
 
 		Vector<CDRWinFile>::iterator computeFile(U64 lba);

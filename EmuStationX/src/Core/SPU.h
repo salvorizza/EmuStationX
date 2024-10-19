@@ -460,7 +460,7 @@ namespace esx {
 	public:
 		std::mutex mSamplesMutex = {};
 
-		Deque<AudioBatch> mFramesQueue = {};
+		AudioBatch mBackBuffer = {}, mFrontBuffer = {};
 		U32 mCurrentSample = 0;
 	};
 

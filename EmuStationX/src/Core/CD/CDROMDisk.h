@@ -18,7 +18,7 @@ namespace esx {
 		virtual void readSector(Sector* pOutSector) override;
 		virtual Optional<SubchannelQ> getCurrentSubChannelQ() override;
 		virtual U8 getLastTrack() override { return mCDROMDrive->GetLastTrack(); }
-		virtual MSF getTrackStart(U8 trackNumber) override;
+		virtual MSF getTrackStart(U8 trackNumber, BIT useIndex1 = ESX_FALSE) override;
 
 	private:
 		SharedPtr<platform::CDROMDrive> mCDROMDrive;

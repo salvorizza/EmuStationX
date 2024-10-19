@@ -17,7 +17,7 @@ namespace esx {
 		virtual void seek(U64 seekPos) override;
 		virtual void readSector(Sector* pOutSector) override;
 		virtual U8 getLastTrack() override { return 1; }
-		virtual MSF getTrackStart(U8 trackNumber) override;
+		virtual MSF getTrackStart(U8 trackNumber, BIT useIndex1 = ESX_FALSE) override;
 
 	private:
 		StringView mFilePath;

@@ -460,8 +460,8 @@ namespace esx {
 			}
 
 			case CommandType::Setfilter: {
-				U8 channel = popParameter();
 				U8 file = popParameter();
+				U8 channel = popParameter();
 				ESX_CORE_LOG_INFO("{:08x}h - CDROM - Setfilter {},{}", cpu->mCurrentInstruction.Address, file, channel);
 
 				mXAFilterFile = file;
@@ -500,6 +500,12 @@ namespace esx {
 				response.Push(mLastSubQ.Absolute.Minute);
 				response.Push(mLastSubQ.Absolute.Second);
 				response.Push(mLastSubQ.Absolute.Sector);
+
+				ESX_CORE_LOG_TRACE("SubQ {:02x},{:02x},{:02x},{:02x},{:02x},{:02x},{:02x},{:02x}",
+					mLastSubQ.Track, mLastSubQ.Index, mLastSubQ.Relative.Minute, mLastSubQ.Relative.Second, mLastSubQ.Relative.Sector,
+					mLastSubQ.Absolute.Minute, mLastSubQ.Absolute.Second, mLastSubQ.Absolute.Sector
+				);
+
 				break;
 			}
 
@@ -514,7 +520,7 @@ namespace esx {
 			case CommandType::GetTD: {
 				U8 track = popParameter();
 
-				MSF msf = mCD->getTrackStart(fromBCD(track));
+				MSF msf = mCD->getTrackStart(fromBCD(track), ESX_TRUE);
 
 				response.Push(toBCD(msf.Minute));
 				response.Push(toBCD(msf.Second));
@@ -524,8 +530,14 @@ namespace esx {
 				break;
 			}
 
-			case CommandType::SeekL: {
-				ESX_CORE_LOG_INFO("{:08x}h - CDROM - SeekL {}", cpu->mCurrentInstruction.Address, response.Number);
+			case CommandType::SeekL:
+			case CommandType::SeekP: {
+				if (command == CommandType::SeekL) {
+					ESX_CORE_LOG_INFO("{:08x}h - CDROM - SeekL {}", cpu->mCurrentInstruction.Address, response.Number);
+				} else if (command == CommandType::SeekP) {
+					ESX_CORE_LOG_INFO("{:08x}h - CDROM - SeekP {}", cpu->mCurrentInstruction.Address, response.Number);
+				}
+
 				response.NumberOfResponses = 2;
 				if (response.Number == 1) {
 					mStat.Read = ESX_FALSE;
@@ -544,6 +556,8 @@ namespace esx {
 					}
 				}
 				mSetLocUnprocessed = ESX_FALSE;
+
+				mLastSubQ = mCD->getCurrentSubChannelQ().value_or(generateSubChannelQ());
 				break;
 			}
 
@@ -676,7 +690,7 @@ namespace esx {
 			return;
 		}
 
-		if (sampleRate == 18900) {
+		if (sampleRate != 37800) {
 			ESX_CORE_LOG_ERROR("XA-ADPCM {}hz sample rate not implemented yet", sampleRate);
 			return;
 		}
@@ -704,7 +718,7 @@ namespace esx {
 					decodeXAADPCM28Nibbles(portion, blk, 1, mXAADPCMDecoder.Decoded, mXAADPCMDecoder.DstMono, mXAADPCMDecoder.OldMono, mXAADPCMDecoder.OlderMono, 0);
 				}
 
-				I32 numSamples = (isStereo == ESX_TRUE) ? 28 : 56;
+				I32 numSamples = (isStereo == ESX_TRUE) ? mXAADPCMDecoder.DstLeft : mXAADPCMDecoder.DstMono;
 				for (I32 i = 0; i < numSamples;i++) {
 					Output37800Hz(mXAADPCMDecoder.Decoded[i]);
 				}
@@ -1035,6 +1049,10 @@ namespace esx {
 		}
 	
 		mAudioFrames.pop_front();
+
+		if (mAudioFrames.empty()) {
+			CDROM_REG0.ADPCMFifoEmpty = ESX_TRUE;
+		}
 
 		return AudioFrame(left,right);
 	}

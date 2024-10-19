@@ -25,7 +25,7 @@ namespace esx {
 		return mCurrentSubChannelQ;
 	}
 
-	MSF CDROMDisk::getTrackStart(U8 trackNumber) {
+	MSF CDROMDisk::getTrackStart(U8 trackNumber, BIT useIndex1) {
 		return fromBinaryPositionToMSF(calculateBinaryPosition(0, 2, 0));
 	}
 

@@ -32,7 +32,7 @@ namespace esx {
 		}
 	}
 
-	MSF ISO::getTrackStart(U8 trackNumber) {
+	MSF ISO::getTrackStart(U8 trackNumber, BIT useIndex1) {
 		return fromBinaryPositionToMSF(calculateBinaryPosition(0, 2, 0));
 	}
 

@@ -354,20 +354,23 @@ public:
 		auto spu = pApp->spu;
 
 		std::scoped_lock<std::mutex> lc(spu->mSamplesMutex);
-		if (spu->mFramesQueue.empty()) {
+		if (spu->mFrontBuffer.Complete() == ESX_FALSE) {
 			return;
 		}
 
-		if (pApp->mNumPrerendered < pApp->PRERENDERED_SIZE) {
+		std::memcpy(pOutput, spu->mFrontBuffer.Batch.data(), sizeof(AudioFrame) * frameCount);
+			
+
+		/*if (pApp->mNumPrerendered < pApp->PRERENDERED_SIZE) {
 			auto& batch = spu->mFramesQueue.front();
 			if (batch.Complete()) {
 				std::memcpy(pOutput, batch.Batch.data(), sizeof(AudioFrame) * frameCount);
 				spu->mFramesQueue.pop_front();
 				pApp->mNumPrerendered++;
 			}
-		} else if(spu->mFramesQueue.size() > pApp->PRERENDERED_SIZE) {
+		} else if((spu->mFramesQueue.size() - 1) > pApp->PRERENDERED_SIZE) {
 			pApp->mNumPrerendered = 0;
-		}
+		}*/
 	}
 
 	virtual void onUpdate() override {
@@ -569,7 +572,7 @@ private:
 	glm::mat4 mProjectionMatrix;
 
 	ma_device mAudioDevice;
-	const U32 PRERENDERED_SIZE = 64;
+	const U32 PRERENDERED_SIZE = 10;
 	U32 mNumPrerendered = 0;
 
 	SharedPtr<platform::CDROMDrive> mCDROMDrive;

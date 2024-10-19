@@ -133,7 +133,7 @@ namespace esx {
 	}
 
 
-	//static Array<std::ofstream, 24> sStreams;
+	static Array<std::ofstream, 24> sStreams;
 
 	SPU::SPU()
 		: BusDevice(ESX_TEXT("SPU"))
@@ -149,7 +149,7 @@ namespace esx {
 
 	SPU::~SPU()
 	{
-		//sStreams[0].close();
+		sStreams[0].close();
 	}
 	
 	void SPU::sampleClock(U64 clocks)
@@ -243,16 +243,19 @@ namespace esx {
 			I16 left = static_cast<I16>((SATURATE(leftSum) * processVolume(mMainVolumeLeft)) >> 15);
 			I16 right = static_cast<I16>((SATURATE(rightSum) * processVolume(mMainVolumeRight)) >> 15);
 
+
 			/*sStreams[0].write((char*)&left, 2);
 			sStreams[0].write((char*)&right, 2);*/
 
-			std::scoped_lock<std::mutex> lc(mSamplesMutex);
-			auto& currentFrame = !mFramesQueue.empty() ? mFramesQueue.back() : mFramesQueue.emplace_back();
-			AudioFrame& sample = currentFrame.Batch[currentFrame.CurrentFrame];
+			AudioFrame& sample = mBackBuffer.Batch[mBackBuffer.CurrentFrame];
 			sample.Left = left;
 			sample.Right = right;
-			currentFrame.CurrentFrame++;
-			if (currentFrame.Complete()) mFramesQueue.emplace_back();
+			mBackBuffer.CurrentFrame++;
+			if (mBackBuffer.Complete()) {
+				std::scoped_lock<std::mutex> lc(mSamplesMutex);
+				std::swap(mFrontBuffer, mBackBuffer);
+				mBackBuffer = {};
+			}
 		}
 	}
 
@@ -666,13 +669,14 @@ namespace esx {
 		mCurrentTransferAddress = 0;
 
 		std::scoped_lock lc(mSamplesMutex);
-		mFramesQueue = {};
+		mBackBuffer = {};
+		mFrontBuffer = {};
 
 		mRAM.resize(KIBI(512));
 		std::fill(mRAM.begin(),mRAM.end(),0x00);
 		for (U32 i = 0; i < 24; i++) {
 			mVoices[i].Number = i;
-			//if(i==0 && !sStreams[i].is_open()) sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
+			if(i==0 && !sStreams[i].is_open()) sStreams[i].open(std::to_string(i) + ".bin", std::ios::binary);
 		}
 	}
 

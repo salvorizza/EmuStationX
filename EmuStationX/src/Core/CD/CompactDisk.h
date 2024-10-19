@@ -13,7 +13,7 @@ namespace esx {
 		virtual void seek(U64 seekPos) = 0;
 		virtual void readSector(Sector* pOutSector) = 0;
 		virtual U8 getLastTrack() = 0;
-		virtual MSF getTrackStart(U8 trackNumber) = 0;
+		virtual MSF getTrackStart(U8 trackNumber, BIT useIndex1 = ESX_FALSE) = 0;
 		virtual Optional<SubchannelQ> getCurrentSubChannelQ() { return {}; }
 
 		virtual U64 getCurrentPos() { return mCurrentLBA; }

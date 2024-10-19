@@ -16,7 +16,7 @@ namespace esx {
 
 		mTrackNumber = computeCurrentTrack();
 
-		mCurrentFile->mStream.seekg(seekPos - mCurrentFile->Start, mCurrentFile->mStream.beg);
+		mCurrentFile->mStream.seekg(seekPos - (mCurrentFile->Start - calculateBinaryPosition(0, 2, 0)), mCurrentFile->mStream.beg);
 	}
 
 	void CDRWIN::readSector(Sector* pOutSector)
@@ -36,19 +36,19 @@ namespace esx {
 		return lastFile.Tracks[lastFile.Tracks.size() - 1].Number;
 	}
 
-	MSF CDRWIN::getTrackStart(U8 trackNumber)
+	MSF CDRWIN::getTrackStart(U8 trackNumber, BIT useIndex1)
 	{
 		if (trackNumber == 0) {
-			return fromBinaryPositionToMSF(mFiles[mFiles.size() - 1].End + calculateBinaryPosition(0, 2, 0));
+			return fromBinaryPositionToMSF(mFiles[mFiles.size() - 1].End);
 		}
 
 		auto trackFile = getFileByTrackNumber(trackNumber);
 		if (trackFile != mFiles.end()) {
 			auto track = std::find_if(trackFile->Tracks.begin(), trackFile->Tracks.end(), [&](const CDRWINTrack& track) { return track.Number == trackNumber; });
 			
-			U32 trackIndexLBA = track->Indexes[0].lba + track->Indexes[0].pregapLba + calculateBinaryPosition(0, 2, 0);
-			if (track->Indexes.size() > 1) {
-				trackIndexLBA = track->Indexes[1].lba + track->Indexes[1].pregapLba + calculateBinaryPosition(0, 2, 0);
+			U32 trackIndexLBA = track->Indexes[0].lba + track->Indexes[0].pregapLba;
+			if (track->Indexes.size() > 1 && useIndex1) {
+				trackIndexLBA = track->Indexes[1].lba + track->Indexes[1].pregapLba;
 			}
 
 			return fromBinaryPositionToMSF(trackFile->Start + trackIndexLBA);
@@ -90,7 +90,7 @@ namespace esx {
 
 	U8 CDRWIN::computeCurrentTrack()
 	{
-		mCurrentFile = computeFile(mCurrentLBA - calculateBinaryPosition(0,2,0));
+		mCurrentFile = computeFile(mCurrentLBA);
 		if (mCurrentFile == mFiles.end()) {
 			ESX_CORE_LOG_ERROR("LBA greater than track size");
 			mCurrentFile = mFiles.begin() + 1;
@@ -99,7 +99,7 @@ namespace esx {
 
 		for (auto it = mCurrentFile->Tracks.begin(); it < mCurrentFile->Tracks.end();++it) {
 			for (CDRWinIndex& index : it->Indexes) {
-				if ((mCurrentLBA - calculateBinaryPosition(0, 2, 0)) >= (mCurrentFile->Start + index.lba + index.pregapLba)) {
+				if (mCurrentLBA >= (mCurrentFile->Start + index.lba + index.pregapLba)) {
 					mCurrentTrack = it;
 					return it->Number;
 				}
@@ -126,7 +126,7 @@ namespace esx {
 				iss >> std::quoted(file.FileName);
 				auto filePath = cuePath.parent_path() / file.FileName;
 				file.mStream.open(filePath, std::ios::binary);
-				file.Start = ((mFiles.size() == 1) ? 0 : mFiles[mFiles.size() - 2].End);
+				file.Start = ((mFiles.size() == 1) ? calculateBinaryPosition(0,2,0) : mFiles[mFiles.size() - 2].End);
 				file.End = file.Start + std::filesystem::file_size(filePath);
 			} else if (token == "TRACK") {
 				CDRWinFile& file = mFiles.back();
