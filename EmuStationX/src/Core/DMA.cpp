@@ -182,6 +182,8 @@ namespace esx {
 
 	void DMA::setChannelControl(Port port, U32 channelControl)
 	{
+		BIT OldTransferStartOrBusy = mChannels[(U8)port].TransferStartOrBusy;
+
 		mChannels[(U8)port].Direction = (Direction)((channelControl >> 0) & 0x1);
 		mChannels[(U8)port].Step = (Step)((channelControl >> 1) & 0x1);
 		mChannels[(U8)port].ChoppingEnable = ((channelControl >> 8) & 0x1);
@@ -283,6 +285,7 @@ namespace esx {
 		}
 
 		mRunningDMAs--;
+		channel.TransferStatus = {};
 	}
 
 	void DMA::setInterruptRegister(U32 value)
@@ -391,8 +394,12 @@ namespace esx {
 		switch (channel.SyncMode) {
 			case SyncMode::LinkedList: {
 				startLinkedListTransfer(channel);
-				while (clockLinkedListTransfer(channel)) {
-					NumWords++;
+				if(channel.TransferStatus.LinkedListChainLoop == ESX_FALSE) {
+					while (clockLinkedListTransfer(channel)) {
+						NumWords++;
+					}
+				} else {
+					NumWords = 1;
 				}
 				break;
 			}
@@ -532,6 +539,33 @@ namespace esx {
 	}
 
 
+	BIT DMA::isChainLooping(Channel& channel)
+	{
+		TransferStatus transferStatus = channel.TransferStatus;
+
+		auto getNext = [&](U32 nodeAddress) {
+			return mBus->load<U32>(nodeAddress) & 0x1FFFFC;
+		};
+
+		auto isNotNull = [&](U32 nodeAddress) {
+			return (mBus->load<U32>(nodeAddress) & 0x800000) == 0;
+		};
+
+		U32 slow = transferStatus.LinkedListCurrentNodeAddress;
+		U32 fast = transferStatus.LinkedListCurrentNodeAddress;
+
+		while (isNotNull(fast) && isNotNull(getNext(fast))) {
+			slow = getNext(slow);
+			fast = getNext(getNext(fast));
+
+			if (slow == fast) {
+				return ESX_TRUE;
+			}
+		}
+
+		return ESX_FALSE;
+	}
+
 	void DMA::startLinkedListTransfer(Channel& channel)
 	{
 		ESX_CORE_ASSERT(channel.Port == Port::GPU, "DMA Linked List Port {} not supported yet", (U8)channel.Port);
@@ -542,6 +576,7 @@ namespace esx {
 		channel.TransferStatus.LinkedListNextNodeAddress = 0;
 		channel.TransferStatus.LinkedListRemainingSize = 0;
 		channel.TransferStatus.LinkedListPacketAddress = 0;
+		channel.TransferStatus.LinkedListChainLoop = isChainLooping(channel);
 
 		//ESX_CORE_LOG_TRACE("DMA - Starting Linked List Transfer starting node {:08x}h on port {}", channel.TransferStatus.LinkedListCurrentNodeAddress, (U8)channel.Port);
 	}
@@ -549,7 +584,6 @@ namespace esx {
 	BIT DMA::clockLinkedListTransfer(Channel& channel)
 	{
 		TransferStatus& transferStatus = channel.TransferStatus;
-
 
 		if (transferStatus.LinkedListRemainingSize == 0) {
 			transferStatus.LinkedListCurrentNodeHeader = mBus->load<U32>(transferStatus.LinkedListCurrentNodeAddress);

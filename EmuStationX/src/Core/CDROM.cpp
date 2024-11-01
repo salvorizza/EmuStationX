@@ -501,10 +501,10 @@ namespace esx {
 				response.Push(mLastSubQ.Absolute.Second);
 				response.Push(mLastSubQ.Absolute.Sector);
 
-				ESX_CORE_LOG_TRACE("SubQ {:02x},{:02x},{:02x},{:02x},{:02x},{:02x},{:02x},{:02x}",
+				/*ESX_CORE_LOG_TRACE("SubQ {:02x},{:02x},{:02x},{:02x},{:02x},{:02x},{:02x},{:02x}",
 					mLastSubQ.Track, mLastSubQ.Index, mLastSubQ.Relative.Minute, mLastSubQ.Relative.Second, mLastSubQ.Relative.Sector,
 					mLastSubQ.Absolute.Minute, mLastSubQ.Absolute.Second, mLastSubQ.Absolute.Sector
-				);
+				);*/
 
 				break;
 			}
@@ -678,7 +678,7 @@ namespace esx {
 
 	void CDROM::decodeXAADPCMSector(const Sector& sector)
 	{
-		ESX_CORE_LOG_INFO("XA-ADPCM Decoding");
+		//ESX_CORE_LOG_INFO("XA-ADPCM Decoding");
 		
 		BIT isStereo = ((sector.Subheader[3] >> 0) & 0x3) == 1 ? ESX_TRUE: ESX_FALSE;
 		U32 sampleRate = ((sector.Subheader[3] >> 2) & 0x3) == 1 ? 18900 : 37800;
@@ -854,9 +854,9 @@ namespace esx {
 		requestRegister.WantCommandStartInterrupt = (value >> 5) & 0x1;
 
 
-		ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
+		/*ESX_CORE_LOG_INFO("{:08x}h - CDROM - Request Register WantData => {}, BFWR => {}, WantCommandStartInterrupt => {}, CurrentSector => {:02x},{:02x},{:02x}",
 			cpu->mCurrentInstruction.Address, requestRegister.WantData, requestRegister.BFWR, requestRegister.WantCommandStartInterrupt,
-			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);
+			mSectors[mOldSector].Header[0], mSectors[mOldSector].Header[1], mSectors[mOldSector].Header[2]);*/
 
 		if (requestRegister.WantData) {
 			if (CDROM_REG0.DataFifoEmpty == ESX_TRUE) {

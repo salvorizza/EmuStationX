@@ -264,7 +264,7 @@ namespace esx {
 		}
 
 		if (canTransferStart()) {
-			//ESX_CORE_LOG_TRACE("TX {:02x}h {}", mTX, mRX.Size());
+			//ESX_CORE_LOG_INFO("SIO - TX {:02x}h", mTX);
 
 			mTXShift.Set(mTX);
 			mStatRegister.TXFifoNotFull = ESX_FALSE;
@@ -302,7 +302,7 @@ namespace esx {
 			mStatRegister.RXFifoNotEmpty = ESX_FALSE;
 		}
 
-		//ESX_CORE_LOG_TRACE("RX {:02x}h", result & 0xFF);
+		//ESX_CORE_LOG_INFO("SIO - RX {:08x}h", result);
 
 		return result;
 	}
@@ -386,14 +386,14 @@ namespace esx {
 		BIT selected = !prevControlRegister.DTROutputLevel && mControlRegister.DTROutputLevel;
 		BIT portSwitch = prevControlRegister.PortSelect && !mControlRegister.PortSelect;
 
-		if (selected || portSwitch) {
-			//ESX_CORE_LOG_TRACE("/CS Assert {}", mControlRegister.PortSelect);
+		BIT cs = (selected || (mControlRegister.DTROutputLevel && portSwitch)) ? ESX_FALSE : ESX_TRUE;
 
-			for (auto& port : mPorts) {
-				for (auto& device : port) {
-					if (device) {
-						device->cs();
-					}
+		if (cs == ESX_FALSE) {
+			//ESX_CORE_LOG_INFO("SIO - /CS Assert {}", mControlRegister.PortSelect);
+
+			for (auto& device : mPorts[mControlRegister.PortSelect]) {
+				if (device) {
+					device->cs();
 				}
 			}
 		}

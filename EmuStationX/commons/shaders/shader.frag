@@ -38,6 +38,9 @@ int float_5bit(float value) {
 
 vec4 sample_vram(ivec2 coords) {
     coords &= ivec2(1023,511);
+
+    int VRAMAddress = coords.y * 1024 + coords.x;
+
     return texelFetch(uVRAM, coords, 0);
 }
 

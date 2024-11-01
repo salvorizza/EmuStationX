@@ -39,7 +39,7 @@ namespace esx {
 
     // Funziotne per verificare la sovrapposizione tra due intervalli (proiezioni)
     bool overlapOnAxis(I32 minA, I32 maxA, I32 minB, I32 maxB) {
-        return !(maxA < minB || maxB < minA);  // Non si sovrappongono se c'è uno spazio tra gli intervalli
+        return !(maxA <= minB || maxB <= minA);  // Non si sovrappongono se c'è uno spazio tra gli intervalli
     }
 
     // Funzione principale per verificare la sovrapposizione tra due triangoli

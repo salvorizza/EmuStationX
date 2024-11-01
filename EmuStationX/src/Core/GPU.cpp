@@ -902,10 +902,10 @@ namespace esx {
 	void GPU::gp0TextureWindowSettingCommand()
 	{
 		U32 instruction = mCommandBuffer.pop();
-		mTextureWindowMaskX = (instruction >> 0) & 0xF;
-		mTextureWindowMaskY = (instruction >> 5) & 0xF;
-		mTextureWindowOffsetX = (instruction >> 10) & 0xF;
-		mTextureWindowOffsetY = (instruction >> 15) & 0xF;
+		mTextureWindowMaskX = (instruction >> 0) & 0x1F;
+		mTextureWindowMaskY = (instruction >> 5) & 0x1F;
+		mTextureWindowOffsetX = (instruction >> 10) & 0x1F;
+		mTextureWindowOffsetY = (instruction >> 15) & 0x1F;
 	}
 
 	void GPU::gp0SetDrawingAreaTopLeftCommand()

@@ -35,14 +35,15 @@ namespace esx {
 
 
 	struct TransferStatus {
-		U32 BlockRemainingSize;
-		U32 BlockCurrentAddress;
+		U32 BlockRemainingSize = 0;
+		U32 BlockCurrentAddress = 0;
 
-		U32 LinkedListCurrentNodeAddress;
-		U32 LinkedListCurrentNodeHeader;
-		U32 LinkedListNextNodeAddress;
-		U32 LinkedListRemainingSize;
-		U32 LinkedListPacketAddress;
+		BIT LinkedListChainLoop = ESX_FALSE;
+		U32 LinkedListCurrentNodeAddress = 0;
+		U32 LinkedListCurrentNodeHeader = 0;
+		U32 LinkedListNextNodeAddress = 0;
+		U32 LinkedListRemainingSize = 0;
+		U32 LinkedListPacketAddress = 0;
 	};
 
 	struct Channel {
@@ -147,6 +148,7 @@ namespace esx {
 		void startBlockTransfer(Channel& channel);
 		BIT clockBlockTransfer(Channel& channel);
 
+		BIT isChainLooping(Channel& channel);
 		void startLinkedListTransfer(Channel& channel);
 		BIT clockLinkedListTransfer(Channel& channel);
 
