@@ -28,6 +28,8 @@ namespace esx {
 		ControllerManager() = delete;
 		~ControllerManager() = default;
 
+		static void InternalUpdate();
+
 		static void Connect(ControllerID cid, StringView name, BIT isGamepad);
 		static void Disconnect(ControllerID cid);
 		static void Update(ControllerID jid, const Vector<U8>& states, const Vector<F32>& axes);

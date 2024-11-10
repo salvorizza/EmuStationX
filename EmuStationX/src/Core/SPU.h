@@ -246,6 +246,7 @@ namespace esx {
 
 	class R3000;
 	class CDROM;
+	class InterruptControl;
 	
 
 	class SPU : public BusDevice {
@@ -267,10 +268,7 @@ namespace esx {
 
 		template<typename T>
 		void writeToRAM(T value) {
-			if (mSPUControl.IRQ9Enable && (mCurrentTransferAddress / 8) == mSoundRAMIRQAddress) {
-				getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
-				mSPUStatus.IRQ9Flag = ESX_TRUE;
-			}
+			interrupt(static_cast<U16>(mCurrentTransferAddress / 8));
 
 			*reinterpret_cast<T*>(&mRAM[mCurrentTransferAddress]) = value;
 			mCurrentTransferAddress += sizeof(T);
@@ -278,10 +276,7 @@ namespace esx {
 
 		template<typename T>
 		T readFromRAM() {
-			if (mSPUControl.IRQ9Enable && (mCurrentTransferAddress / 8) == mSoundRAMIRQAddress) {
-				getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
-				mSPUStatus.IRQ9Flag = ESX_TRUE;
-			}
+			interrupt(static_cast<U16>(mCurrentTransferAddress / 8));
 
 			T value = *reinterpret_cast<T*>(&mRAM[mCurrentTransferAddress]);
 			mCurrentTransferAddress += sizeof(T);
@@ -301,6 +296,8 @@ namespace esx {
 
 		void writeCaptureBuffer(I32 index, I16 value);
 		void advanceCaptureBufferPointer();
+
+		void interrupt(U16 address);
 
 		void startVoice(Voice& voice);
 		void stopVoice(Voice& voice);
@@ -430,6 +427,7 @@ namespace esx {
 	private:
 		SharedPtr<R3000> mCPU;
 		SharedPtr<CDROM> mCDROM;
+		SharedPtr<InterruptControl> mInterruptControl;
 
 		Array<Voice, 24> mVoices = {};
 		Volume mMainVolumeLeft = {};

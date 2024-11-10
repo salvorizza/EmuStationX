@@ -380,40 +380,48 @@ public:
 		OPTICK_FRAME("MainThread");
 
 #if 0
-		controller->setButtonState(ControllerButton::JoypadDown, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_DPAD_DOWN));
-		controller->setButtonState(ControllerButton::JoypadUp, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_DPAD_UP));
-		controller->setButtonState(ControllerButton::JoypadLeft, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_DPAD_LEFT));
-		controller->setButtonState(ControllerButton::JoypadRight, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_DPAD_RIGHT));
+		controller->setUpdateFunction([](Controller* pController) {
+			ControllerManager::InternalUpdate();
 
-		controller->setButtonState(ControllerButton::Cross, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_CROSS));
-		controller->setButtonState(ControllerButton::Square, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_SQUARE));
-		controller->setButtonState(ControllerButton::Triangle, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_TRIANGLE));
-		controller->setButtonState(ControllerButton::Circle, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_CIRCLE));
+			pController->setButtonState(ControllerButton::JoypadDown, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_DPAD_DOWN));
+			pController->setButtonState(ControllerButton::JoypadUp, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_DPAD_UP));
+			pController->setButtonState(ControllerButton::JoypadLeft, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_DPAD_LEFT));
+			pController->setButtonState(ControllerButton::JoypadRight, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_DPAD_RIGHT));
 
-		controller->setButtonState(ControllerButton::Select, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_BACK));
-		controller->setButtonState(ControllerButton::Start, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_START));
+			pController->setButtonState(ControllerButton::Cross, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_CROSS));
+			pController->setButtonState(ControllerButton::Square, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_SQUARE));
+			pController->setButtonState(ControllerButton::Triangle, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_TRIANGLE));
+			pController->setButtonState(ControllerButton::Circle, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_CIRCLE));
 
-		controller->setButtonState(ControllerButton::R1, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER));
-		controller->setButtonState(ControllerButton::L1, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_LEFT_BUMPER));
+			pController->setButtonState(ControllerButton::Select, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_BACK));
+			pController->setButtonState(ControllerButton::Start, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_START));
 
-		controller->setButtonState(ControllerButton::R2, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_RIGHT_THUMB));
-		controller->setButtonState(ControllerButton::L2, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_LEFT_THUMB));
+			pController->setButtonState(ControllerButton::R1, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER));
+			pController->setButtonState(ControllerButton::L1, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_LEFT_BUMPER));
+
+			pController->setButtonState(ControllerButton::R2, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_RIGHT_THUMB));
+			pController->setButtonState(ControllerButton::L2, ControllerManager::IsButtonPressed(0, GLFW_GAMEPAD_BUTTON_LEFT_THUMB));
+		});
 #else
-		controller->setButtonState(ControllerButton::JoypadDown, InputManager::IsKeyPressed(GLFW_KEY_S));
-		controller->setButtonState(ControllerButton::JoypadUp, InputManager::IsKeyPressed(GLFW_KEY_W));
-		controller->setButtonState(ControllerButton::JoypadLeft, InputManager::IsKeyPressed(GLFW_KEY_A));
-		controller->setButtonState(ControllerButton::JoypadRight, InputManager::IsKeyPressed(GLFW_KEY_D));
+		controller->setUpdateFunction([](Controller* pController) {
+			InputManager::Update();
 
-		controller->setButtonState(ControllerButton::Cross, InputManager::IsKeyPressed(GLFW_KEY_Z));
-		controller->setButtonState(ControllerButton::Square, InputManager::IsKeyPressed(GLFW_KEY_X));
-		controller->setButtonState(ControllerButton::Triangle, InputManager::IsKeyPressed(GLFW_KEY_C));
-		controller->setButtonState(ControllerButton::Circle, InputManager::IsKeyPressed(GLFW_KEY_V));
+			pController->setButtonState(ControllerButton::JoypadDown, InputManager::IsKeyPressed(GLFW_KEY_S));
+			pController->setButtonState(ControllerButton::JoypadUp, InputManager::IsKeyPressed(GLFW_KEY_W));
+			pController->setButtonState(ControllerButton::JoypadLeft, InputManager::IsKeyPressed(GLFW_KEY_A));
+			pController->setButtonState(ControllerButton::JoypadRight, InputManager::IsKeyPressed(GLFW_KEY_D));
 
-		controller->setButtonState(ControllerButton::Select, InputManager::IsKeyPressed(GLFW_KEY_K));
-		controller->setButtonState(ControllerButton::Start, InputManager::IsKeyPressed(GLFW_KEY_L));
+			pController->setButtonState(ControllerButton::Cross, InputManager::IsKeyPressed(GLFW_KEY_Z));
+			pController->setButtonState(ControllerButton::Square, InputManager::IsKeyPressed(GLFW_KEY_X));
+			pController->setButtonState(ControllerButton::Triangle, InputManager::IsKeyPressed(GLFW_KEY_C));
+			pController->setButtonState(ControllerButton::Circle, InputManager::IsKeyPressed(GLFW_KEY_V));
 
-		controller->setButtonState(ControllerButton::R1, InputManager::IsKeyPressed(GLFW_KEY_P));
-		controller->setButtonState(ControllerButton::L1, InputManager::IsKeyPressed(GLFW_KEY_Q));
+			pController->setButtonState(ControllerButton::Select, InputManager::IsKeyPressed(GLFW_KEY_K));
+			pController->setButtonState(ControllerButton::Start, InputManager::IsKeyPressed(GLFW_KEY_L));
+
+			pController->setButtonState(ControllerButton::R1, InputManager::IsKeyPressed(GLFW_KEY_P));
+			pController->setButtonState(ControllerButton::L1, InputManager::IsKeyPressed(GLFW_KEY_Q));
+		});
 #endif
 
 		

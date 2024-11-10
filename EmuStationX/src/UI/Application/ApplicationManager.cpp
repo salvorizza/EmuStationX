@@ -27,8 +27,6 @@ namespace esx {
 			mImGuiManager->endFrame();
 
 			mWindow->update();
-
-			InputManager::Update();
 		}
 
 		mApplication->onCleanUp();

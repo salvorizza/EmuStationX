@@ -70,12 +70,16 @@ namespace esx {
 
 	void MemoryCard::LoadFromFile(const std::filesystem::path& path)
 	{
-		DataBuffer file{};
-		ReadFile(path.string().c_str(), file);
-		std::memcpy(&mData, file.Data, file.Size);
-		DeleteBuffer(file);
+		if (std::filesystem::exists(path)) {
+			DataBuffer file{};
+			ReadFile(path.string().c_str(), file);
+			std::memcpy(&mData, file.Data, file.Size);
+			DeleteBuffer(file);
 
-		mFlag = (1 << 3);
+			mFlag = (1 << 3);
+		} else {
+			Save();
+		}
 	}
 
 	U8 MemoryCard::receive(U8 value)

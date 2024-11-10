@@ -15,6 +15,7 @@ namespace esx {
 		GPUStartVBlank,
 		GPUEndVBlank,
 		SPUSample,
+		SIO0Clock,
 		Timer0ReachTarget,
 		Timer1ReachTarget,
 		Timer2ReachTarget,

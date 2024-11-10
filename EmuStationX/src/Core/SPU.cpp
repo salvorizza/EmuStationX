@@ -185,9 +185,7 @@ namespace esx {
 					voice.KeyOn = ESX_FALSE;
 				}
 
-				if (voice.ADPCMCurrentAddress == mSoundRAMIRQAddress) {
-					getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, ESX_FALSE, ESX_TRUE);
-				}
+				interrupt(voice.ADPCMCurrentAddress);
 
 				auto [left, right] = sampleVoice(voice);
 
@@ -641,6 +639,7 @@ namespace esx {
 	{
 		mCPU = getBus("Root")->getDevice<R3000>("R3000");
 		mCDROM = getBus("Root")->getDevice<CDROM>("CDROM");
+		mInterruptControl = getBus("Root")->getDevice<InterruptControl>("InterruptControl");
 	}
 
 	void SPU::reset()
@@ -816,11 +815,6 @@ namespace esx {
 			return {};
 		}
 
-		if (mSPUControl.IRQ9Enable && voice.ADPCMCurrentAddress == mSoundRAMIRQAddress) {
-			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
-			mSPUStatus.IRQ9Flag = ESX_TRUE;
-		}
-
 		if (!voice.HasSamples) {
 			ADPCMBlock currentBlock = readADPCMBlock(voice.ADPCMCurrentAddress);
 			decodeBlock(voice, currentBlock);
@@ -899,10 +893,7 @@ namespace esx {
 		U32 relative = ((address << 3) + mCurrentBufferAddress - (mReverb[mBASE] << 3)) % (0x80000 - (mReverb[mBASE] << 3));
 		U32 wrapped = ((mReverb[mBASE] << 3) + relative) & 0x7FFFE;
 
-		if (mSPUControl.IRQ9Enable && (wrapped / 8) == mSoundRAMIRQAddress) {
-			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
-			mSPUStatus.IRQ9Flag = ESX_TRUE;
-		}
+		interrupt(static_cast<U16>(wrapped / 8));
 
 		return *(I16*)(mRAM.data() + wrapped);
 	}
@@ -914,10 +905,7 @@ namespace esx {
 		U32 relative = ((address << 3) + mCurrentBufferAddress - (mReverb[mBASE] << 3)) % (0x80000 - (mReverb[mBASE] << 3));
 		U32 wrapped = ((mReverb[mBASE] << 3) + relative) & 0x7FFFE;
 
-		if (mSPUControl.IRQ9Enable && (wrapped / 8) == mSoundRAMIRQAddress) {
-			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
-			mSPUStatus.IRQ9Flag = ESX_TRUE;
-		}
+		interrupt(static_cast<U16>(wrapped / 8));
 
 		*(I16*)(mRAM.data() + wrapped) = value;
 	}
@@ -926,10 +914,7 @@ namespace esx {
 	{
 		U32 writeAddress = (index * 0x400) + mCaptureBufferPointer;
 		*reinterpret_cast<I16*>(&mRAM[writeAddress]) = value;
-		if (mSPUControl.IRQ9Enable && (writeAddress / 8) == mSoundRAMIRQAddress) {
-			getBus("Root")->getDevice<InterruptControl>("InterruptControl")->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
-			mSPUStatus.IRQ9Flag = ESX_TRUE;
-		}
+		interrupt(static_cast<U16>(writeAddress / 8));
 		mSPUStatus.WriteToSecondHalf = mCaptureBufferPointer >= 0x200;
 	}
 
@@ -938,6 +923,14 @@ namespace esx {
 		mCaptureBufferPointer += sizeof(I16);
 		mCaptureBufferPointer %= 0x400;
 	}
+
+	void SPU::interrupt(U16 address) {
+		if (mSPUControl.IRQ9Enable && address == mSoundRAMIRQAddress) {
+			mInterruptControl->requestInterrupt(InterruptType::SPU, mSPUStatus.IRQ9Flag, ESX_TRUE);
+			mSPUStatus.IRQ9Flag = ESX_TRUE;
+		}
+	}
+
 
 	void SPU::startVoice(Voice& voice)
 	{

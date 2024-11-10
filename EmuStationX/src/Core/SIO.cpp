@@ -264,16 +264,7 @@ namespace esx {
 		}
 
 		if (canTransferStart()) {
-			//ESX_CORE_LOG_INFO("SIO - TX {:02x}h", mTX);
-
-			mTXShift.Set(mTX);
-			mStatRegister.TXFifoNotFull = ESX_FALSE;
-			mStatRegister.TXIdle = ESX_FALSE;
-
-
-			reloadBaudTimer();
-			mRX.Clear();
-			mStatRegister.RXFifoNotEmpty = ESX_FALSE;
+			startTransfer();
 		}
 
 		mLatchedTXEN = mControlRegister.TXEnable;
@@ -434,9 +425,7 @@ namespace esx {
 		}
 
 		if (wasReady == ESX_FALSE && canTransferStart()) {
-			mTXShift.Set(mTX);
-			mStatRegister.TXFifoNotFull = ESX_FALSE;
-			mStatRegister.TXIdle = ESX_FALSE;
+			startTransfer();
 		}
 	}
 
@@ -505,6 +494,19 @@ namespace esx {
 		} else {
 			return mControlRegister.DTROutputLevel;
 		}
+	}
+
+	void SIO::startTransfer()
+	{
+		//ESX_CORE_LOG_INFO("SIO - TX {:02x}h", mTX);
+
+		mTXShift.Set(mTX);
+		mStatRegister.TXFifoNotFull = ESX_FALSE;
+		mStatRegister.TXIdle = ESX_FALSE;
+
+		reloadBaudTimer();
+		mRX.Clear();
+		mStatRegister.RXFifoNotEmpty = ESX_FALSE;
 	}
 
 }

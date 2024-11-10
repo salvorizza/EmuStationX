@@ -183,6 +183,8 @@ namespace esx {
 		BIT canTransferStart();
 		BIT canReceiveData();
 
+		void startTransfer();
+
 	private:
 		U8 mID;
 

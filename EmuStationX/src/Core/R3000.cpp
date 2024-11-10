@@ -1587,11 +1587,11 @@ namespace esx {
 			case 0x04: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - enable_timer_irq(t)", callPC); break;
 			case 0x05: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - disable_timer_irq(t)", callPC); break;
 			case 0x06: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - restart_timer(t)", callPC); break;
-			case 0x07: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - DeliverEvent(class, spec)", callPC); break;
+			//case 0x07: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - DeliverEvent(class, spec)", callPC); break;
 			case 0x08: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - OpenEvent(class,spec,mode,func)", callPC); break;
 			case 0x09: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - CloseEvent(event)", callPC); break;
 			case 0x0A: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - WaitEvent(event)", callPC); break;
-			case 0x0B: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - TestEvent(event)", callPC); break;
+			//case 0x0B: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - TestEvent(event)", callPC); break;
 			case 0x0C: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - EnableEvent(event)", callPC); break;
 			case 0x0D: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - DisableEvent(event)", callPC); break;
 			case 0x0E: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - OpenTh(reg_PC,reg_SP_FP,reg_GP)", callPC); break;
@@ -1603,7 +1603,7 @@ namespace esx {
 			case 0x14: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - StopPAD2()", callPC); break;
 			case 0x15: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - PAD_init2(type,button_dest,unused,unused)", callPC); break;
 			case 0x16: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - PAD_dr()", callPC); break;
-			case 0x17: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - ReturnFromException()", callPC); break;
+			//case 0x17: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - ReturnFromException()", callPC); break;
 			case 0x18: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - ResetEntryInt()", callPC); break;
 			case 0x19: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - HookEntryInt(addr)", callPC); break;
 			case 0x1A: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
@@ -1612,7 +1612,7 @@ namespace esx {
 			case 0x1D: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
 			case 0x1E: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
 			case 0x1F: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
-			case 0x20: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - UnDeliverEvent(class,spec)", callPC); break;
+			//case 0x20: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - UnDeliverEvent(class,spec)", callPC); break;
 			case 0x21: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
 			case 0x22: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
 			case 0x23: ESX_CORE_BIOS_LOG_TRACE("0x{:08X} - SystemError  ", callPC); break;
