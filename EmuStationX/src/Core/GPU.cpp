@@ -536,7 +536,7 @@ namespace esx {
 			vertices[i].vertex = unpackVertex(mCommandBuffer.pop());
 			vertices[i].color = gourad ? unpackColor(mCommandBuffer.pop()) : flatColor;
 			vertices[i].textured = textured;
-			vertices[i].dither = mGPUStat.DitherEnabled && (gourad || !rawTexture);
+			vertices[i].dither = mGPUStat.DitherEnabled && (gourad == ESX_TRUE || (textured == ESX_TRUE && rawTexture == ESX_FALSE));
 			vertices[i].semiTransparency = (semiTransparent && !textured) ? (U8)mGPUStat.SemiTransparency : 255;
 			vertices[i].rawTexture = rawTexture;
 		}
@@ -691,6 +691,9 @@ namespace esx {
 			break;
 		}
 
+		if (width  > 0) width--;
+		if (height > 0) height--;
+
 		Array<PolygonVertex, 4> vertices = {};
 		for (PolygonVertex& vertex : vertices) {
 			vertex.color = color;
@@ -707,10 +710,10 @@ namespace esx {
 		vertices[3].vertex = Vertex(vertex.x, vertex.y);
 
 		if (textured) {
-			vertices[0].uv = UV(mTexturedRectangleXFlip ? uv.u : (uv.u + width), mTexturedRectangleYFlip ? uv.v : (uv.v + height));
-			vertices[1].uv = UV(mTexturedRectangleXFlip ? (uv.u + width) : uv.u, mTexturedRectangleYFlip ? uv.v : (uv.v + height));
-			vertices[2].uv = UV(mTexturedRectangleXFlip ? uv.u : (uv.u + width), mTexturedRectangleYFlip ? (uv.v + height) : uv.v);
-			vertices[3].uv = UV(mTexturedRectangleXFlip ? (uv.u + width) : uv.u, mTexturedRectangleYFlip ? (uv.v + height) : uv.v);
+			vertices[0].uv = UV(mTexturedRectangleXFlip ? uv.s : (uv.s + width), mTexturedRectangleYFlip ? uv.t : (uv.t + height));
+			vertices[1].uv = UV(mTexturedRectangleXFlip ? (uv.s + width) : uv.s, mTexturedRectangleYFlip ? uv.t : (uv.t + height));
+			vertices[2].uv = UV(mTexturedRectangleXFlip ? uv.s : (uv.s + width), mTexturedRectangleYFlip ? (uv.t + height) : uv.t);
+			vertices[3].uv = UV(mTexturedRectangleXFlip ? (uv.s + width) : uv.s, mTexturedRectangleYFlip ? (uv.t + height) : uv.t);
 
 			for (PolygonVertex& vertex : vertices) {
 				transformUV(vertex.uv, tx, ty, bpp);
@@ -1249,8 +1252,8 @@ namespace esx {
 	void GPU::transformUV(UV& uv, U16 tx, U16 ty, U8 bpp)
 	{
 		U16 r = 16 / bpp;
-		uv.u = tx * 64 * r + uv.u;
-		uv.v = ty * 256 + uv.v;
+		uv.s = tx * 64 * r + uv.s;
+		uv.t = ty * 256 + uv.t;
 	}
 
 	U64 GPU::GetCurrentFrameClock()

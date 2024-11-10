@@ -11,6 +11,7 @@
 #include "UI/Panels/FileDialogPanel.h"
 #include "UI/Panels/ISOBrowser.h"
 
+#include "UI/Graphics/SoftwareRenderer.h"
 #include "UI/Graphics/BatchRenderer.h"
 #include "UI/Window/FontAwesome5.h"
 #include "UI/Window/ControllerManager.h"
@@ -169,6 +170,7 @@ public:
 		mDisassemblerPanel = MakeShared<DisassemblerPanel>();
 		mMemoryEditorPanel = MakeShared<MemoryEditorPanel>();
 		mBatchRenderer = MakeShared<BatchRenderer>();
+		mSoftwareRenderer = MakeShared<SoftwareRenderer>();
 		mViewportPanel = MakeShared<ViewportPanel>();
 		mKernelTablesPanel = MakeShared<KernelTables>();
 		mSPUStatusPanel = MakeShared<SPUStatusPanel>();
@@ -190,7 +192,7 @@ public:
 		bios = MakeShared<Bios>("commons/bios/scph1001.bin");
 		timer = MakeShared<Timer>();
 		dma = MakeShared<DMA>();
-		gpu = MakeShared<GPU>(mBatchRenderer);
+		gpu = MakeShared<GPU>(mSoftwareRenderer);
 		cdrom = MakeShared<CDROM>();
 		sio0 = MakeShared<SIO>(0);
 		sio1 = MakeShared<SIO>(1);
@@ -268,6 +270,7 @@ public:
 		mTTYPanel->setInstance(cpu);
 
 		mBatchRenderer->Begin();
+		mSoftwareRenderer->Begin();
 
 		ma_device_config config = ma_device_config_init(ma_device_type_playback);
 		config.playback.format = ma_format_s16;
@@ -413,11 +416,22 @@ public:
 		controller->setButtonState(ControllerButton::L1, InputManager::IsKeyPressed(GLFW_KEY_Q));
 #endif
 
+		
 		mDisassemblerPanel->onUpdate();
 
-		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
+		/*/Array<PolygonVertex, 4> vtx = {
+			PolygonVertex {.vertex = {240,212}, .color = {178,0,0}, .dither = 1},
+			PolygonVertex {.vertex = {235,127}, .color = {178,140,0}, .dither = 1},
+			PolygonVertex {.vertex = {325,297}, .color = {178,140,0}, .dither = 1},
+			PolygonVertex {.vertex = {325,297}, .color = {178,140,0}, .dither = 1},
+		};
+		mSoftwareRenderer->SetDrawTopLeft(0, 0);
+		mSoftwareRenderer->SetDrawBottomRight(639, 240);
+		mSoftwareRenderer->DrawPolygon(vtx, 3);
+		mSoftwareRenderer->Flush();
+		*/
 
-		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
+		mViewportPanel->setFrame(mSoftwareRenderer->getPreviousFrame());
 		fpsCounter.Update();
 	}
 
@@ -462,6 +476,7 @@ public:
 				if (ImGui::MenuItem("Debugger", "CTRL+D")) mDisassemblerPanel->open();
 				if (ImGui::MenuItem("Memory", "CTRL+M")) mMemoryEditorPanel->open();
 				if (ImGui::MenuItem("Console", "CTRL+O")) mConsolePanel->open();
+				if (ImGui::MenuItem("Save PPM", "CTRL+O")) mSoftwareRenderer->SaveToFile("vram.ppm");
 
 				ImGui::EndMenu();
 			}
@@ -562,6 +577,7 @@ private:
 	SharedPtr<MemoryEditorPanel> mMemoryEditorPanel;
 	SharedPtr<ConsolePanel> mConsolePanel;
 	SharedPtr<EmuStationXLogger> mLogger;
+	SharedPtr<SoftwareRenderer> mSoftwareRenderer;
 	SharedPtr<BatchRenderer> mBatchRenderer;
 	SharedPtr<ViewportPanel> mViewportPanel;
 	SharedPtr<KernelTables> mKernelTablesPanel;

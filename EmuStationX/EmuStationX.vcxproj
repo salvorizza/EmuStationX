@@ -119,6 +119,7 @@
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>GLFW_INCLUDE_NONE;ESX_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -199,6 +200,7 @@
     <ClInclude Include="src\UI\Graphics\IndexBuffer.h" />
     <ClInclude Include="src\UI\Graphics\PixelBuffer.h" />
     <ClInclude Include="src\UI\Graphics\Shader.h" />
+    <ClInclude Include="src\UI\Graphics\SoftwareRenderer.h" />
     <ClInclude Include="src\UI\Graphics\Texture2D.h" />
     <ClInclude Include="src\UI\Graphics\VertexArray.h" />
     <ClInclude Include="src\UI\Graphics\VertexBuffer.h" />
@@ -256,6 +258,7 @@
     <ClCompile Include="src\UI\Graphics\IndexBuffer.cpp" />
     <ClCompile Include="src\UI\Graphics\PixelBuffer.cpp" />
     <ClCompile Include="src\UI\Graphics\Shader.cpp" />
+    <ClCompile Include="src\UI\Graphics\SoftwareRenderer.cpp" />
     <ClCompile Include="src\UI\Graphics\Texture2D.cpp" />
     <ClCompile Include="src\UI\Graphics\VertexArray.cpp" />
     <ClCompile Include="src\UI\Graphics\VertexBuffer.cpp" />

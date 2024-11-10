@@ -67,7 +67,7 @@ namespace esx {
 		mPBO16Up->setData(nullptr, 1024 * 512 * sizeof(VRAMColor), BufferMode::Write);
 		mPBO16Up->unbind();
 
-		mVRAM16.resize(1024 * 512);
+		mVRAM.resize(1024 * 512);
 
 		mShader = Shader::LoadFromFile("commons/shaders/shader.vert","commons/shaders/shader.frag");
 
@@ -217,8 +217,7 @@ namespace esx {
 	{
 		//ESX_CORE_LOG_TRACE("BatchRenderer::DrawPolygon");
 		for (PolygonVertex& vertex : vertices) {
-			vertex.vertex.x += mDrawOffset.x;
-			vertex.vertex.y += mDrawOffset.y;
+			vertex.vertex += mDrawOffset;
 
 			//ESX_CORE_LOG_TRACE(" Vertex({},{}),Color({},{},{}),UV({},{}),ClutUV({},{}),Textured({})", vertex.vertex.x, vertex.vertex.y, vertex.color.r, vertex.color.g, vertex.color.b, vertex.uv.u, vertex.uv.v, vertex.clutUV.u,vertex.clutUV.v, vertex.textured);
 		}
@@ -290,8 +289,7 @@ namespace esx {
 	void BatchRenderer::DrawLineStrip(Vector<PolygonVertex>& vertices)
 	{
 		for (PolygonVertex& vertex : vertices) {
-			vertex.vertex.x += mDrawOffset.x;
-			vertex.vertex.y += mDrawOffset.y;
+			vertex.vertex += mDrawOffset;
 		}
 
 		ptrdiff_t numIndices = std::distance(mLineStripVerticesBase.begin(), mLineStripCurrentVertex);
@@ -336,10 +334,10 @@ namespace esx {
 
 				VRAMColor color = pixels.at(yOff * width + xOff);
 
-				if (mCheckMask && (mVRAM16[yImage * 1024 + xImage].data & 0x8000) == 0x8000) continue;
+				if (mCheckMask && (mVRAM[yImage * 1024 + xImage].data & 0x8000) == 0x8000) continue;
 				if (mForceAlpha) color.data |= 0x8000;
 
-				mVRAM16[yImage * 1024 + xImage] = color;
+				mVRAM[yImage * 1024 + xImage] = color;
 			}
 		}
 
@@ -366,7 +364,7 @@ namespace esx {
 
 				U64 index = (yImage * 1024) + xImage;
 
-				pixels.emplace_back(mVRAM16.at(index));
+				pixels.emplace_back(mVRAM.at(index));
 			}
 		}
 	}
@@ -385,8 +383,8 @@ namespace esx {
 		glClear(GL_COLOR_BUFFER_BIT);
 		mFBO16->unbind();
 
-		mVRAM16.resize(1024 * 512);
-		std::fill(mVRAM16.begin(), mVRAM16.end(), VRAMColor());
+		mVRAM.resize(1024 * 512);
+		std::fill(mVRAM.begin(), mVRAM.end(), VRAMColor());
 
 		mDrawTopLeft = glm::uvec2(0, 0);
 		mDrawBottomRight = glm::uvec2(640, 240);
@@ -403,7 +401,7 @@ namespace esx {
 	{
 		FlushVRAMWrites();
 
-		void* data = mVRAM16.data();
+		void* data = mVRAM.data();
 		mTexture16->bind();
 		mTexture16->getPixels(&data);
 		mTexture16->unbind();
@@ -425,7 +423,7 @@ namespace esx {
 		glFlush();*/
 
 		mTexture24->bind();
-		mTexture24->setPixels(0, 0, 682, 512, mVRAM16.data());
+		mTexture24->setPixels(0, 0, 682, 512, mVRAM.data());
 		mTexture24->unbind();
 	}
 
@@ -436,7 +434,7 @@ namespace esx {
 			mPBO16Up->bind();
 			VRAMColor* dma16 = reinterpret_cast<VRAMColor*>(mPBO16Up->mapBuffer());
 			if (dma16) {
-				std::memcpy(dma16, mVRAM16.data(), mVRAM16.size() * sizeof(VRAMColor));
+				std::memcpy(dma16, mVRAM.data(), mVRAM.size() * sizeof(VRAMColor));
 				mPBO16Up->unmapBuffer();
 				mTexture16->copy(mPBO16Up);
 			}

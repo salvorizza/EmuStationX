@@ -2,54 +2,13 @@
 
 #include "Base/Base.h"
 
+#include <glm/glm.hpp>
+
 namespace esx {
-	struct Vertex {
-		I16 x;
-		I16 y;
 
-		Vertex()
-			:	x(0),
-				y(0)
-		{}
-
-		Vertex(I16 _x,I16 _y)
-			:	x(_x),
-				y(_y)
-		{}	
-	};
-
-	struct UV {
-		U16 u;
-		U16 v;
-
-		UV()
-			:	u(0),
-				v(0)
-		{}
-
-		UV(U16 _u, U16 _v)
-			:	u(_u),
-				v(_v)
-		{}
-	};
-
-	struct Color {
-		U8 r;
-		U8 g;
-		U8 b;
-
-		Color()
-			:	r(0),
-				g(0),
-				b(0)
-		{}
-
-		Color(U8 _r, U8 _g, U8 _b)
-			:	r(_r),
-				g(_g),
-				b(_b)
-		{}
-	};
+	using Vertex = glm::i16vec2;
+	using UV = glm::u16vec2;
+	using Color = glm::u8vec3;
 
 	struct PolygonVertex {
 		Vertex vertex;
@@ -67,6 +26,10 @@ namespace esx {
 	union VRAMColor {
 		U16 data;
 	};
+
+
+	constexpr size_t VRAM_WIDTH = 1024;
+	constexpr size_t VRAM_HEIGHT = 512;
 
 	constexpr size_t p = sizeof(VRAMColor);
 
@@ -116,5 +79,51 @@ namespace esx {
 			return (a << 15) | (b << 10) | (g << 5) | r;*/
 			return color.data;
 		}
+
+
+		void SaveToFile(const std::filesystem::path& outPath) {
+			std::ofstream file(outPath, std::ios::binary);
+			if (!file) {
+				return;
+			}
+
+			file << "P6\n";
+			file << VRAM_WIDTH << " " << VRAM_HEIGHT << "\n";
+			file << "255\n";
+
+			// Genera l'immagine pixel per pixel
+			for (I32 y = 0; y < VRAM_HEIGHT; y++) {
+				for (I32 x = 0; x < VRAM_WIDTH; x++) {
+					glm::vec4 color = colorConvert(mVRAM[(VRAM_HEIGHT - 1 - y) * VRAM_WIDTH + x]);
+
+
+					file.put(static_cast<char>(color.r));
+					file.put(static_cast<char>(color.g));
+					file.put(static_cast<char>(color.b));
+				}
+			}
+
+			file.close();
+		}
+
+	protected:
+		inline glm::vec4 colorConvert(const VRAMColor& color) const {
+			glm::vec4 result = glm::vec4(0);
+
+			result.r = static_cast<U8>(((color.data >> 0) & 0x1F) / 31.0f * 255.0f);
+			result.g = static_cast<U8>(((color.data >> 5) & 0x1F) / 31.0f * 255.0f);
+			result.b = static_cast<U8>(((color.data >> 10) & 0x1F) / 31.0f * 255.0f);
+			result.a = (color.data >> 15) == 1 ? 255 : 0;
+
+			return result;
+		}
+		inline VRAMColor colorConvert(const Color& color, BIT alpha = ESX_FALSE) {
+			return VRAMColor(((alpha ? 1 : 0) << 15) | ((static_cast<U16>(color.b) >> 3) << 10) | ((static_cast<U16>(color.g) >> 3) << 5) | ((static_cast<U16>(color.r) >> 3) << 0));
+		}
+		inline void setAlpha(VRAMColor& color, BIT alpha) {
+			color = VRAMColor((color.data & 0x7FFF) | (alpha ? 0x8000 : 0x0000));
+		}
+	protected:
+		Vector<VRAMColor> mVRAM;
 	};
 }

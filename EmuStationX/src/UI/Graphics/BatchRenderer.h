@@ -84,7 +84,6 @@ namespace esx {
 		BIT mForceAlpha = ESX_FALSE;
 		BIT mCheckMask = ESX_FALSE;
 
-		Vector<VRAMColor> mVRAM16;
 		BIT mRefreshVRAMData = ESX_FALSE;
 		BIT mVRAMWritePending = ESX_FALSE;
 
