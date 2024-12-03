@@ -97,6 +97,8 @@ namespace esx {
 
 
 		if (numTriIndices > 0 || numLineStripIndices > 0) {
+			FlushVRAMWrites();
+
 			mFBO16->bind();
 
 			glViewport(0, 0, mFBO16->width(), mFBO16->height());
@@ -106,6 +108,7 @@ namespace esx {
 
 			mShader->uploadUniform("uCheckMask", mCheckMask);
 			mShader->uploadUniform("uForceAlpha", mForceAlpha);
+			mShader->uploadUniform("uTextureWindow", mTextureWindow);
 
 			mFBO16->getColorAttachment()->bind();
 
@@ -198,7 +201,16 @@ namespace esx {
 		m24Bit = value;
 	}
 
-	void BatchRenderer::Clear(U16 x, U16 y, U16 w, U16 h, Color& color)
+	void BatchRenderer::SetTextureWindow(U32 maskX, U32 maskY, U32 offsetMaskX, U32 offsetMaskY)
+	{
+		FlushVRAMWrites();
+		Flush();
+		Begin();
+
+		mTextureWindow = glm::ivec4(~maskX, ~maskY, offsetMaskX & maskX, offsetMaskY & maskY);
+	}
+
+	void BatchRenderer::Clear(U16 x, U16 y, U16 w, U16 h, const Color& color)
 	{
 		FlushVRAMWrites();
 		Flush();

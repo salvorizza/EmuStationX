@@ -666,8 +666,8 @@ namespace esx {
 		U16 ty = mGPUStat.TexturePageYBase1;
 		U8 bpp = 4 << (U8)mGPUStat.TexturePageColors;
 
-		U16 width = 0;
-		U16 height = 0;
+		I16 width = 0;
+		I16 height = 0;
 
 		switch (size) {
 			case 0b00:
@@ -691,9 +691,6 @@ namespace esx {
 			break;
 		}
 
-		if (width  > 0) width--;
-		if (height > 0) height--;
-
 		Array<PolygonVertex, 4> vertices = {};
 		for (PolygonVertex& vertex : vertices) {
 			vertex.color = color;
@@ -703,17 +700,20 @@ namespace esx {
 			vertex.semiTransparency = semiTransparent ? (U8)mGPUStat.SemiTransparency : 255;
 			vertex.rawTexture = rawTexture;
 		}
-		
-		vertices[0].vertex = Vertex(vertex.x + width, vertex.y + height);
-		vertices[1].vertex = Vertex(vertex.x, vertex.y + height);
-		vertices[2].vertex = Vertex(vertex.x + width, vertex.y);
-		vertices[3].vertex = Vertex(vertex.x, vertex.y);
+
+		vertices[0].vertex = Vertex(vertex.x + width, vertex.y + height); //BR
+		vertices[1].vertex = Vertex(vertex.x, vertex.y + height); //BL
+		vertices[2].vertex = Vertex(vertex.x + width, vertex.y); //TR
+		vertices[3].vertex = Vertex(vertex.x, vertex.y); //TL
 
 		if (textured) {
-			vertices[0].uv = UV(mTexturedRectangleXFlip ? uv.s : (uv.s + width), mTexturedRectangleYFlip ? uv.t : (uv.t + height));
-			vertices[1].uv = UV(mTexturedRectangleXFlip ? (uv.s + width) : uv.s, mTexturedRectangleYFlip ? uv.t : (uv.t + height));
-			vertices[2].uv = UV(mTexturedRectangleXFlip ? uv.s : (uv.s + width), mTexturedRectangleYFlip ? (uv.t + height) : uv.t);
-			vertices[3].uv = UV(mTexturedRectangleXFlip ? (uv.s + width) : uv.s, mTexturedRectangleYFlip ? (uv.t + height) : uv.t);
+			width *= mTexturedRectangleXFlip ? -1 : 1;
+			height *= mTexturedRectangleYFlip ? -1 : 1;
+
+			vertices[0].uv = UV(uv.s + width, uv.t + height); // BR
+			vertices[1].uv = UV(uv.s, uv.t + height);   // BL
+			vertices[2].uv = UV(uv.s + width, uv.t);    // TR
+			vertices[3].uv = UV(uv.s, uv.t);            // TL
 
 			for (PolygonVertex& vertex : vertices) {
 				transformUV(vertex.uv, tx, ty, bpp);
@@ -905,10 +905,12 @@ namespace esx {
 	void GPU::gp0TextureWindowSettingCommand()
 	{
 		U32 instruction = mCommandBuffer.pop();
-		mTextureWindowMaskX = (instruction >> 0) & 0x1F;
-		mTextureWindowMaskY = (instruction >> 5) & 0x1F;
-		mTextureWindowOffsetX = (instruction >> 10) & 0x1F;
-		mTextureWindowOffsetY = (instruction >> 15) & 0x1F;
+		mTextureWindowMaskX = ((instruction >> 0) & 0x1F) * 8;
+		mTextureWindowMaskY = ((instruction >> 5) & 0x1F) * 8;
+		mTextureWindowOffsetX = ((instruction >> 10) & 0x1F) * 8;
+		mTextureWindowOffsetY = ((instruction >> 15) & 0x1F) * 8;
+
+		mRenderer->SetTextureWindow(mTextureWindowMaskX, mTextureWindowMaskY, mTextureWindowOffsetX, mTextureWindowOffsetY);
 	}
 
 	void GPU::gp0SetDrawingAreaTopLeftCommand()
@@ -1208,7 +1210,9 @@ namespace esx {
 	}
 
 	Vertex GPU::unpackVertex(U32 value) {
-		return Vertex((I16)((value >> 0) & 0xFFFF), (I16)((value >> 16) & 0xFFFF));
+		I16 x = static_cast<I16>(((value >> 0) & 0x7FF) << 5) >> 5;
+		I16 y = static_cast<I16>(((value >> 16) & 0x7FF) << 5) >> 5;
+		return Vertex(x, y);
 	}
 
 	UV GPU::unpackUV(U32 value) {

@@ -250,10 +250,10 @@ namespace esx {
 		GPUStat	mGPUStat = {};
 		BIT mTexturedRectangleXFlip = ESX_FALSE;
 		BIT mTexturedRectangleYFlip = ESX_FALSE;
-		U8 mTextureWindowMaskX = 0x00;
-		U8 mTextureWindowMaskY = 0x00;
-		U8 mTextureWindowOffsetX = 0x00;
-		U8 mTextureWindowOffsetY = 0x00;
+		U32 mTextureWindowMaskX = 0x00;
+		U32 mTextureWindowMaskY = 0x00;
+		U32 mTextureWindowOffsetX = 0x00;
+		U32 mTextureWindowOffsetY = 0x00;
 		U16 mDrawAreaTopLeftX = 0x0000;
 		U16 mDrawAreaTopLeftY = 0x0000;
 

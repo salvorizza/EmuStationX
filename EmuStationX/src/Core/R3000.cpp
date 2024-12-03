@@ -45,6 +45,10 @@ namespace esx {
 	{
 		if (mCyclesToWait == 0) {
 			if (!mStall) {
+				if (ADDRESS_UNALIGNED(mNextPC, U32)) {
+					raiseException(ExceptionType::AddressErrorLoad);
+				}
+
 				U32 opcode = fetch(mPC);
 
 				if (opcode != 0) {
@@ -909,8 +913,6 @@ namespace esx {
 			mNextPC -= 4;
 			mTookBranch = ESX_TRUE;
 		}
-
-		ESX_CORE_LOG_TRACE("{:08x}h", mCurrentInstruction.Address);
 	}
 
 	void R3000::BLEZ()
@@ -1315,6 +1317,10 @@ namespace esx {
 	{
 		mPendingLoad.first = index;
 		mPendingLoad.second = value;
+
+		if (mMemoryLoad.first == index) {
+			mMemoryLoad = {};
+		}
 	}
 
 	void R3000::resetPendingLoad()

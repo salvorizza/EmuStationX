@@ -367,7 +367,7 @@ namespace esx {
 			mInstance->mRegisters[(U8)GPRRegister::fp] = pExeHeader->InitialSP_FP_Base + pExeHeader->InitialSP_FP_Offset;
 		}
 
-		U32 numSectors = pExeHeader->FileSize / 0x800;
+		U32 numSectors = std::max<int>(pExeHeader->FileSize / 0x800,1);
 		U32 currentRAMAddress = Bus::toPhysicalAddress(pExeHeader->DestinationAddressInRAM);
 		for (I32 i = 0; i < numSectors; i++) {
 			mEXE->readSector(&sector);

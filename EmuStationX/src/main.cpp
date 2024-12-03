@@ -192,7 +192,7 @@ public:
 		bios = MakeShared<Bios>("commons/bios/scph1001.bin");
 		timer = MakeShared<Timer>();
 		dma = MakeShared<DMA>();
-		gpu = MakeShared<GPU>(mSoftwareRenderer);
+		gpu = MakeShared<GPU>(mBatchRenderer);
 		cdrom = MakeShared<CDROM>();
 		sio0 = MakeShared<SIO>(0);
 		sio1 = MakeShared<SIO>(1);
@@ -323,6 +323,10 @@ public:
 			   mDisassemblerPanel->loadEXE(filePath);
 			   return nullptr;
 		   }},
+		   { ".psexe", [&](const std::filesystem::path& filePath) {
+			   mDisassemblerPanel->loadEXE(filePath);
+			   return nullptr;
+		   }},
 		   { ".cue", [&](const std::filesystem::path& filePath) {
 			   return MakeShared<CDRWIN>(filePath);
 		   }},
@@ -427,19 +431,20 @@ public:
 		
 		mDisassemblerPanel->onUpdate();
 
-		/*/Array<PolygonVertex, 4> vtx = {
-			PolygonVertex {.vertex = {240,212}, .color = {178,0,0}, .dither = 1},
-			PolygonVertex {.vertex = {235,127}, .color = {178,140,0}, .dither = 1},
-			PolygonVertex {.vertex = {325,297}, .color = {178,140,0}, .dither = 1},
-			PolygonVertex {.vertex = {325,297}, .color = {178,140,0}, .dither = 1},
+		/*Array<PolygonVertex, 4> vtx = {
+			PolygonVertex {.vertex = {240,212}, .color = {0,0,0	},	.semiTransparency = 0},
+			PolygonVertex {.vertex = {235,127}, .color = {0,0,0	},	.semiTransparency = 0},
+			PolygonVertex {.vertex = {325,297}, .color = {0,0,0	},	.semiTransparency = 0},
+			PolygonVertex {.vertex = {325,127}, .color = {0,0,0	},	.semiTransparency = 0},
 		};
 		mSoftwareRenderer->SetDrawTopLeft(0, 0);
-		mSoftwareRenderer->SetDrawBottomRight(639, 240);
-		mSoftwareRenderer->DrawPolygon(vtx, 3);
-		mSoftwareRenderer->Flush();
-		*/
+		mSoftwareRenderer->SetDrawBottomRight(1024, 512);
+		mSoftwareRenderer->Clear(0, 0, 1023, 511, Color(255, 255, 255));
+		mSoftwareRenderer->DrawPolygon(vtx, 4);
+		mSoftwareRenderer->Flush();*/
+		
 
-		mViewportPanel->setFrame(mSoftwareRenderer->getPreviousFrame());
+		mViewportPanel->setFrame(mBatchRenderer->getPreviousFrame());
 		fpsCounter.Update();
 	}
 

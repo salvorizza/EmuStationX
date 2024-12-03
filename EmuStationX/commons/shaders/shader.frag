@@ -13,6 +13,7 @@ layout(binding=0) uniform sampler2D uVRAM;
 
 uniform int uCheckMask;
 uniform int uForceAlpha;
+uniform ivec4 uTextureWindow;
 
 out vec4 fragColor;
 
@@ -145,6 +146,8 @@ void main() {
 
     ivec2 iUV = ivec2(oUV.x, oUV.y);
     ivec2 iClutUV = ivec2(oClutUV.x, oClutUV.y);
+
+    iUV = (iUV & uTextureWindow.xy) | uTextureWindow.zw;
 
     if(oTextured == 1) {
         ivec2 uvColor = ivec2(0,0);

@@ -1,5 +1,7 @@
 #include "SoftwareRenderer.h"
 
+#include <execution>
+
 namespace esx {
 
 	constexpr glm::mat4x4 dither = glm::mat4x4(
@@ -9,26 +11,22 @@ namespace esx {
 		glm::vec4(+3, -1, +2, -2)
 	);
 
-	glm::dvec3 barycentric(const glm::dvec2& a, const glm::dvec2& b, const glm::dvec2& c, const glm::dvec2& p) {
-		glm::dvec2 v0 = b - a, v1 = c - a, v2 = p - a;
-		F64 den = v0.x * v1.y - v1.x * v0.y;
-		F64 v = (v2.x * v1.y - v1.x * v2.y) / den;
-		F64 w = (v0.x * v2.y - v2.x * v0.y) / den;
-		F64 u = 1.0f - v - w;
+	I32 orient2d(const glm::i32vec2& a, const glm::i32vec2& b, const glm::i32vec2& c) {
+		return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+	}
 
-		const F64 epsilon = 1e-10;
-		if (std::abs(u) < epsilon) u = 0.0f;
-		if (std::abs(v) < epsilon) v = 0.0f;
-		if (std::abs(w) < epsilon) w = 0.0f;
+	glm::i32vec3 barycentric(const glm::i32vec2& a, const glm::i32vec2& b, const glm::i32vec2& c, const glm::i32vec2& p) {
+		I32 u = orient2d(b, c, p);
+		I32 v = orient2d(c, a, p);
+		I32 w = orient2d(a, b, p);
 
-		return glm::dvec3(u, v, w);
+		return glm::i32vec3(u, v, w);
 	}	
 
-	void apply_dither(glm::vec3& color, const glm::vec2& P) {
+	glm::i32vec3 apply_dither(const glm::i32vec3& color, const glm::i32vec2& P) {
 		I32 x = I32(P.x) % 4;
 		I32 y = I32(P.y) % 4;
-		color += dither[y][x];		
-		color = glm::clamp(color, glm::vec3(0), glm::vec3(255));
+		return glm::clamp(color + glm::i32vec3(dither[y][x]), glm::i32vec3(0), glm::i32vec3(255));
 	}
 
 	U8 texel_8bit(const glm::u32vec2& coords, VRAMColor* vram) {
@@ -49,27 +47,42 @@ namespace esx {
 		return texel;
 	}
 
-	glm::vec3 blend_colors(const glm::vec3& background, const glm::vec3& foreground, U8 blendFunc) {
-		glm::vec3 result = glm::vec3(0);
+	template<I32 N>
+	Pair<glm::i32vec2, glm::i32vec2> calculate_bounding(const PolygonVertex* vtx) {
+		Pair<glm::i32vec2, glm::i32vec2> result = std::make_pair(glm::i32vec2(vtx[0].vertex.x % VRAM_WIDTH, vtx[0].vertex.y % VRAM_HEIGHT), glm::i32vec2(vtx[0].vertex.x % VRAM_WIDTH, vtx[0].vertex.y % VRAM_HEIGHT));
+
+		for (I32 i = 1; i < N; i++) {
+			result.first.x = std::min<I32>(result.first.x, vtx[i].vertex.x % VRAM_WIDTH);
+			result.first.y = std::min<I32>(result.first.y, vtx[i].vertex.y % VRAM_HEIGHT);
+
+			result.second.x = std::max<I32>(result.second.x, vtx[i].vertex.x % VRAM_WIDTH);
+			result.second.y = std::max<I32>(result.second.y, vtx[i].vertex.y % VRAM_HEIGHT);
+		}
+
+		return result;
+	}
+
+	glm::u8vec3 blend_colors(const glm::i32vec3& background, const glm::i32vec3& foreground, U8 blendFunc) {
+		glm::i32vec3 result = glm::i32vec3(0);
 
 		switch (blendFunc) {
 			case 0: {
-				result = 0.5f * background + 0.5f * foreground;
+				result = (background + foreground) / 2;
 				break;
 			}
 
 			case 1: {
-				result = 1.0f * background + 1.0f * foreground;
+				result = background + foreground;
 				break;
 			}
 
 			case 2: {
-				result = 1.0f * background - 1.0f * foreground;
+				result = background - foreground;
 				break;
 			}
 
 			case 3: {
-				result = 1.0f * background + 0.25f * foreground;
+				result = (4 * background + foreground) / 4;
 				break;
 			}
 
@@ -79,9 +92,18 @@ namespace esx {
 			}
 		}
 
-		result = glm::clamp(result, glm::vec3(0), glm::vec3(255));
+		result = glm::clamp(result, glm::i32vec3(0), glm::i32vec3(255));
 
 		return result;
+	}
+
+	void ensureCounterClockwise(PolygonVertex* vtx) {
+		int det = (vtx[1].vertex.x - vtx[0].vertex.x) * (vtx[2].vertex.y - vtx[0].vertex.y) -
+			(vtx[1].vertex.y - vtx[0].vertex.y) * (vtx[2].vertex.x - vtx[0].vertex.x);
+
+		if (det < 0) {  // Se l'ordine è orario
+			std::swap(vtx[1], vtx[2]);
+		}
 	}
 
 	SoftwareRenderer::SoftwareRenderer()
@@ -93,6 +115,7 @@ namespace esx {
 		mFBO->init();
 
 		mVRAM.resize(1024 * 512);
+		mVRAMFront.resize(1024 * 512);
 	}
 
 	void SoftwareRenderer::Begin()
@@ -143,7 +166,12 @@ namespace esx {
 		m24Bit = value;
 	}
 
-	void SoftwareRenderer::Clear(U16 x, U16 y, U16 w, U16 h, Color& color)
+	void SoftwareRenderer::SetTextureWindow(U32 maskX, U32 maskY, U32 offsetMaskX, U32 offsetMaskY)
+	{
+		mTextureWindow = glm::ivec4(~maskX, ~maskY, offsetMaskX & maskX, offsetMaskY & maskY);
+	}
+
+	void SoftwareRenderer::Clear(U16 x, U16 y, U16 w, U16 h, const Color& color)
 	{
 		VRAMColor color16 = colorConvert(Color(color.r, color.g, color.b));
 		for (U16 yIndex = 0; yIndex < h; yIndex++) {
@@ -165,9 +193,22 @@ namespace esx {
 			vertex.vertex.y += mDrawOffset.y;
 		}
 
+		auto boundingToCopy = numVertices == 4 ? calculate_bounding<4>(&vertices[0]) : calculate_bounding<3>(&vertices[0]);
+		for (I32 y = boundingToCopy.first.y; y <= boundingToCopy.second.y; y++) {
+			for (I32 x = boundingToCopy.first.x; x <= boundingToCopy.second.x; x++) {
+				mVRAMFront[(511 - y) * VRAM_WIDTH +x] = mVRAM[(511 - y) * VRAM_WIDTH + x];
+			}
+		}
+
 		triangle(&vertices[0]);
 		if (numVertices == 4) {
 			triangle(&vertices[1]);
+		}
+
+		for (I32 y = boundingToCopy.first.y; y <= boundingToCopy.second.y; y++) {
+			for (I32 x = boundingToCopy.first.x; x <= boundingToCopy.second.x; x++) {
+				mVRAM[(511 - y) * VRAM_WIDTH + x] = mVRAMFront[(511 - y) * VRAM_WIDTH + x];
+			}
 		}
 	}
 
@@ -222,52 +263,85 @@ namespace esx {
 		mCheckMask = ESX_FALSE;
 	}
 
-	void SoftwareRenderer::triangle(const PolygonVertex* vtx) {
-		glm::i32vec2 bboxmin(1024, 512);
-		glm::i32vec2 bboxmax(-1024, -512);
-		glm::i32vec2 clampMin(mDrawTopLeft.x, mDrawTopLeft.y);
-		glm::i32vec2 clampMax(mDrawBottomRight.x, mDrawBottomRight.y);
-		for (I32 i = 0; i < 3; i++) {
-			bboxmin.x = std::max<int>(clampMin.x, std::min<int>(bboxmin.x, vtx[i].vertex.x));
-			bboxmin.y = std::max<int>(clampMin.y, std::min<int>(bboxmin.y, vtx[i].vertex.y));
+	void SoftwareRenderer::triangle(PolygonVertex* vtx) {
+		ensureCounterClockwise(vtx);
 
-			bboxmax.x = std::min<int>(clampMax.x, std::max<int>(bboxmax.x, vtx[i].vertex.x));
-			bboxmax.y = std::min<int>(clampMax.y, std::max<int>(bboxmax.y, vtx[i].vertex.y));
-		}
+		auto bounding = calculate_bounding<3>(vtx);
 
-		#pragma omp parallel for
-		for (I32 y = bboxmin.y; y <= bboxmax.y; y++) {
-			glm::i32vec2 P;
-			P.y = y;
-			for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++) {
-				glm::dvec3 bc_screen = barycentric(vtx[0].vertex, vtx[1].vertex, vtx[2].vertex, P);
-				if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0) continue;
-				BIT discarded = ESX_FALSE;
-				fragment(P, bc_screen, vtx, discarded);
-			}
+		// Compute triangle bounding box
+		I32 minX = bounding.first.x;
+		I32 minY = bounding.first.y;
+		I32 maxX = bounding.second.x;
+		I32 maxY = bounding.second.y;
+
+		// Clip against screen bounds
+		minX = std::max<I32>(minX, mDrawTopLeft.x);
+		minY = std::max<I32>(minY, mDrawTopLeft.y);
+		maxX = std::min<I32>(maxX, mDrawBottomRight.x);
+		maxY = std::min<I32>(maxY, mDrawBottomRight.y);
+
+		glm::i32vec3 A = glm::i32vec3(
+			vtx[1].vertex.y - vtx[2].vertex.y,
+			vtx[2].vertex.y - vtx[0].vertex.y,
+			vtx[0].vertex.y - vtx[1].vertex.y
+		);
+
+		glm::i32vec3 B = glm::i32vec3(
+			vtx[2].vertex.x - vtx[1].vertex.x,
+			vtx[0].vertex.x - vtx[2].vertex.x,
+			vtx[1].vertex.x - vtx[0].vertex.x
+		);
+
+		glm::i32vec2 minP(minX, minY);
+		glm::i32vec3 minBarycentric = barycentric(vtx[0].vertex, vtx[1].vertex, vtx[2].vertex, minP);
+
+		if ((maxY - minY + 1) >= 0) {
+			std::vector<I32> yRange(maxY - minY + 1);
+			std::iota(yRange.begin(), yRange.end(), minY);
+
+			std::for_each(
+				#if defined(ESX_RELEASE)
+					std::execution::par
+				#else
+					std::execution::seq
+				#endif
+				,yRange.begin(), yRange.end(), [&](I32 y) {
+				glm::i32vec3 w_row = minBarycentric + (y - minY) * B;
+				glm::i32vec3 w = w_row;
+
+				for (I32 x = minX; x <= maxX; x++) {
+					if ((w.x | w.y | w.z) >= 0) {
+						glm::i32vec2 P(x, y);
+						BIT discarded = ESX_FALSE;
+						fragment(P, w, vtx, 3, discarded);
+					}
+
+					w += A;
+				}
+				});
 		}
 	}
 
-	void SoftwareRenderer::fragment(const glm::i32vec2& P, const glm::dvec3& bcCoords, const PolygonVertex* vtx, BIT& discard)
+	void SoftwareRenderer::fragment(const glm::i32vec2& P, const glm::i32vec3& bcCoords, const PolygonVertex* vtx, I32 numVertices, BIT& discard)
 	{
 		U32 index = ((VRAM_HEIGHT - 1 - int(P.y)) % VRAM_HEIGHT) * VRAM_WIDTH + (int(P.x) % VRAM_WIDTH);
 
-		glm::vec4 backColor = colorConvert(mVRAM[index]);
+		glm::u8vec4 backColor = colorConvert(mVRAM[index]);
 		if (mCheckMask == 1 && backColor.a == 255) {
 			discard = ESX_TRUE;
 			return;
 		}
 
-		glm::vec2 uv = (bcCoords.x * glm::dvec2(vtx[0].uv)) + (bcCoords.y * glm::dvec2(vtx[1].uv)) + (bcCoords.z * glm::dvec2(vtx[2].uv));
-		glm::vec3 frontColor = (bcCoords.x * glm::dvec3(vtx[0].color)) + (bcCoords.y * glm::dvec3(vtx[1].color)) + (bcCoords.z * glm::dvec3(vtx[2].color));
+		I32 weightSum = bcCoords.x + bcCoords.y + bcCoords.z;
+		weightSum = std::max(weightSum, 1);
+		glm::i32vec2 uv = (bcCoords.x * glm::i32vec2(vtx[0].uv) + bcCoords.y * glm::i32vec2(vtx[1].uv) + bcCoords.z * glm::i32vec2(vtx[2].uv)) / weightSum;
+		glm::i32vec3 frontColor = (bcCoords.x * glm::i32vec3(vtx[0].color) + bcCoords.y * glm::i32vec3(vtx[1].color) + bcCoords.z * glm::i32vec3(vtx[2].color)) / weightSum;
 
-		uv.s = round(uv.s);
-		uv.t = round(uv.t);
+		uv = (uv & glm::i32vec2(mTextureWindow.x, mTextureWindow.y)) | glm::i32vec2(mTextureWindow.z, mTextureWindow.w);
 
 		VRAMColor color;
 		if (vtx[0].textured == 1) {
 			glm::u32vec2 uvColor = glm::u32vec2(0, 0);
-
 
 			switch (vtx[0].bpp) {
 				case 4: {
@@ -288,35 +362,36 @@ namespace esx {
 
 			uvColor %= glm::u32vec2(VRAM_WIDTH, VRAM_HEIGHT);
 			U32 uvIndex = uvColor.y * VRAM_WIDTH + uvColor.x;
-			glm::vec4 texelColor = colorConvert(mVRAM[uvIndex]);
+			glm::i32vec4 texelColor = colorConvert(mVRAM[uvIndex]);
 
-			if (texelColor == glm::vec4(0, 0, 0, 0)) {
+			if (texelColor == glm::i32vec4(0, 0, 0, 0)) {
 				discard = ESX_TRUE;
 				return;
 			}
 
 			if (vtx[0].rawTexture == 0) {
-				texelColor = texelColor * (glm::vec4(frontColor, 128.0f) / 128.0f);
-				texelColor = glm::clamp(texelColor, glm::vec4(0), glm::vec4(255));
+				glm::i32vec4 modulatedColor = (glm::i32vec4(texelColor) * glm::i32vec4(frontColor, 128)) / 128;
+				texelColor = glm::clamp(modulatedColor, glm::i32vec4(0), glm::i32vec4(255));
+
+				if (vtx[0].dither == 1u) {
+					texelColor = glm::i32vec4(apply_dither(texelColor, P), texelColor.a);
+				}
 			}
 
-			if (texelColor.a > 0) {
-				frontColor = blend_colors(backColor, texelColor, vtx[0].semiTransparency);
-			}
-			else {
-				frontColor = texelColor;
-			}
+			frontColor = texelColor;
 
-			if (vtx[0].rawTexture == 0u && vtx[0].dither == 1u) {
-				apply_dither(frontColor, P);
+			if (texelColor.a > 0 && vtx[0].semiTransparency != 255) {
+				frontColor = blend_colors(backColor, frontColor, vtx[0].semiTransparency);
 			}
 		}
 		else {
 			if (vtx[0].dither == 1u) {
-				apply_dither(frontColor, P);
+				frontColor = apply_dither(frontColor, P);
 			}
 
-			frontColor = blend_colors(backColor, frontColor, vtx[0].semiTransparency);
+			if (vtx[0].semiTransparency != 255) {
+				frontColor = blend_colors(backColor, frontColor, vtx[0].semiTransparency);
+			}
 		}
 		color = colorConvert(Color(frontColor.r, frontColor.g, frontColor.b));
 
@@ -324,6 +399,6 @@ namespace esx {
 			setAlpha(color, ESX_TRUE);
 		}
 
-		mVRAM[index] = color;
+		mVRAMFront[index] = color;
 	}
 }

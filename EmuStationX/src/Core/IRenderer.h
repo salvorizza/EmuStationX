@@ -46,7 +46,8 @@ namespace esx {
 		virtual void SetForceAlpha(BIT value) = 0;
 		virtual void SetCheckMask(BIT value) = 0;
 		virtual void SetDisplayMode24(BIT value) = 0;
-		virtual void Clear(U16 x, U16 y, U16 w, U16 h, Color& color) = 0;
+		virtual void SetTextureWindow(U32 maskX, U32 maskY, U32 offsetMaskX, U32 offsetMaskY) = 0;
+		virtual void Clear(U16 x, U16 y, U16 w, U16 h, const Color& color) = 0;
 		virtual void DrawPolygon(Array<PolygonVertex, 4>& vertices, U32 numVertices) = 0;
 		virtual void DrawLineStrip(Vector<PolygonVertex>& vertices) = 0;
 
@@ -107,8 +108,8 @@ namespace esx {
 		}
 
 	protected:
-		inline glm::vec4 colorConvert(const VRAMColor& color) const {
-			glm::vec4 result = glm::vec4(0);
+		inline glm::u8vec4 colorConvert(const VRAMColor& color) const {
+			glm::u8vec4 result = glm::u8vec4(0);
 
 			result.r = static_cast<U8>(((color.data >> 0) & 0x1F) / 31.0f * 255.0f);
 			result.g = static_cast<U8>(((color.data >> 5) & 0x1F) / 31.0f * 255.0f);

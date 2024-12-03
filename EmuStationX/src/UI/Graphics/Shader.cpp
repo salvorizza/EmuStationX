@@ -91,6 +91,12 @@ namespace esx {
 		glUniform2iv(location, 1, glm::value_ptr(vec));
 	}
 
+	void Shader::uploadUniform(const char* uniformName, const glm::ivec4& vec)
+	{
+		int32_t location = getLocation(uniformName);
+		glUniform4iv(location, 1, glm::value_ptr(vec));
+	}
+
 	void Shader::uploadUniform(const char* uniformName, const glm::mat4& mat)
 	{
 		int32_t location = getLocation(uniformName);

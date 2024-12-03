@@ -435,15 +435,17 @@ namespace esx {
 			U64 clockStart = mCPU->getClocks();
 			U64 clockTarget = PreCalculateTimerScheduleClock(clockSource, timer.CurrentValue, timer.TargetValue);
 
-			SchedulerEvent timerEventTarget = {
-				.Type = type,
-				.ClockStart = clockStart,
-				.ClockTarget = clockTarget,
-			};
-			timerEventTarget.Write<U8>(static_cast<U8>(timer.Number));
+			if (clockStart != clockTarget) {
+				SchedulerEvent timerEventTarget = {
+					.Type = type,
+					.ClockStart = clockStart,
+					.ClockTarget = clockTarget,
+				};
+				timerEventTarget.Write<U8>(static_cast<U8>(timer.Number));
 
-			if (unschedule) Scheduler::UnScheduleAllEvents(type);
-			Scheduler::ScheduleEvent(timerEventTarget);
+				if (unschedule) Scheduler::UnScheduleAllEvents(type);
+				Scheduler::ScheduleEvent(timerEventTarget);
+			}
 		}
 	}
 
